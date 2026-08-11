@@ -934,7 +934,9 @@ const CHIUSI = [
   [36, "Donnafugata Golf Resort", "Santa Croce Camerina", "RG", "Sicilia", 36.862, 14.550,
     "chiuso dal 2020, riapertura annunciata per il 2027"],
   [18, "Riva dei Tessali Golf Club", "Castellaneta", "TA", "Puglia", 40.638, 16.940,
-    "percorso abbandonato da circa il 2021, non giocabile"]
+    "percorso abbandonato da circa il 2021, non giocabile"],
+  [3, "Isernia", "Isernia", "IS", "Molise", 41.588, 14.2258,
+    "risulta inattivo: piazzola di pratica, non più in attività"]
 ];
 /* --- aperture recenti assenti dall'elenco caneogolf --- */
 const NUOVI = [
@@ -945,6 +947,20 @@ const NUOVI = [
 /* --- indirizzi ufficiali Federgolf: comune, provincia, coordinate del comune, via e CAP.
    Il segnaposto nasce sul comune giusto; la via serve alla scheda e al collegamento alle mappe. --- */
 const INDIRIZZI = {
+  "Golf Parco dei Colli": ["Bergamo", "BG", 45.6944, 9.6684, "Via Luino, 8", "24129"],
+  "Borgo Machetto Desenzano C. Club": ["Desenzano del Garda", "BS", 45.4686, 10.5416, "Via Machetto, 1", "25015"],
+  "Ctl 3": ["Cavenago di Brianza", "MB", 45.5853, 9.4149, "Via Manzoni, 3", "20886"],
+  "Circolo Golf Torino-La Mandria": ["Fiano", "TO", 45.2181, 7.5198, "Via Agnelli 40", "10070"],
+  "Albatros Indoor": ["Ponderano", "BI", 45.5386, 8.0568, "Via Cascina Nuova, 27", "13875"],
+  "Bollina": ["Serravalle Scrivia", "AL", 44.7195, 8.859, "Via Monterotondo, 58", "15069", 9],
+  "Le Rosine": ["Grugliasco", "TO", 45.0621, 7.5778, "Strada del Gerbido, 97", "10095"],
+  "Piandisole": ["Premeno", "VB", 45.9771, 8.5915, "Via Pineta, 1", "28818", 9],
+  "Golf 2.0": ["Vicenza", "VI", 45.5475, 11.546, "Via della Ceramica, 9", "36100"],
+  "Terre di Canossa": ["Reggio nell'Emilia", "RE", 44.6974, 10.6301, "Via del Casinazzo, 1 - Loc. San Bartolomeo", "42123", 18],
+  "Bellator Hernicus": ["Ferentino", "FR", 41.6923, 13.2528, "Via Casilina Km 72", "03013"],
+  "Talenti": ["Roma", "RM", 41.8928, 12.4837, "Via Paolo Monelli, 42", "00137"],
+  "Terra Sancti": ["Cassino", "FR", 41.4927, 13.8301, "Via Solfegna Cantoni snc", "03043", 9],
+  "Isernia": ["Isernia", "IS", 41.588, 14.2258, "S.P. 627 Km 73,450 - Loc. Zio Carlo", "86170"],
   "Abano": ["Abano Terme", "PD", 45.3594, 11.7887, "Via Carabinieri snc", "35031"],
   "Abbadia": ["Colle di Val d'Elsa", "SI", 43.4212, 11.1178, "Loc. La Badia 14/A", "53034"],
   "Acaya": ["Vernole", "LE", 40.2885, 18.2987, "Loc. Masseria S. Pietro - Str. Prov. Life km 5", "73029"],
@@ -1261,6 +1277,128 @@ const INDIRIZZI = {
   "Viterbo": ["Viterbo", "VT", 42.4174, 12.1047, "Strada Valore snc", "01100"],
   "Z'Makana": ["Macugnaga", "VB", 45.9686, 7.9678, "Via Chiesa Vecchia 7", "28876"],
 };
+/* Telefono, sito ed email. Vengono da un elenco esterno e sono tenuti solo dove
+   comune e provincia combaciano con gli indirizzi ufficiali Federgolf: nel resto
+   di quell'elenco un record su sei sbagliava comune. */
+const CONTATTI = {
+  "Abano": ["346 1509670", "www.abanogolf.net", "info@abanogolf.net"],
+  "Abbadia": ["0577 924153", "www.abbadiagolf.com", "info@abbadiagolf.com"],
+  "Acaya": ["0832 861378", "www.acayagolfresort.com", "info@acayagolfclub.com"],
+  "Alisei Pietrasanta": ["0584 632775", "www.golfalisei.it", "segreteria@golfalisei.it"],
+  "Altogarda": ["0464 991137", "www.altogardagolf.it", "segreteria@altogardagolf.it"],
+  "Ambrosiano Golf Club": ["02 90840820", "www.golfclubambrosiano.com", "segreteria@golfclubambrosiano.com"],
+  "Antognolla": ["075 5842001", "www.antognollagolf.com", "info@antognollagolf.com"],
+  "Appiano - Golf & Country": ["0471 1888164", "www.carezzagolf.com", "info@carezzagolf.com"],
+  "Archi di Claudio": ["06 7187550", "www.archidiclaudiogolf.it", "info@archidiclaudiogolf.it"],
+  "Argenta": ["", "www.argentagolfclub.it", "info@argentagolfclub.it"],
+  "Arona": ["0321 907034", "www.aronagolf.it", "info@aronagolf.it"],
+  "Arzaga Golf Club": ["030 6806266", "www.arzagagolf.it", "golf@arzagagolf.it"],
+  "Barialto": ["080 4576007", "www.barialtogolfclub.com", "info@barialtogolfclub.com"],
+  "Barlassina Country Club": ["0362 560621", "www.barlassinacountryclub.it", "info@barlassinacountryclub.it"],
+  "Botanic Sa Cuba": ["351 7852125", "www.botanicgolfsacubaresort.it", "info@botanicgolfsacubaresort.it"],
+  "Boves": ["", "", "info@golfboves.it"],
+  "Break Point": ["0461 531058", "www.breakpointgolf.it", "segreteria@breakpointgolf.it"],
+  "Ca' Amata": ["", "", "info@golfcaamata.it"],
+  "Casalunga": ["", "www.casalungagolf.it", "info@casalungagolf.it"],
+  "Casentino": ["0575 529070", "www.golfcasentino.it", "info@golfcasentino.it"],
+  "Cassino": ["353 3581826", "", "ssd.golfclubcassino@libero.it"],
+  "Cavaglià": ["0161 966771", "www.golfcavaglia.it", "segreteria@golfclubcavaglia.it"],
+  "Cervino": ["", "www.cervinogolf.com", "info@cervinogolf.com"],
+  "Circolo Golf Roma Acquasanta": ["06 7803400", "www.golfromaacquasanta.it", "segreteria@golfromaacquasanta.it"],
+  "Circolo Golf Venezia": ["041 731333", "www.circologolfvenezia.it", "info@circologolfvenezia.it"],
+  "Circolo Golf Villa d'Este": ["031 200200", "www.golfvilladeste.com", "info@golfvilladeste.com"],
+  "Città d'Asti": ["", "", "info@golfasti.it"],
+  "Claviere": ["", "", "info@golfclaviere.it"],
+  "Club Giardino": ["", "", "info@clubgiardino.it"],
+  "Colonnetti": ["", "", "info@golfcolonnetti.it"],
+  "Continental Verbania": ["", "", "info@golfcontinentalverbania.it"],
+  "Cortina": ["", "www.golfcortina.it", "info@golfcortina.it"],
+  "Cosmopolitan": ["", "www.cosmopolitangolf.it", "info@cosmopolitangolf.it"],
+  "Cossato": ["", "", "info@golfcossato.it"],
+  "Croara": ["0523 977105", "www.croaracountryclub.it", "info@croaracountryclub.it"],
+  "Dolomiti Golf Club": ["0463 832698", "www.dolomitigolf.it", "info@dolomitigolf.it"],
+  "Ducato": ["0521 833900", "www.golfdelducato.it", "info@golfdelducato.it"],
+  "Fiuggi 1928": ["", "", "info@golffiuggi.it"],
+  "Folgaria": ["0464 720480", "www.golfclubfolgaria.it", "segreteria@golfclubfolgaria.it"],
+  "Franciacorta Golf Club": ["030 984167", "www.franciacortagolfclub.it", "info@franciacortagolfclub.it"],
+  "Frassanelle": ["", "www.golfclubfrassanelle.it", "info@golfclubfrassanelle.it"],
+  "GGZ - Zerman": ["", "", "info@golfzerman.it"],
+  "Gardagolf Country Club": ["0365 674707", "www.gardagolf.it", "info@gardagolf.it"],
+  "Golf Club Airone": ["0376 779638", "www.aironeuno.it", "direzione@aironeuno.it"],
+  "Golf Club Bergamo L'Albenza": ["035 640028", "www.golfbergamo.club", "segreteria@golfbergamo.club"],
+  "Golf Club Bologna": ["051 969100", "www.golfclubbologna.it", "info@golfclubbologna.it"],
+  "Golf Club Carimate": ["031 790226", "www.golfcarimate.it", "info@golfcarimate.it"],
+  "Golf Club Castellaro": ["", "www.castellarogolfclub.it", "info@castellarogolfclub.it"],
+  "Golf Club Castello di Tolcinasco": ["02 90722740", "www.golftolcinasco.it", "info@golftolcinasco.it"],
+  "Golf Club Cherasco": ["", "", "info@golfcherasco.it"],
+  "Golf Club Colli Berici": ["", "www.golfclubcolliberici.it", "info@golfclubcolliberici.it"],
+  "Golf Club Le Fonti": ["051 6951958", "www.golfclublefonti.it", "info@golfclublefonti.it"],
+  "Golf Club Le Rovedine": ["02 57606420", "www.lerovedine.com", "info@lerovedine.com"],
+  "Golf Club Lecco": ["", "", "info@golfclublecco.it"],
+  "Golf Club Lignano": ["", "www.golflignano.it", "info@golflignano.it"],
+  "Golf Club Margara": ["0131 778555", "www.golfmargara.it", "info@golfmargara.it"],
+  "Golf Club Petersberg": ["", "www.golfclubpetersberg.it", "info@golfclubpetersberg.it"],
+  "Golf Club Salerno": ["089 200300", "www.golfclubsalerno.it", "info@golfclubsalerno.it"],
+  "Golf Club Varese": ["0332 229302", "www.golfclubvarese.it", "segreteria@golfclubvarese.it"],
+  "Golf Club Verona": ["045 510060", "www.golfclubverona.it", "info@golfclubverona.it"],
+  "Golf Club Volturno": ["081 5095150", "www.volturnogolf.com", "info@volturnogolf.com"],
+  "Golf Club il Colombaro": ["", "", "info@ilcolombarogolf.it"],
+  "Golf Country Club Castello di Spessa": ["", "www.castellodispessa.it", "info@castellodispessa.it"],
+  "Golf San Vito": ["02 9081879", "www.golfsanvito.it", "info@golfsanvito.it"],
+  "Golf dei Laghi": ["", "", "info@golfclubdeilaghi.it"],
+  "Golf della Montecchia": ["049 8055550", "www.montecchiagolf.it", "info@montecchiagolf.it"],
+  "Gubbio": ["075 9220089", "www.golfgubbio.it", "info@golfgubbio.it"],
+  "Imola Zolino": ["", "", "info@golftermebologna.it"],
+  "La Castelluccia": ["06 88543376", "www.castellucciagolfclub.it", "castellucciagolf@gmail.com"],
+  "Lauri": ["0734 939012", "", "golfclubilauri@gmail.com"],
+  "Limone": ["", "", "info@golflimone.it"],
+  "Livorno": ["", "", "info@livornogolf.it"],
+  "Mandria": ["011 9843081", "www.golflamandria.it", "info@golflamandria.it"],
+  "Marina Velka": ["0766 855502", "www.golfmarinavelka.it", "info@golfmarinavelka.it"],
+  "Metaponto Golf Club": ["0835 748916", "www.golfmetaponto.com", "info@golfmetaponto.com"],
+  "Miglianico Golf & Country Club": ["0871 951601", "www.miglianicogolf.com", "info@miglianicogolf.com"],
+  "Mirabella Golf Club": ["0825 431293", "www.mirabellagolfclub.com", "info@mirabellagolfclub.com"],
+  "Molinetto Country Club": ["02 92105128", "www.molinetto.it", "info@molinetto.it"],
+  "Moncalieri": ["", "", "info@golfmoncalieri.it"],
+  "Monferrato": ["", "", "info@golfmonferrato.it"],
+  "Montebelluna": ["", "", "info@golfmontebelluna.it"],
+  "Monteveglio": ["", "", "info@montevegliogolf.it"],
+  "Nazionale": ["", "www.golfnazionale.it", "info@golfnazionale.it"],
+  "Nogherazza": ["", "", "info@golfnogherazza.it"],
+  "Padova": ["049 9130078", "www.golfclubpadova.it", "info@golfclubpadova.it"],
+  "Parco Firenze": ["", "", "info@golfparcodifirenze.it"],
+  "Parco di Roma": ["", "www.golfparcodiroma.it", "info@parcodiroma.it"],
+  "Pavoniere": ["0574 620855", "www.golfclublepavoniere.it", "info@golfclublepavoniere.it"],
+  "Perugia": ["075 5172204", "www.golfclubperugia.it", "info@golfclubperugia.it"],
+  "Pevero": ["0789 958000", "www.peverogolfclub.com", "reception@golfclubpevero.com"],
+  "Ponte Cervo": ["", "", "info@golfpontecervo.it"],
+  "Puntaldia": ["0784 864477", "www.golfclubpuntaldia.it", "segreteria@golfclubpuntaldia.it"],
+  "Pustertal": ["", "", "info@golfpustertal.it"],
+  "Rendena": ["", "", "info@golfrendena.it"],
+  "Rimini Verucchio": ["", "", "info@riminigolf.it"],
+  "Riviera Golf": ["", "www.rivieragolf.it", "info@rivieragolf.it"],
+  "Roncegno": ["", "", "info@golfroncegno.it"],
+  "Rovereto": ["", "", "info@golfrovereto.it"],
+  "Rovigo": ["", "", "info@rovigogolf.it"],
+  "Royal Park I Roveri": ["011 9235667", "www.royalpark-iroveri.it", "info@royalpark-iroveri.it"],
+  "San Michele Golf Club": ["0982 91012", "www.sanmichelegolf.com", "info@sanmichelegolf.com"],
+  "Santo Stefano Golf": ["", "", "info@santostefanogolf.it"],
+  "Sassari": ["348 9254780", "www.sassarigolf.it", "info@sassarigolf.it"],
+  "Saturnia": ["", "www.golfsaturnia.it", "info@golfsaturnia.it"],
+  "Savigliano": ["", "", "info@golfsavigliano.it"],
+  "Sestrieres": ["", "", "info@golfsestriere.it"],
+  "Settimo": ["", "", "info@golfclubsettimo.it"],
+  "Siepelunga": ["", "", "info@golfsiepelunga.it"],
+  "St. Vigil Seis": ["", "www.golfstvigilseis.it", "info@golfstvigilseis.it"],
+  "Terre dei Consoli": ["0761 699032", "www.terredeiconsoligolfclub.it", "segreteria@terredeiconsoli.it"],
+  "Tirrenia": ["", "", "info@golftirrenia.it"],
+  "Torre Ronchi": ["", "", "info@golfrorroronchi.it"],
+  "Trieste Golf Club": ["", "www.golfclubtrieste.net", "info@golfclubtrieste.net"],
+  "Udine Golf Club": ["0432 800418", "www.golfudine.com", "info@golfudine.com"],
+  "Verdura": ["0925 998001", "www.verduraresort.com", "golf.verdura@roccofortehotels.com"],
+  "Vipiteno": ["", "", "info@golfvipiteno.it"],
+  "Viterbo": ["0761 1710701", "www.golfviterbo.com", "info@golfviterbo.com"],
+};
 const REGCENTRO = {
   "Abruzzo": [42.19, 13.73], "Basilicata": [40.50, 16.10], "Calabria": [39.05, 16.50],
   "Campania": [40.90, 14.70], "Emilia-Romagna": [44.60, 11.10], "Friuli-Venezia Giulia": [46.15, 13.10],
@@ -1268,7 +1406,7 @@ const REGCENTRO = {
   "Marche": [43.40, 13.10], "Molise": [41.68, 14.55], "Piemonte": [45.05, 8.00],
   "Puglia": [41.00, 16.60], "Sardegna": [40.10, 9.10], "Sicilia": [37.60, 14.00],
   "Toscana": [43.45, 11.15], "Trentino-Alto Adige": [46.40, 11.30], "Umbria": [42.95, 12.50],
-  "Valle d'Aosta": [45.73, 7.42], "Veneto": [45.55, 11.90], "San Marino": [43.94, 12.46]
+  "Valle d'Aosta": [45.73, 7.42], "Veneto": [45.55, 11.90]
 };
 const REGIONI = {
   "Abruzzo": [
@@ -1348,7 +1486,7 @@ const SOLONOMI = {
   "Emilia-Romagna": ["Argenta", "Bologna", "Casalunga", "Cervia", "Club Giardino", "Croara",
     "CUS Ferrara", "CUS Parma", "Ducato", "Faenza Cicogne", "Fonti", "Imola Zolino", "Modena", "Molino Pero",
     "Monteveglio", "Oasi di Magliano-Fiordalisi", "Poli Golf", "Rimini Verucchio", "Riviera Golf",
-    "Salsomaggiore Terme", "San Valentino", "Santo Stefano Golf", "Siepelunga", "Terre di Canossa"],
+    "Salsomaggiore Terme", "San Marino", "San Valentino", "Santo Stefano Golf", "Siepelunga", "Terre di Canossa"],
   "Toscana": ["Abbadia", "Acquabona", "Alisei Pietrasanta", "Argentario", "Bagnaia", "Bellosguardo",
     "Ca' Moro Punto Due", "Capanne", "Casentino", "Castelfalfi", "Cosmopolitan", "Firenze Ugolino",
     "Forte dei Marmi", "Garfagnana", "Hermitage", "Livorno", "Miniere", "Montecatini Terme", "Montelupo",
@@ -1362,12 +1500,11 @@ const SOLONOMI = {
     "Fioranello", "Fiuggi 1928", "La Castelluccia", "Marco Simone", "Mare di Roma", "Marina Velka",
     "Nazionale", "Olgiata", "Parco de' Medici", "Parco di Roma", "Rieti", "Roma Acquasanta", "Talenti",
     "Terra Sancti", "Terre dei Consoli", "Tevere Tirrenia", "Tiber 23", "Viterbo"],
-  "Molise": ["Isernia", "Termoli", "Varvarusa"],
+  "Molise": ["Termoli", "Varvarusa"],
   "Puglia": ["Acaya", "Barialto", "Bat Fly", "Daunia", "Rudis", "San Domenico - Egnazia"],
   "Sardegna": ["Botanic Sa Cuba", "Florinas", "Is Arenas", "Is Molas", "Mora Bianca", "Pevero", "Puntaldia",
     "Sassari", "Sinis", "Tanka Villasimius"],
   "Sicilia": ["Palermo", "Sicilia's Picciolo", "Verdura"],
-  "San Marino": ["San Marino"]
 };
 function simile(a, b) {
   if (!a || !b) return false;
@@ -1388,7 +1525,7 @@ function vociElenco() {
     SOLONOMI[reg].forEach((nome, i) => {
       const ind = INDIRIZZI[nome];
       if (ind) {   // indirizzo ufficiale noto: il segnaposto nasce sul comune
-        out.push({ buche: null, nome, luogo: ind[0] + ' (' + ind[1] + ')', reg, prov: ind[1],
+        out.push({ buche: ind[6] ?? null, nome, luogo: ind[0] + ' (' + ind[1] + ')', reg, prov: ind[1],
           lat: ind[2], lon: ind[3], sulComune: true,
           via: ind[4] || null, cap: ind[5] || null });
         return;
@@ -1414,8 +1551,9 @@ function importaElenco() {
     /* i campi pratica senza percorso non entrano in elenco: questa app conta i giri */
     if (v.buche === 0) { saltati++; return; }
     if ((ARCHIVIO.cancellati || []).some(n => nocciolo(n) === nocciolo(v.nome))) return;
+    if (DOPPIONI[v.nome]) return;
     const reg = v.prov ? v.reg + '/' + v.prov : v.reg;
-    const paese = v.reg === 'San Marino' ? 'San Marino' : 'Italia';
+    const paese = 'Italia';
     const nc = nocciolo(v.nome);
     const hit = CLUBS.find(c => nocciolo(c.n) === nc) || CLUBS.find(c => simile(nocciolo(c.n), nc));
     if (hit) {
@@ -1443,6 +1581,7 @@ function importaElenco() {
     c.via = ind[4] || null; c.cap = ind[5] || null;
     if (!c.l || !c.l.trim()) c.l = ind[0] + ' (' + ind[1] + ')';
   });
+  unificaDoppioni();
   paint(); renderSide(); renderCircoli(); aggiornaContatori(); salvaTutto();
   return { nuovi, aggiornati, saltati, perRegione };
 }
@@ -1499,6 +1638,39 @@ async function unIndirizzo(c) {
   const r2 = await chiedi(p2, c);
   if (r2) r2.da = 'nome';
   return r2;
+}
+/* Stesso circolo, due nomi: l'elenco caneogolf usa sigle corte, il nostro elenco
+   di partenza i nomi per esteso. Si tiene quello completo. */
+const DOPPIONI = {
+  "Biella Betulle": "Golf Club Le Betulle",
+  "Torino": "Circolo Golf Torino-La Mandria",
+  "Royal Park Roveri": "Royal Park I Roveri",
+  "Cervia": "Adriatic Golf Club Cervia",
+  "Firenze Ugolino": "Circolo del Golf Ugolino",
+  "Bagnaia": "Royal Golf La Bagnaia"
+};
+function unificaDoppioni() {
+  let n = 0;
+  Object.keys(DOPPIONI).forEach(scarto => {
+    const i = CLUBS.findIndex(c => c.n === scarto);
+    const j = CLUBS.findIndex(c => c.n === DOPPIONI[scarto]);
+    if (i < 0 || j < 0) return;
+    const via = CLUBS[i], tieni = CLUBS[j];
+    // quello che il doppione sa e l'altro no, non si butta
+    ['via', 'cap', 'l', 'buche', 'par', 'sito'].forEach(k => { if (!tieni[k] && via[k]) tieni[k] = via[k]; });
+    if (!via.wish) tieni.wish = false;
+    CLUBS.splice(i, 1);
+    CLUBS.forEach((c, k) => c.id = k);
+    ARCHIVIO.giri.forEach(g => {
+      if (!g.circolo) return;
+      if (g.circolo.id === i) { g.circolo.id = CLUBS.indexOf(tieni); g.circolo.nome = tieni.n; }
+      else if (g.circolo.id > i) g.circolo.id--;
+    });
+    if (sel === i) sel = null; else if (sel > i) sel--;
+    n++;
+  });
+  if (n) salvaLocale();
+  return n;
 }
 const BLOCCO = 40;
 function aggiornaGeoBar() {
@@ -2062,6 +2234,15 @@ function openCampo(id) {
     luo.insertAdjacentHTML('afterend',
       `<div class="sub" style="margin-top:3px">${testo} · <a href="https://www.google.com/maps/search/?api=1&query=${cerca}"
         target="_blank" rel="noopener" style="color:var(--fair)">apri nelle mappe ↗</a></div>`);
+  }
+  if (c.tel || c.sito || c.mail) {
+    const pezzi = [];
+    if (c.tel) pezzi.push(`<a href="tel:${c.tel.replace(/\s/g, '')}" style="color:var(--fair)">${c.tel}</a>`);
+    if (c.sito) pezzi.push(`<a href="${/^https?:/.test(c.sito) ? c.sito : 'https://' + c.sito}"
+      target="_blank" rel="noopener" style="color:var(--fair)">${c.sito.replace(/^https?:\/\//, '')} ↗</a>`);
+    if (c.mail) pezzi.push(`<a href="mailto:${c.mail}" style="color:var(--fair)">${c.mail}</a>`);
+    (document.querySelector('#s-campo .sub:last-of-type') || luo)
+      .insertAdjacentHTML('afterend', `<div class="sub" style="margin-top:3px">${pezzi.join(' · ')}</div>`);
   }
   document.getElementById('campo-body').innerHTML = `
   <div style="display:flex;gap:9px;flex-wrap:wrap;margin-bottom:16px">
@@ -2846,6 +3027,25 @@ async function trovaOCrea(nome, cartella) {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(meta) });
   return (await c.json()).id;
 }
+/* Applica un archivio completo — dal Drive o da un file — e lo scrive subito
+   nella memoria del telefono. Senza quest'ultimo passaggio i dati sparirebbero
+   alla riapertura successiva, che è esattamente il caso di un telefono nuovo. */
+function applicaArchivio(dati) {
+  Object.assign(ARCHIVIO, dati);
+  ARCHIVIO.bozze = dati.bozze || [];
+  ARCHIVIO.cancellati = dati.cancellati || [];
+  if (Array.isArray(dati.circoli) && dati.circoli.length) {
+    CLUBS.length = 0; dati.circoli.forEach(c => CLUBS.push(c));
+    CLUBS.forEach((c, i) => c.id = i);
+  }
+  if (Array.isArray(dati.sacca)) { SACCA.length = 0; dati.sacca.forEach(x => SACCA.push(x)); }
+  if (dati.tema) document.body.dataset.tema = dati.tema;
+  // l'archivio può essere più vecchio dell'app: si riallinea come al primo avvio
+  elencoAutomatico(); applicaIndirizzi(); unificaDoppioni(); riapriScartati();
+  salvaLocale();
+  paint(); renderSide(); renderCircoli(); aggiornaContatori();
+  renderSacca(); renderStats(); renderProfilo(); renderGiro(); aggiornaGeoBar();
+}
 async function primaSincronizzazione() {
   try {
     STATO_DRIVE = 'in corso'; renderDrive();
@@ -2855,12 +3055,7 @@ async function primaSincronizzazione() {
     let dati = null;
     try { dati = await r.json(); } catch (e) { dati = null; }
     if (dati && dati.versione) {
-      Object.assign(ARCHIVIO, dati);
-      if (Array.isArray(dati.circoli) && dati.circoli.length) {
-        CLUBS.length = 0; dati.circoli.forEach(c => CLUBS.push(c));
-        paint(); renderSide(); renderCircoli(); aggiornaContatori();
-      }
-      if (Array.isArray(dati.sacca) && dati.sacca.length) { SACCA.length = 0; dati.sacca.forEach(s => SACCA.push(s)); renderSacca(); }
+      applicaArchivio(dati);
     } else {
       await salvaArchivio();
     }
@@ -2869,6 +3064,8 @@ async function primaSincronizzazione() {
 }
 const CACHE = 'golfp-v1';
 function salvaLocale() {
+  DAINVIARE = true;
+  programmaInvio();
   try {
     localStorage.setItem(CACHE, JSON.stringify({
       v: 1, elenco: ARCHIVIO.elenco, geo: ARCHIVIO.geo, geoLogica: ARCHIVIO.geoLogica, cancellati: ARCHIVIO.cancellati, giocatore: ARCHIVIO.giocatore, giri: ARCHIVIO.giri, bozze: ARCHIVIO.bozze,
@@ -2894,15 +3091,36 @@ function caricaLocale() {
   } catch (e) { return false; }
 }
 function salvaTutto() { salvaLocale(); if (TOKEN) salvaArchivio(); }
+/* Ogni modifica finisce prima nella memoria del telefono e poi sul Drive.
+   Se l'invio non riesce — niente campo, sessione Google scaduta — la modifica
+   NON si perde: resta segnata come da inviare e riparte da sola appena si può. */
+let DAINVIARE = false, TIMER_SYNC = null;
+function programmaInvio(ritardo) {
+  if (!TOKEN || !FILE_ID || !DAINVIARE) return;
+  clearTimeout(TIMER_SYNC);
+  TIMER_SYNC = setTimeout(() => salvaArchivio(), ritardo === undefined ? 2500 : ritardo);
+}
 async function salvaArchivio() {
   if (!TOKEN || !FILE_ID) return false;
   ARCHIVIO.aggiornato = new Date().toISOString();
   ARCHIVIO.circoli = CLUBS; ARCHIVIO.sacca = SACCA;
-  await api(`https://www.googleapis.com/upload/drive/v3/files/${FILE_ID}?uploadType=media`, {
-    method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(ARCHIVIO) });
+  ARCHIVIO.tema = document.body.dataset.tema || 'chiaro';
+  try {
+    await api(`https://www.googleapis.com/upload/drive/v3/files/${FILE_ID}?uploadType=media`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(ARCHIVIO) });
+  } catch (e) {
+    DAINVIARE = true;                 // resta in coda
+    renderDrive();
+    setTimeout(() => programmaInvio(0), 30000);
+    return false;
+  }
+  DAINVIARE = false;
   ULTIMA_SYNC = new Date(); renderDrive();
   return true;
 }
+/* quando il telefono ritrova la rete, o quando torni sull'app, si riprova */
+addEventListener('online', () => programmaInvio(500));
+addEventListener('visibilitychange', () => { if (!document.hidden) programmaInvio(500); });
 async function caricaFoto(file, nome) {
   if (!TOKEN) return null;
   if (!CARTELLA_ID) CARTELLA_ID = await trovaOCrea(NOME_CARTELLA, true);
@@ -2939,7 +3157,8 @@ async function salvaGiro(btn) {
     const avviso = document.getElementById('salva-nota');
     if (avviso) avviso.textContent = suDrive
       ? `Giro numero ${ARCHIVIO.giri.length} nell'archivio. La foto è nella cartella GolfP del tuo Drive.`
-      : 'Il Drive non è collegato: il giro resta solo in questa sessione. Collegalo dal Profilo per conservarlo.';
+      : TOKEN ? `Giro numero ${ARCHIVIO.giri.length}, salvato sul telefono. Il Drive non ha risposto: lo mando appena torna la rete.`
+              : 'Il Drive non è collegato: il giro resta su questo dispositivo. Collegalo dal Profilo per conservarlo altrove.';
   } catch (e) {
     btn.disabled = false; btn.textContent = 'Riprova';
     const avviso = document.getElementById('salva-nota');
@@ -2958,7 +3177,9 @@ function renderDrive() {
   const stati = {
     scollegato: ['var(--ink-3)', 'Non collegato', 'I giri restano solo in questa sessione finché non colleghi il Drive.'],
     'in corso': ['var(--sand)', 'Collegamento in corso…', 'Sto cercando il file nel tuo Drive.'],
-    collegato: ['var(--fair)', 'Collegato' + (ACCOUNT ? ' — ' + ACCOUNT : ''), `Ultima sincronizzazione: ${ULTIMA_SYNC ? ULTIMA_SYNC.toLocaleTimeString('it-IT') : '—'} · ${giri} giri, ${CLUBS.length} circoli`],
+    collegato: DAINVIARE
+      ? ['var(--sand)', 'Collegato — invio in corso', `Ci sono modifiche non ancora sul Drive: le mando appena posso. ${giri} giri, ${CLUBS.length} circoli`]
+      : ['var(--fair)', 'Collegato' + (ACCOUNT ? ' — ' + ACCOUNT : ''), `Ultima sincronizzazione: ${ULTIMA_SYNC ? ULTIMA_SYNC.toLocaleTimeString('it-IT') : '—'} · ${giri} giri, ${CLUBS.length} circoli`],
     scaduto: ['var(--sand)', 'Sessione scaduta', 'Ricollegati: Google fa scadere l\'accesso dopo un\'ora.'],
     errore: ['var(--flag)', 'Errore', ERRORE_DRIVE || 'Google ha rifiutato la richiesta.']
   }[STATO_DRIVE];
@@ -3317,6 +3538,7 @@ function renderProfilo() {
        ['circoli-csv', 'Scarica l\'elenco circoli in CSV', 'lo stesso file, ma sul telefono'],
        ['csv', 'Esporta i giri in CSV', gs.length ? `${gs.length} giri, per il foglio di calcolo` : 'nessun giro da esportare'],
        ['json', "Scarica una copia dell'archivio", 'circoli, giri, sacca e correzioni'],
+       ['ripristina', 'Ripristina da una copia', 'rimetti dentro un golfp.json salvato prima'],
        ['circolo', 'Aggiungi un circolo a mano', 'se non è in elenco né su OpenStreetMap'],
        ['svuota', 'Cancella tutti i giri', "l'elenco dei circoli resta"]].map(r => `
       <div class="clubrow" data-azione="${r[0]}"><div><div class="nm">${r[1]}</div><div class="mt">${r[2]}</div></div>
@@ -3409,6 +3631,25 @@ function azione(k) {
     scarica('golfp.json', JSON.stringify(ARCHIVIO, null, 1), 'application/json');
     msg.textContent = 'Copia scaricata.';
   }
+  if (k === 'ripristina') {
+    const f = document.createElement('input');
+    f.type = 'file'; f.accept = '.json,application/json';
+    f.onchange = async () => {
+      const file = f.files[0]; if (!file) return;
+      try {
+        const dati = JSON.parse(await file.text());
+        if (!dati || !dati.versione) throw new Error('non sembra un archivio GolfP');
+        const gi = (dati.giri || []).length, ci = (dati.circoli || []).length;
+        if (!confirm(`Rimetto dentro ${gi} gir${gi === 1 ? 'o' : 'i'} e ${ci} circoli.\n\n`
+          + 'Quello che c\'è adesso su questo dispositivo viene sostituito.')) return;
+        applicaArchivio(dati);
+        if (TOKEN) salvaArchivio();
+        msg.textContent = `Ripristinati ${gi} giri e ${CLUBS.length} circoli.`;
+      } catch (e) { msg.textContent = 'Non ha funzionato: ' + e.message; }
+    };
+    f.click();
+    return;
+  }
   if (k === 'circolo') { go('circoli'); document.getElementById('impbox').classList.add('on'); document.getElementById('imp-txt').focus(); }
   if (k === 'svuota') {
     if (!confirm('Cancello tutti i giri registrati? I circoli e la sacca restano.')) return;
@@ -3427,11 +3668,24 @@ const ELENCO_VERSIONE = '2026-08-11-indirizzi';
 function applicaIndirizzi() {
   let n = 0;
   CLUBS.forEach(c => {
+    const k0 = CONTATTI[c.n];
+    if (k0) { if (!c.tel && k0[0]) c.tel = k0[0]; if (!c.sito && k0[1]) c.sito = k0[1];
+              if (!c.mail && k0[2]) c.mail = k0[2]; }
     const ind = INDIRIZZI[c.n];
-    if (!ind || c.via) return;
-    c.via = ind[4] || null; c.cap = ind[5] || null;
-    if (!c.l || !c.l.trim()) c.l = ind[0] + ' (' + ind[1] + ')';
-    n++;
+    if (!ind) return;
+    if (!c.via) { c.via = ind[4] || null; c.cap = ind[5] || null; n++; }
+    /* Se il segnaposto è ancora provvisorio, il comune dell'indirizzo batte
+       quello che c'è: l'elenco FIG porta la provincia, non il paese preciso,
+       e "Bergamo" al posto di "Desenzano del Garda" sposta di sessanta chilometri.
+       Chi è già stato posizionato non si tocca. */
+    if (c.daPosizionare) {
+      const comune = ind[0] + ' (' + ind[1] + ')';
+      if (c.l !== comune) { c.l = comune; c.lat = ind[2]; c.lon = ind[3]; n++; }
+    }
+    if (!c.buche && ind[6]) c.buche = ind[6];
+    const k = CONTATTI[c.n];
+    if (k) { if (!c.tel && k[0]) c.tel = k[0]; if (!c.sito && k[1]) c.sito = k[1];
+             if (!c.mail && k[2]) c.mail = k[2]; }
   });
   if (n) salvaLocale();
   return n;
@@ -3477,6 +3731,7 @@ if ('serviceWorker' in navigator) {
 caricaLocale();
 elencoAutomatico();
 applicaIndirizzi();
+unificaDoppioni();
 riapriScartati();
 aggiornaGeoBar();
 aggiornaContatori(); renderSide(); aggiornaRail();
