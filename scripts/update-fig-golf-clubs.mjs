@@ -20,13 +20,16 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const OUTPUT_FILE = path.join(__dirname, '..', 'data', 'circoli_fig_italia.csv');
 const FIG_URL = 'https://areariservata.federgolf.it/GolfClub/Index';
 
-/** Fetch a URL and return the body as string */
-function fetchPage(url) {
+/** Fetch a URL and return the body as string, following up to maxRedirects redirects */
+function fetchPage(url, maxRedirects = 5) {
   return new Promise((resolve, reject) => {
     https.get(url, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; GolfP-updater/1.0)' } }, (res) => {
       // Follow redirect
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-        return resolve(fetchPage(res.headers.location));
+        if (maxRedirects <= 0) {
+          return reject(new Error(`Too many redirects from ${url}`));
+        }
+        return resolve(fetchPage(res.headers.location, maxRedirects - 1));
       }
       if (res.statusCode !== 200) {
         return reject(new Error(`HTTP ${res.statusCode} from ${url}`));
@@ -131,14 +134,24 @@ function parseHtml(html) {
     const rawAddress = cells[1] || '';
     const { indirizzo, CAP, comune, provincia } = parseAddress(rawAddress);
     const telefono = cells[2] || '';
-    // cells[3] is fax — not requested
-    const email = cells[4] || cells[3] || '';
-    const sito_web = cells[5] || cells[4] || '';
 
-    // Resolve email vs website heuristic: if it contains '@' it's email
-    const resolvedEmail = email.includes('@') ? email : '';
+    // The FIG table may have 5 columns (no fax) or 6 columns (with fax).
+    // Layout with fax:    nome | indirizzo | telefono | fax | email | sito_web
+    // Layout without fax: nome | indirizzo | telefono | email | sito_web
+    let rawEmail, rawSito;
+    if (cells.length >= 6) {
+      // cells[3] = fax (ignored), cells[4] = email, cells[5] = sito_web
+      rawEmail = cells[4] || '';
+      rawSito  = cells[5] || '';
+    } else {
+      // cells[3] = email, cells[4] = sito_web
+      rawEmail = cells[3] || '';
+      rawSito  = cells[4] || '';
+    }
+
+    const resolvedEmail = rawEmail.includes('@') ? rawEmail : '';
     const resolvedSito =
-      sito_web.match(/^https?:\/\//i) || sito_web.match(/^www\./i) ? sito_web : '';
+      rawSito.match(/^https?:\/\//i) || rawSito.match(/^www\./i) ? rawSito : '';
 
     clubs.push({ nome, indirizzo, CAP, comune, provincia, telefono, email: resolvedEmail, sito_web: resolvedSito });
   }
@@ -159,8 +172,10 @@ async function main() {
   const clubs = parseHtml(html);
   console.log(`Parsed ${clubs.length} clubs.`);
 
-  if (clubs.length !== 341) {
-    console.warn(`WARNING: expected 341 clubs, got ${clubs.length}.`);
+  if (clubs.length < 300) {
+    console.warn(`WARNING: parsed only ${clubs.length} clubs — fewer than expected. Check the page structure.`);
+  } else {
+    console.log(`Parsed ${clubs.length} clubs (FIG page typically lists ~341).`);
   }
 
   const header = 'nome,indirizzo,CAP,comune,provincia,telefono,email,sito_web';
