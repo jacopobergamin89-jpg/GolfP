@@ -3278,7 +3278,21 @@ function azione(k) {
 
 /* --- l'elenco nazionale entra da solo al primo avvio dopo un aggiornamento.
    La versione evita che si ricarichi ogni volta e che resusciti quello che hai cancellato. --- */
-const ELENCO_VERSIONE = '2026-08-11';
+const ELENCO_VERSIONE = '2026-08-11-indirizzi';
+/* gli indirizzi noti finiscono su ogni circolo che non li ha ancora.
+   Gira a ogni avvio ed è innocua: se non cambia niente, non tocca niente. */
+function applicaIndirizzi() {
+  let n = 0;
+  CLUBS.forEach(c => {
+    const ind = INDIRIZZI[c.n];
+    if (!ind || c.via) return;
+    c.via = ind[4] || null; c.cap = ind[5] || null;
+    if (!c.l || !c.l.trim()) c.l = ind[0] + ' (' + ind[1] + ')';
+    n++;
+  });
+  if (n) salvaLocale();
+  return n;
+}
 function elencoAutomatico() {
   if (ARCHIVIO.elenco === ELENCO_VERSIONE) return null;
   const r = importaElenco();
@@ -3290,6 +3304,7 @@ function elencoAutomatico() {
 /* ---------------- avvio ---------------- */
 caricaLocale();
 elencoAutomatico();
+applicaIndirizzi();
 aggiornaGeoBar();
 aggiornaContatori(); renderSide(); aggiornaRail();
 renderCircoli(); renderGiro(); renderSacca(); renderStats(); renderProfilo();
