@@ -437,6 +437,9 @@ h1,h2,h3{font-family:var(--disp);font-weight:800;letter-spacing:-.03em;text-tran
   border-radius:50%;border:3px solid var(--fair);animation:onda 1.9s ease-out infinite}
 .mk.wish.sel::after{border-color:var(--flag)}
 .mk.vago{opacity:.6}
+.mk.chiuso{opacity:.45;filter:grayscale(1)}
+.mk.chiuso::before{content:"×";position:absolute;top:-5px;right:-5px;width:14px;height:14px;border-radius:50%;
+  background:var(--ink-3);color:#fff;font-size:11px;font-weight:700;display:grid;place-items:center;line-height:1;z-index:2}
 .mk.vago::before{content:"?";position:absolute;top:-5px;right:-5px;width:14px;height:14px;border-radius:50%;
   background:var(--sand);color:#fff;font-size:10px;font-weight:700;display:grid;place-items:center;line-height:1;z-index:2}
 @keyframes cade{from{opacity:0;transform:translateY(-24px) scale(.3)}to{opacity:1;transform:none}}
@@ -523,7 +526,8 @@ h1,h2,h3{font-family:var(--disp);font-weight:800;letter-spacing:-.03em;text-tran
       <div class="tbar">
         <div><h2>Circoli</h2><div class="sub" id="cir-sub"></div></div>
         <div class="chips" id="cir-filters">
-          <button class="chip" id="cir-lomb" style="background:var(--lime);color:var(--deep)">🏴 Lombardia (70)</button>
+          <button class="chip" id="cir-elenco" style="background:var(--lime);color:var(--deep)">🏴 Elenco circoli</button>
+          <button class="chip" id="cir-percorsi" aria-pressed="false">⛳ Solo percorsi</button>
           <button class="chip" id="cir-import">↥ Importa elenco</button>
           <button class="chip" data-f="tutti" aria-pressed="true">Tutti</button>
           <button class="chip" data-f="giocati" aria-pressed="false">Giocati</button>
@@ -755,13 +759,14 @@ function styleFor(kind) {
 /* --- dati per la mappa --- */
 function geo() {
   return { type: 'FeatureCollection', features: CLUBS
-    .filter(c => (c.wish ? filt.wish : filt.played) && isFinite(c.lat) && isFinite(c.lon))
+    .filter(c => (c.wish ? filt.wish : filt.played) && isFinite(c.lat) && isFinite(c.lon) && passaFiltri(c))
     .map(c => ({ type: 'Feature', id: c.id, geometry: { type: 'Point', coordinates: [c.lon, c.lat] },
       properties: { id: c.id, giocato: !c.wish } })) };
 }
 function bandierina(c, scelto) {
   const el = document.createElement('div');
-  el.className = 'mk ' + (c.wish ? 'wish' : 'play') + (scelto ? ' sel' : '') + (c.daPosizionare ? ' vago' : '');
+  el.className = 'mk ' + (c.wish ? 'wish' : 'play') + (scelto ? ' sel' : '')
+    + (c.chiuso ? ' chiuso' : c.daPosizionare ? ' vago' : '');
   el.title = c.n;
   el.innerHTML = c.wish
     ? `<svg viewBox="0 0 26 30" width="22" height="26">
@@ -776,6 +781,15 @@ function bandierina(c, scelto) {
         <circle cx="9" cy="27" r="2.4" fill="#fff"/></svg>`;
   el.onclick = e => { e.stopPropagation(); select(c.id); };
   return el;
+}
+/* --- filtro "solo percorsi": nasconde i tracciati sotto le 9 buche.
+   Le voci con buche ancora ignote restano sempre visibili: non si butta via
+   quello che non si è ancora verificato. --- */
+let SOLOPERCORSI = false;
+const passaFiltri = c => !SOLOPERCORSI || c.buche == null || c.buche >= 9;
+function visibili() {
+  return CLUBS.filter(c => (c.wish ? filt.wish : filt.played)
+    && isFinite(c.lat) && isFinite(c.lon) && passaFiltri(c));
 }
 let SEGNI = [];
 function paint() {
@@ -866,32 +880,197 @@ const LOMBARDIA = [
   [0,"Golf Club Villa Schiarino","Mantova"],[0,"Golf Indoor","Bergamo"],[0,"San Siro Golf","Milano"],
   [0,"Sport Master Mediolanum","Milano"],[0,"Terre del Po G.C.","Lodi"],[0,"Urban Golf Milano","Milano"]
 ];
+/* --- le altre regioni: buche, nome, comune, provincia, lat, lon del comune
+   (fonte: schede caneogolf.it — buche 0 = solo campo pratica, null = da verificare)
+   la posizione è quella del comune, marcata come provvisoria: l'import OSM la corregge --- */
+/* centro approssimativo di ogni regione: serve solo a far nascere il segnaposto
+   provvisorio da qualche parte, l'import OSM lo sposta sulla club house vera */
+/* --- strutture che risultano chiuse o non più attive (verifica agosto 2026).
+   Restano in elenco, marcate: un campo chiuso può comunque essere stato giocato. --- */
+const CHIUSI = [
+  [9, "Golf Club Augusto Fava", "Cento", "FE", "Emilia-Romagna", 44.726, 11.288,
+    "attività cessata il 31 dicembre 2023, associazione in liquidazione"],
+  [18, "Golf Feudo di Asti", "Asti", "AT", "Piemonte", 44.930, 8.160,
+    "società fallita, campo chiuso da circa il 2021"],
+  [9, "Golf Club Centanni", "Bagno a Ripoli", "FI", "Toscana", 43.750, 11.350,
+    "chiuso a fine 2024, area in conversione"],
+  [36, "Donnafugata Golf Resort", "Santa Croce Camerina", "RG", "Sicilia", 36.862, 14.550,
+    "chiuso dal 2020, riapertura annunciata per il 2027"],
+  [18, "Riva dei Tessali Golf Club", "Castellaneta", "TA", "Puglia", 40.638, 16.940,
+    "percorso abbandonato da circa il 2021, non giocabile"]
+];
+/* --- aperture recenti assenti dall'elenco caneogolf --- */
+const NUOVI = [
+  [3, "Sinis Golf Club", "Oristano", "OR", "Sardegna", 39.906, 8.590],
+  [4, "Mantova Golf Club", "Curtatone", "MN", "Lombardia", 45.147, 10.717],
+  [0, "TEE UP Urban Golf Hub", "Milano", "MI", "Lombardia", 45.466, 9.161]
+];
+const REGCENTRO = {
+  "Abruzzo": [42.19, 13.73], "Basilicata": [40.50, 16.10], "Calabria": [39.05, 16.50],
+  "Campania": [40.90, 14.70], "Emilia-Romagna": [44.60, 11.10], "Friuli-Venezia Giulia": [46.15, 13.10],
+  "Lazio": [41.90, 12.70], "Liguria": [44.35, 8.80], "Lombardia": [45.60, 9.70],
+  "Marche": [43.40, 13.10], "Molise": [41.68, 14.55], "Piemonte": [45.05, 8.00],
+  "Puglia": [41.00, 16.60], "Sardegna": [40.10, 9.10], "Sicilia": [37.60, 14.00],
+  "Toscana": [43.45, 11.15], "Trentino-Alto Adige": [46.40, 11.30], "Umbria": [42.95, 12.50],
+  "Valle d'Aosta": [45.73, 7.42], "Veneto": [45.55, 11.90], "San Marino": [43.94, 12.46]
+};
+const REGIONI = {
+  "Abruzzo": [
+    [18, "Miglianico Golf & Country Club", "Miglianico", "CH", 42.363, 14.302],
+    [18, "Valpescara Golf Club", "Chieti", "CH", 42.352, 14.116],
+    [18, "San Donato Golf", "L'Aquila", "AQ", 42.373, 13.322],
+    [9, "Golf Cri Cri Rivisondoli", "Rivisondoli", "AQ", 41.869, 14.033],
+    [0, "Colonnella Golf Club", "Colonnella", "TE", 42.871, 13.870],
+    [0, "Associazione Golf Giulianova", "Mosciano Sant'Angelo", "TE", 42.694, 13.887],
+    [0, "Teramo City Golf", "Teramo", "TE", 42.659, 13.704]
+  ],
+  "Basilicata": [
+    [18, "Metaponto Golf Club", "Bernalda", "MT", 40.383, 16.810]
+  ],
+  "Calabria": [
+    [9, "Tauriana Golf Club", "Palmi", "RC", 38.358, 15.855],
+    [9, "San Michele Golf Club", "Cetraro", "CS", 39.517, 15.940],
+    [null, "Orti Golf Club", "Reggio Calabria", "RC", 38.140, 15.720],
+    [null, "Sant'Andrea Golf Club", "Sant'Andrea Apostolo dello Ionio", "CZ", 38.522, 16.523]
+  ],
+  "Campania": [
+    [18, "Golf Club Volturno", "Castel Volturno", "CE", 41.006, 13.938],
+    [9, "Circolo Golf Napoli", "Pozzuoli", "NA", 40.845, 14.070],
+    [9, "Mirabella Golf Club", "Mirabella Eclano", "AV", 41.043, 14.995],
+    [3, "Golf Club Salerno", "Pontecagnano Faiano", "SA", 40.611, 14.937]
+  ],
+  "Friuli-Venezia Giulia": [
+    [18, "Udine Golf Club", "Fagagna", "UD", 46.104, 13.093],
+    [18, "Golf Club Lignano", "Lignano Sabbiadoro", "UD", 45.679, 13.108],
+    [18, "Golf Club Tarvisio", "Tarvisio", "UD", 46.505, 13.578],
+    [18, "Trieste Golf Club", "Trieste", "TS", 45.653, 13.858],
+    [18, "Golf Country Club Castello di Spessa", "Capriva del Friuli", "GO", 45.938, 13.512],
+    [18, "Golf Club Pordenone", "Aviano", "PN", 46.058, 12.545],
+    [18, "Golf Club Grado", "Grado", "GO", 45.694, 13.398],
+    [6, "A.S.D. Golf Club Friuli", "Mortegliano", "UD", 45.955, 13.164],
+    [0, "La Faula Golf Club", "Povoletto", "UD", 46.109, 13.335],
+    [null, "Golf Club Sappada", "Sappada", "UD", 46.567, 12.688]
+  ],
+  "Liguria": [
+    [18, "Circolo Golf Rapallo", "Rapallo", "GE", 44.348, 9.222],
+    [18, "Garlenda Golf Club", "Garlenda", "SV", 44.031, 8.098],
+    [18, "Circolo Golf degli Ulivi Sanremo", "Sanremo", "IM", 43.836, 7.786],
+    [9, "Golf Club Arenzano La Pineta", "Arenzano", "GE", 44.405, 8.683],
+    [9, "Golf Club Castellaro", "Castellaro", "IM", 43.850, 7.878],
+    [9, "Filanda Golf Club", "Albisola Superiore", "SV", 44.335, 8.500],
+    [null, "Circolo Sportivo Sant'Anna Golf", "Cogoleto", "GE", 44.395, 8.646],
+    [0, "Associazione Garden Golf", "Genova", "GE", 44.394, 8.965],
+    [0, "CUS Genova Golf", "Genova", "GE", 44.386, 8.999],
+    [0, "Golf Club Marigola", "Lerici", "SP", 44.081, 9.909],
+    [0, "Sarzana Golf Club", "Sarzana", "SP", 44.112, 9.963]
+  ]
+};
+/* --- le regioni prese dall'elenco caneogolf: qui c'è solo il nome del circolo.
+   Comune, buche e posizione arrivano dall'import OpenStreetMap, che aggancia
+   questi segnaposto provvisori cercandoli per nome. --- */
+const SOLONOMI = {
+  "Piemonte": ["Albatros Indoor", "Alpino", "Arona", "Biella Betulle", "Bogogno", "Bollina", "Boves",
+    "Castelconturbia", "Cavaglià", "Cherasco", "Ciliegi", "Città d'Asti", "Claviere", "Colline Gavi",
+    "Colonnetti", "Continental Verbania", "Cossato", "Des Iles Borromées", "Druento", "Fronde", "Garessio",
+    "Girasoli", "Kavallotta Golf Academy", "Le Rosine", "Limone", "Mandria", "Margara", "Margherita",
+    "Moncalieri", "Monferrato", "Mulino Cerrione", "Pian Colle", "Piandisole", "Pinerolo - Pragelato",
+    "Ponte Cervo", "Prato Nevoso", "Primule", "Royal Park Roveri", "Saluzzo", "San Giovanni", "Santa Maria Maggiore",
+    "Savigliano", "Serra", "Sestrieres", "Settimo", "Stupinigi", "Tenuta Castello", "Torino", "Torre Ronchi",
+    "Villa Carolina", "Z'Makana"],
+  "Valle d'Aosta": ["Aosta Arsanieres", "Aosta Brissogne", "Cervino", "Courmayeur", "Gressoney",
+    "Val d'Ayas", "Valle d'Aosta"],
+  "Veneto": ["Abano", "Ancora", "Asiago", "Asolo", "Bosco", "Brolo", "Ca' Amata", "Ca' Nave", "Ca' Ulivi",
+    "Ca' Vendri", "Cansiglio", "Caorle", "Colli Berici", "Colli Euganei", "Cortina", "Easy Golf",
+    "Frassanelle", "GGZ - Zerman", "Globale Jesolo", "Golf 2.0", "Marco Polo", "Montebelluna",
+    "Montecchia", "Musella", "Nogherazza", "Noghere", "Padova", "Paolillo Golf Players", "Paradiso",
+    "Poiano Garda", "Rovigo", "Rovigolf", "Salici 2.0", "Venezia", "Verona", "Vicenza", "Vigne",
+    "Villa Condulmer", "Villa Giusti"],
+  "Trentino-Alto Adige": ["Alta Badia", "Altogarda", "Appiano - Golf & Country", "Break Point", "Dolomiti",
+    "Folgaria", "Lana", "Madonna di Campiglio", "Mirabell", "Passiria Merano", "Passo Monte Croce",
+    "Petersberg", "Pustertal", "Quellenhof", "Rendena", "Roncegno", "Rovereto", "St. Vigil Seis", "Tesino",
+    "Val Fassa", "Val Venosta", "Vipiteno"],
+  "Emilia-Romagna": ["Argenta", "Bologna", "Casalunga", "Cervia", "Club Giardino", "Croara",
+    "CUS Ferrara", "CUS Parma", "Ducato", "Faenza Cicogne", "Fonti", "Imola Zolino", "Modena", "Molino Pero",
+    "Monteveglio", "Oasi di Magliano-Fiordalisi", "Poli Golf", "Rimini Verucchio", "Riviera Golf",
+    "Salsomaggiore Terme", "San Valentino", "Santo Stefano Golf", "Siepelunga", "Terre di Canossa"],
+  "Toscana": ["Abbadia", "Acquabona", "Alisei Pietrasanta", "Argentario", "Bagnaia", "Bellosguardo",
+    "Ca' Moro Punto Due", "Capanne", "Casentino", "Castelfalfi", "Cosmopolitan", "Firenze Ugolino",
+    "Forte dei Marmi", "Garfagnana", "Hermitage", "Livorno", "Miniere", "Montecatini Terme", "Montelupo",
+    "Parco Firenze", "Pavoniere", "Poggio dei Medici", "Punta Ala", "Quarrata", "Riva Toscana", "San Martino",
+    "Saturnia", "Sodole", "Tirrenia", "Toscana", "Valdichiana", "Valle d'Oro"],
+  "Umbria": ["Antognolla", "Assisi", "Castello", "Gubbio", "Lamborghini", "Perugia", "Romita", "Terni",
+    "Valle Umbra"],
+  "Marche": ["Alpe della Luna", "Avio 2.0", "Cingoli", "Conero", "Lauri", "Mia", "Montegiove", "Sibilla",
+    "Torrenova", "Village"],
+  "Lazio": ["Archi di Claudio", "Bellator Hernicus", "Casal Palocco", "Cassino", "Castelgandolfo",
+    "Fioranello", "Fiuggi 1928", "La Castelluccia", "Marco Simone", "Mare di Roma", "Marina Velka",
+    "Nazionale", "Olgiata", "Parco de' Medici", "Parco di Roma", "Rieti", "Roma Acquasanta", "Talenti",
+    "Terra Sancti", "Terre dei Consoli", "Tevere Tirrenia", "Tiber 23", "Viterbo"],
+  "Molise": ["Isernia", "Termoli", "Varvarusa"],
+  "Puglia": ["Acaya", "Barialto", "Bat Fly", "Daunia", "Rudis", "San Domenico - Egnazia"],
+  "Sardegna": ["Botanic Sa Cuba", "Florinas", "Is Arenas", "Is Molas", "Mora Bianca", "Pevero", "Puntaldia",
+    "Sassari", "Sinis", "Tanka Villasimius"],
+  "Sicilia": ["Palermo", "Sicilia's Picciolo", "Verdura"],
+  "San Marino": ["San Marino"]
+};
 function simile(a, b) {
   if (!a || !b) return false;
   if (a === b) return true;
   const [c, l] = a.length < b.length ? [a, b] : [b, a];
   return l.includes(c) && c.length / l.length > .7;
 }
-function importaLombardia() {
-  let nuovi = 0, aggiornati = 0;
-  LOMBARDIA.forEach(([buche, nome, prov]) => {
-    const nc = nocciolo(nome);
+/* tutte le voci dei tre elenchi ridotte alla stessa forma */
+function vociElenco() {
+  const out = LOMBARDIA.map(([buche, nome, prov]) => {
+    const [lat, lon] = PROV[prov] || PROV['Milano'];
+    return { buche, nome, luogo: prov, reg: 'Lombardia', prov, lat, lon };
+  });
+  Object.keys(REGIONI).forEach(reg => REGIONI[reg].forEach(([buche, nome, comune, prov, lat, lon]) =>
+    out.push({ buche, nome, luogo: comune + ' (' + prov + ')', reg, prov, lat, lon })));
+  Object.keys(SOLONOMI).forEach(reg => {
+    const [clat, clon] = REGCENTRO[reg] || [42.5, 12.5];
+    SOLONOMI[reg].forEach((nome, i) => {
+      /* i segnaposto senza posizione nota si aprono a ventaglio attorno al centro
+         della regione, altrimenti finirebbero uno sopra l'altro e non si toccano */
+      const ang = i * 2.399963, ray = .06 + .022 * Math.sqrt(i);
+      out.push({ buche: null, nome, luogo: '', reg, prov: null,
+        lat: +(clat + ray * Math.cos(ang)).toFixed(4),
+        lon: +(clon + ray * Math.sin(ang) / Math.cos(clat * Math.PI / 180)).toFixed(4) });
+    });
+  });
+  NUOVI.forEach(([buche, nome, comune, prov, reg, lat, lon]) =>
+    out.push({ buche, nome, luogo: comune + ' (' + prov + ')', reg, prov, lat, lon }));
+  CHIUSI.forEach(([buche, nome, comune, prov, reg, lat, lon, chiuso]) =>
+    out.push({ buche, nome, luogo: comune + ' (' + prov + ')', reg, prov, lat, lon, chiuso }));
+  return out;
+}
+function importaElenco() {
+  let nuovi = 0, aggiornati = 0, saltati = 0;
+  const perRegione = {};
+  vociElenco().forEach(v => {
+    /* i campi pratica senza percorso non entrano in elenco: questa app conta i giri */
+    if (v.buche === 0) { saltati++; return; }
+    const reg = v.prov ? v.reg + '/' + v.prov : v.reg;
+    const paese = v.reg === 'San Marino' ? 'San Marino' : 'Italia';
+    const nc = nocciolo(v.nome);
     const hit = CLUBS.find(c => nocciolo(c.n) === nc) || CLUBS.find(c => simile(nocciolo(c.n), nc));
     if (hit) {
-      hit.buche = buche || hit.buche;
-      hit.r = 'Lombardia/' + prov;
-      if (!hit.l) hit.l = prov;
+      if (v.buche) hit.buche = v.buche;
+      if (!hit.r || v.prov || !hit.r.includes('/')) hit.r = reg;
+      if (!hit.l && v.luogo) hit.l = v.luogo;
+      if (v.chiuso) hit.chiuso = v.chiuso;
       hit.fig = true;
       aggiornati++;
       return;
     }
-    const [lat, lon] = PROV[prov] || PROV['Milano'];
-    addClub({ n: nome, l: prov, r: 'Lombardia/' + prov, p: 'Italia', buche: buche || null,
-      par: buche >= 18 ? 72 : null, lat, lon, daPosizionare: true, fig: true, tipo: buche ? null : 'pratica' });
+    addClub({ n: v.nome, l: v.luogo, r: reg, p: paese, buche: v.buche || null,
+      par: v.buche >= 18 ? 72 : null, lat: v.lat, lon: v.lon, daPosizionare: true, fig: true,
+      chiuso: v.chiuso || null, tipo: v.buche === 0 ? 'pratica' : null });
     nuovi++;
+    perRegione[v.reg] = (perRegione[v.reg] || 0) + 1;
   });
   paint(); renderSide(); renderCircoli(); aggiornaContatori(); salvaTutto();
-  return { nuovi, aggiornati };
+  return { nuovi, aggiornati, saltati, perRegione };
 }
 
 /* --- import da OpenStreetMap --- */
@@ -995,14 +1174,16 @@ function km(la1, lo1, la2, lo2) {
 }
 function trovaEsistente(nome, lat, lon) {
   const nc = nocciolo(nome);
-  let vicino = null;
+  let vago = null;
   for (const c of CLUBS) {
     const d = km(c.lat, c.lon, lat, lon);
     if (d < 0.4) return c;                                   // stesso punto: è lui
     if (nc && nc.length > 3 && nocciolo(c.n) === nc && d < 25) return c;   // stesso nome, stessa zona
-    if (d < 3 && !vicino) vicino = c;
+    // segnaposto ancora da posizionare: il nome basta, la distanza non conta perché
+    // sta provvisoriamente al centro della sua regione
+    if (nc && nc.length > 3 && c.daPosizionare && !vago && nocciolo(c.n) === nc) vago = c;
   }
-  return null;
+  return vago;
 }
 const titolo = x => x.length > 4 && x === x.toUpperCase()
   ? x.toLowerCase().replace(/(^|[\s'"(\-])(\w)/g, (m, a, b) => a + b.toUpperCase()) : x;
@@ -1070,7 +1251,7 @@ async function apriMappaCampo(c) {
 
 /* --- pannello laterale --- */
 function inView() {
-  const list = CLUBS.filter(c => (c.wish ? filt.wish : filt.played));
+  const list = CLUBS.filter(c => (c.wish ? filt.wish : filt.played) && passaFiltri(c));
   if (!MAP) return list.slice(0, 60);
   const b = MAP.getBounds();
   return list.filter(c => c.lon > b.getWest() && c.lon < b.getEast() && c.lat > b.getSouth() && c.lat < b.getNorth());
@@ -1083,7 +1264,7 @@ function flagSvg(wish) {
 function clubRow(c) {
   return `<div class="clubrow" data-club="${c.id}" data-vai="${c.id}">
     <div class="fl">${flagSvg(c.wish)}</div>
-    <div><div class="nm">${c.n}</div><div class="mt">${[c.l, c.buche ? c.buche + ' buche' : '', c.p !== 'Italia' ? c.p : ''].filter(Boolean).join(' · ')}</div></div>
+    <div><div class="nm">${c.n}${c.chiuso ? ' <span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);border:1px solid var(--rule);border-radius:4px;padding:1px 5px;vertical-align:middle">chiuso</span>' : ''}</div><div class="mt">${[c.l, c.buche ? c.buche + ' buche' : '', c.p !== 'Italia' ? c.p : ''].filter(Boolean).join(' · ')}</div></div>
     <div class="sc">${c.wish ? '<span style="color:var(--sand)">In lista</span>'
       : (() => { const gg = giriDi(c.id);
           return gg.length ? `<b>${Math.min(...gg.map(g => g.totali.lordo))}</b><span>${gg.length} gir${gg.length === 1 ? 'o' : 'i'}</span>`
@@ -1098,15 +1279,16 @@ function renderSide() {
         <h3 style="margin:5px 0 3px">${s.n}</h3>
         <div style="font-size:12px;color:var(--ink-3)">${[s.l, s.r ? s.r.split('/')[0] : '', s.p].filter(Boolean).join(' · ')}</div>
         <div style="display:flex;gap:18px;margin:12px 0 10px">
-          <div><div class="lbl">Buche</div><b class="num" style="font-size:19px">${s.buche || 18}</b></div>
-          <div><div class="lbl">Par</div><b class="num" style="font-size:19px">${s.par}</b></div>
+          <div><div class="lbl">Buche</div><b class="num" style="font-size:19px">${s.buche || '—'}</b></div>
+          <div><div class="lbl">Par</div><b class="num" style="font-size:19px">${s.par || '—'}</b></div>
           ${s.wish ? '' : (() => { const gg = giriDi(s.id); return gg.length
             ? `<div><div class="lbl">Best</div><b class="num" style="font-size:19px;color:var(--flag)">${Math.min(...gg.map(g => g.totali.lordo))}</b></div>
                <div><div class="lbl">Giri</div><b class="num" style="font-size:19px">${gg.length}</b></div>`
             : '<div><div class="lbl">Stato</div><b style="font-size:15px;color:var(--fair)">Giocato</b></div>'; })()}
         </div>
         ${s.note ? `<p style="font-size:12.5px;color:var(--ink-2);margin:0 0 12px">${s.note}</p>` : ''}
-        ${s.daPosizionare ? '<p class="hint" style="margin:0 0 8px">Posizione approssimativa, presa dalla provincia. Premi ⌖ e tocca la club house sulla mappa.</p>' : ''}
+        ${s.chiuso ? `<p class="hint" style="margin:0 0 8px">Risulta chiuso: ${s.chiuso}.</p>` : ''}
+        ${s.daPosizionare ? '<p class="hint" style="margin:0 0 8px">Posizione ancora provvisoria. Prova a importare da OpenStreetMap, oppure premi ⌖ e tocca la club house sulla mappa.</p>' : ''}
         <div style="display:flex;gap:8px">
           <button class="btn" style="flex:1;justify-content:center" data-open="${s.id}">Apri scheda</button>
           <button class="btn ghost" onclick="segnaGiocato(${s.id})" title="${s.wish ? 'Segna come giocato' : 'Togli la spunta'}">✓</button>
@@ -1222,6 +1404,7 @@ let cirF = 'tutti';
 function renderCircoli() {
   const q = (document.getElementById('cir-search').value || '').toLowerCase();
   let list = CLUBS.filter(c => {
+    if (!passaFiltri(c)) return false;
     if (cirF === 'giocati' && c.wish) return false;
     if (cirF === 'lista' && !c.wish) return false;
     if (cirF === 'italia' && c.p !== 'Italia') return false;
@@ -1239,11 +1422,20 @@ function renderCircoli() {
   document.getElementById('cir-sub').textContent = `${CLUBS.filter(c => !c.wish).length} giocati · ${CLUBS.filter(c => c.wish).length} in lista`;
 }
 document.getElementById('cir-search').oninput = renderCircoli;
-document.getElementById('cir-lomb').onclick = () => {
-  const r = importaLombardia();
+document.getElementById('cir-elenco').textContent =
+  `🏴 Elenco circoli (${vociElenco().length})`;
+document.getElementById('cir-elenco').onclick = () => {
+  const r = importaElenco();
+  const dett = Object.keys(r.perRegione).sort().map(k => `${k} ${r.perRegione[k]}`).join(', ');
   document.getElementById('cir-msg').textContent =
-    `${r.nuovi} circoli aggiunti, ${r.aggiornati} aggiornati con buche e provincia.`
-    + (r.nuovi ? ' I nuovi hanno il segnaposto sulla provincia: premi IMPORTA sulla mappa per la posizione esatta, oppure spostali col mirino ⌖.' : '');
+    `${r.nuovi} circoli aggiunti${dett ? ' (' + dett + ')' : ''}, ${r.aggiornati} aggiornati con buche e località`
+    + (r.saltati ? `, ${r.saltati} campi pratica senza percorso lasciati fuori.` : '.')
+    + (r.nuovi ? ' I nuovi nascono con un segnaposto provvisorio marcato "?": premi IMPORTA sulla mappa e OpenStreetMap li sposta sulla club house vera, con comune e buche. Quelli che restano "?" vanno messi a mano col mirino ⌖.' : '');
+};
+document.getElementById('cir-percorsi').onclick = function () {
+  SOLOPERCORSI = !SOLOPERCORSI;
+  this.setAttribute('aria-pressed', SOLOPERCORSI);
+  paint(); renderSide(); renderCircoli(); aggiornaContatori();
 };
 document.getElementById('cir-import').onclick = () => document.getElementById('impbox').classList.toggle('on');
 document.getElementById('imp-demo').onclick = () => {
@@ -1329,7 +1521,7 @@ function openCampo(id) {
       <div class="delta">${best && c.par ? (best - c.par > 0 ? '+' : '') + (best - c.par) + ' sul par' : ''}</div></div>
     <div class="card"><div class="lbl">Media</div><div class="big">${media ?? '—'}</div>
       <div class="delta">${lordi.length ? 'su ' + lordi.length + ' giri' : ''}</div></div>
-    <div class="card"><div class="lbl">Buche</div><div class="big">${c.buche || 18}</div>
+    <div class="card"><div class="lbl">Buche</div><div class="big">${c.buche || '—'}</div>
       <div class="delta">par ${c.par || '—'}</div></div>
   </div>
 
