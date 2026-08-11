@@ -671,7 +671,7 @@ async function importaOSM() {
     const r = await fetch(OVERPASS, { method: 'POST', body: 'data=' + encodeURIComponent(q),
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
     const j = await r.json();
-    let n = 0, scartati = 0;
+    let n = 0, corretti = 0, scartati = 0;
     j.elements.forEach(e => {
       const tg = e.tags || {}, nome = tg.name || tg['name:it'];
       if (!nome) { scartati++; return; }
@@ -679,15 +679,23 @@ async function importaOSM() {
       if (!isFinite(lat) || !isFinite(lon)) return;
       const buche = parseInt(tg.holes, 10);
       if (buche && buche < 9) return;
-      if (CLUBS.some(c => norm(c.n) === norm(nome) ||
-          (Math.abs(c.lat - lat) < .006 && Math.abs(c.lon - lon) < .006))) return;
+      const esistente = trovaEsistente(nome, lat, lon);
+      if (esistente) {
+        const spostato = km(esistente.lat, esistente.lon, lat, lon) > 0.25;
+        esistente.lat = lat; esistente.lon = lon;
+        esistente.osm = e.type + '/' + e.id;
+        if (buche) esistente.buche = buche;
+        if (!esistente.l && (tg['addr:city'] || tg['addr:town'])) esistente.l = tg['addr:city'] || tg['addr:town'];
+        if (spostato) corretti++;
+        return;
+      }
       addClub({ n: titolo(nome), l: tg['addr:city'] || tg['addr:town'] || '', r: '', buche: buche || 18,
         par: 72, lat, lon, osm: e.type + '/' + e.id, sito: tg.website });
       n++;
     });
     paint(); renderSide(); renderCircoli(); aggiornaContatori();
     t.textContent = `${CLUBS.length} circoli in elenco`;
-    s.textContent = `${n} aggiunti da OpenStreetMap, ${scartati} scartati perché senza nome. Correggi o completa quando vuoi.`;
+    s.textContent = `${n} aggiunti da OpenStreetMap, ${corretti} segnaposto spostati sulla posizione esatta del campo.`;
     document.getElementById('osm-go').textContent = 'Aggiorna';
   } catch (err) {
     t.textContent = 'Import non riuscito';
@@ -695,6 +703,27 @@ async function importaOSM() {
   }
 }
 const norm = x => (x || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+const nocciolo = x => (x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  .replace(/[^a-z0-9]+/g, ' ')
+  .replace(/\b(golf|club|circolo|country|resort|societa|sportiva|asd|ssd|a s d|s s d|dilettantistica|del|della|dei|di|la|il|lo|e)\b/g, '')
+  .replace(/[^a-z0-9]/g, '');
+function km(la1, lo1, la2, lo2) {
+  const r = Math.PI / 180, R = 6371;
+  const dla = (la2 - la1) * r, dlo = (lo2 - lo1) * r;
+  const a = Math.sin(dla / 2) ** 2 + Math.cos(la1 * r) * Math.cos(la2 * r) * Math.sin(dlo / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+function trovaEsistente(nome, lat, lon) {
+  const nc = nocciolo(nome);
+  let vicino = null;
+  for (const c of CLUBS) {
+    const d = km(c.lat, c.lon, lat, lon);
+    if (d < 0.4) return c;                                   // stesso punto: è lui
+    if (nc && nc.length > 3 && nocciolo(c.n) === nc && d < 25) return c;   // stesso nome, stessa zona
+    if (d < 3 && !vicino) vicino = c;
+  }
+  return null;
+}
 const titolo = x => x.length > 4 && x === x.toUpperCase()
   ? x.toLowerCase().replace(/(^|[\s'"(\-])(\w)/g, (m, a, b) => a + b.toUpperCase()) : x;
 
