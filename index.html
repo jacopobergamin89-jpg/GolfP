@@ -306,6 +306,7 @@ table.diff tr.new td:first-child{color:var(--sand)}
         </div>
         <div class="segs" id="m-style">
           <button data-s="mappa" aria-pressed="true">Mappa</button>
+          <button data-s="terreno" aria-pressed="false">Terreno</button>
           <button data-s="sat" aria-pressed="false">Satellite</button>
         </div>
         <div class="counts">
@@ -581,8 +582,9 @@ const MLCSS = ["https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibr
 /* --- stili --- */
 const RASTER = (tiles, attr) => ({ version: 8, sources: { r: { type: 'raster', tiles: [tiles], tileSize: 256, attribution: attr } },
   layers: [{ id: 'r', type: 'raster', source: 'r' }] });
+const STILI = { mappa: 'dataviz', terreno: 'landscape', sat: 'hybrid' };
 function styleFor(kind) {
-  if (MAPKEY) return `https://api.maptiler.com/maps/${kind === 'sat' ? 'hybrid' : 'outdoor-v2'}/style.json?key=${MAPKEY}`;
+  if (MAPKEY) return `https://api.maptiler.com/maps/${STILI[kind] || 'dataviz'}/style.json?key=${MAPKEY}`;
   return kind === 'sat'
     ? RASTER('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', 'Esri, Maxar, Earthstar Geographics')
     : RASTER('https://tile.openstreetmap.org/{z}/{x}/{y}.png', '© OpenStreetMap');
@@ -637,6 +639,12 @@ async function initMap() {
   MAP = new maplibregl.Map({ container: 'map', style: styleFor(STYLE), bounds: ITALY, fitBoundsOptions: { padding: 40 },
     attributionControl: { compact: true } });
   MAP.on('load', addLayers);
+  MAP.on('error', e => {
+    const m = String(e && e.error && e.error.message || '');
+    if (!m.includes('style') && !m.includes('403') && !m.includes('404')) return;
+    if (STYLE === 'mappa') return;
+    STYLE = 'mappa'; setStyle('mappa');
+  });
 }
 function setStyle(kind) {
   STYLE = kind;
