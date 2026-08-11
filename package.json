@@ -1,0 +1,7 @@
+{
+  "name": "golfp",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Atlante dei circoli di golf giocati",
+  "type": "module"
+}
