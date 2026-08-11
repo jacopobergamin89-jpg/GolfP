@@ -436,6 +436,9 @@ h1,h2,h3{font-family:var(--disp);font-weight:800;letter-spacing:-.03em;text-tran
 .mk.sel::after{content:"";position:absolute;left:50%;bottom:0;width:16px;height:16px;transform:translateX(-50%);
   border-radius:50%;border:3px solid var(--fair);animation:onda 1.9s ease-out infinite}
 .mk.wish.sel::after{border-color:var(--flag)}
+.mk.vago{opacity:.6}
+.mk.vago::before{content:"?";position:absolute;top:-5px;right:-5px;width:14px;height:14px;border-radius:50%;
+  background:var(--sand);color:#fff;font-size:10px;font-weight:700;display:grid;place-items:center;line-height:1;z-index:2}
 @keyframes cade{from{opacity:0;transform:translateY(-24px) scale(.3)}to{opacity:1;transform:none}}
 @keyframes onda{from{transform:translateX(-50%) scale(1);opacity:.6}to{transform:translateX(-50%) scale(3);opacity:0}}
 
@@ -520,7 +523,8 @@ h1,h2,h3{font-family:var(--disp);font-weight:800;letter-spacing:-.03em;text-tran
       <div class="tbar">
         <div><h2>Circoli</h2><div class="sub" id="cir-sub"></div></div>
         <div class="chips" id="cir-filters">
-          <button class="chip" id="cir-import" style="border-color:var(--flag);color:var(--flag)">↥ Importa elenco</button>
+          <button class="chip" id="cir-lomb" style="background:var(--lime);color:var(--deep)">🏴 Lombardia (70)</button>
+          <button class="chip" id="cir-import">↥ Importa elenco</button>
           <button class="chip" data-f="tutti" aria-pressed="true">Tutti</button>
           <button class="chip" data-f="giocati" aria-pressed="false">Giocati</button>
           <button class="chip" data-f="lista" aria-pressed="false">Da giocare</button>
@@ -542,6 +546,7 @@ h1,h2,h3{font-family:var(--disp);font-weight:800;letter-spacing:-.03em;text-tran
             <span id="imp-msg" style="font-size:12.5px;color:var(--fair)"></span>
           </div>
         </div>
+        <div id="cir-msg" class="hint" style="min-height:16px;margin:6px 2px 10px"></div>
         <div id="cir-list"></div>
       </div>
     </section>
@@ -756,7 +761,7 @@ function geo() {
 }
 function bandierina(c, scelto) {
   const el = document.createElement('div');
-  el.className = 'mk ' + (c.wish ? 'wish' : 'play') + (scelto ? ' sel' : '');
+  el.className = 'mk ' + (c.wish ? 'wish' : 'play') + (scelto ? ' sel' : '') + (c.daPosizionare ? ' vago' : '');
   el.title = c.n;
   el.innerHTML = c.wish
     ? `<svg viewBox="0 0 26 30" width="22" height="26">
@@ -825,6 +830,70 @@ function setKey(k) {
   if (MAP) { MAP.setStyle(styleFor(STYLE)); MAP.once('styledata', () => { if (!MAP.getSource('clubs')) addLayers(); }); }
 }
 
+/* --- elenco ufficiale dei circoli lombardi (fonte: Comitato Lombardia FIG) --- */
+const PROV = {
+  "Milano": [45.464, 9.190], "Monza B.": [45.584, 9.274], "Como": [45.808, 9.085],
+  "Brescia": [45.539, 10.220], "Bergamo": [45.698, 9.677], "Varese": [45.820, 8.825],
+  "Pavia": [45.185, 9.156], "Cremona": [45.133, 10.023], "Lecco": [45.856, 9.397],
+  "Sondrio": [46.170, 9.870], "Mantova": [45.157, 10.792], "Lodi": [45.314, 9.503]
+};
+const LOMBARDIA = [
+  [36,"Golf Club Monticello","Como"],
+  [27,"Arzaga Golf Club","Brescia"],[27,"Chervò Golf San Vigilio","Brescia"],[27,"Franciacorta Golf Club","Brescia"],
+  [27,"Gardagolf Country Club","Brescia"],[27,"Golf Club Bergamo l'Albenza","Bergamo"],
+  [27,"Golf Club Castello di Tolcinasco","Milano"],[27,"Golf Club Milano","Monza B."],[27,"Golf Crema Resort","Cremona"],
+  [18,"Ambrosiano Golf Club","Milano"],[18,"Barlassina Country Club","Monza B."],[18,"Golf Brianza Country Club","Monza B."],
+  [18,"Golf Club Bogliaco","Brescia"],[18,"Golf Club Carimate","Como"],[18,"Golf Club Le Robinie","Varese"],
+  [18,"Golf Club Le Rovedine","Milano"],[18,"Golf Club Lecco","Lecco"],[18,"Golf Club Menaggio e Cadenabbia","Como"],
+  [18,"Golf Club Varese","Varese"],[18,"Golf Club Vigevano","Pavia"],[18,"Golf Club Villa d'Este","Como"],
+  [18,"Golf Club Villa Paradiso","Monza B."],[18,"Golf Club Zoate","Milano"],[18,"Golf dei Laghi","Varese"],
+  [18,"Green Club Lainate","Milano"],[18,"La Pinetina Golf Club","Como"],[18,"Molinetto Country Club","Milano"],
+  [18,"Valtellina Golf Club","Sondrio"],
+  [9,"Antico Borgo Camuzzago","Monza B."],[9,"Golf Club Bormio","Sondrio"],[9,"Golf Club il Colombaro","Brescia"],
+  [9,"Golf Club il Torrazzo Cremona","Cremona"],[9,"Golf Club la Rossera","Bergamo"],[9,"Golf Club Lanzo","Como"],
+  [9,"Golf Club Mirasole","Milano"],[9,"Golf Club Montecampione","Brescia"],[9,"Golf Club Ponte di Legno","Brescia"],
+  [9,"Golf Parco dei Colli","Bergamo"],[9,"Golf San Vito","Milano"],[9,"La Colombera Golf Resort","Brescia"],
+  [9,"Panorama Golf","Varese"],[9,"Salice Terme Golf e Country","Pavia"],[9,"Virginia Country Golf Club","Como"],
+  [6,"Borgo Machetto Desenzano C. Club","Brescia"],[6,"European Golf Club Ispra","Varese"],[6,"Golf Club Madesimo","Sondrio"],
+  [6,"Ticino Golf Club","Pavia"],
+  [5,"Golf Club il Laghetto","Milano"],
+  [4,"Campo Pratica Orsini","Milano"],[4,"Ctl 3","Monza B."],[4,"Golf Club Serenissima","Brescia"],
+  [4,"Golfino del Monzeglio","Varese"],
+  [3,"Aprica Orobie Golf Club","Sondrio"],[3,"Bresciagolf Country Club","Brescia"],[3,"Campo Pratica Golf Monza","Monza B."],
+  [3,"Golf Club Como","Como"],[3,"Golf Club Airone","Mantova"],[3,"Golf Club Lazzate","Monza B."],
+  [3,"Harbour Club Milano","Milano"],[3,"Idea Verde Golf Club","Varese"],[3,"Bee Golf","Monza B."],
+  [0,"Gardanella Sport Village","Milano"],[0,"Golf Club Benessere","Cremona"],[0,"Golf Club Presolana","Bergamo"],
+  [0,"Golf Club Villa Schiarino","Mantova"],[0,"Golf Indoor","Bergamo"],[0,"San Siro Golf","Milano"],
+  [0,"Sport Master Mediolanum","Milano"],[0,"Terre del Po G.C.","Lodi"],[0,"Urban Golf Milano","Milano"]
+];
+function simile(a, b) {
+  if (!a || !b) return false;
+  if (a === b) return true;
+  const [c, l] = a.length < b.length ? [a, b] : [b, a];
+  return l.includes(c) && c.length / l.length > .7;
+}
+function importaLombardia() {
+  let nuovi = 0, aggiornati = 0;
+  LOMBARDIA.forEach(([buche, nome, prov]) => {
+    const nc = nocciolo(nome);
+    const hit = CLUBS.find(c => nocciolo(c.n) === nc) || CLUBS.find(c => simile(nocciolo(c.n), nc));
+    if (hit) {
+      hit.buche = buche || hit.buche;
+      hit.r = 'Lombardia/' + prov;
+      if (!hit.l) hit.l = prov;
+      hit.fig = true;
+      aggiornati++;
+      return;
+    }
+    const [lat, lon] = PROV[prov] || PROV['Milano'];
+    addClub({ n: nome, l: prov, r: 'Lombardia/' + prov, p: 'Italia', buche: buche || null,
+      par: buche >= 18 ? 72 : null, lat, lon, daPosizionare: true, fig: true, tipo: buche ? null : 'pratica' });
+    nuovi++;
+  });
+  paint(); renderSide(); renderCircoli(); aggiornaContatori(); salvaTutto();
+  return { nuovi, aggiornati };
+}
+
 /* --- import da OpenStreetMap --- */
 const SPECCHI = [
   "https://overpass-api.de/api/interpreter",
@@ -867,9 +936,9 @@ async function importaOSM() {
     t.textContent = `Scarico da OpenStreetMap — ${i + 1} di ${RIQUADRI.length}`;
     s.textContent = `${nome}: interrogo il server…`;
     const q = `[out:json][timeout:90];
-      (way["leisure"="golf_course"](${S},${W},${N},${E});
-       relation["leisure"="golf_course"](${S},${W},${N},${E});
-       node["leisure"="golf_course"](${S},${W},${N},${E}););
+      (nwr["leisure"="golf_course"](${S},${W},${N},${E});
+       nwr["golf"="driving_range"]["name"](${S},${W},${N},${E});
+       nwr["sport"="golf"]["name"](${S},${W},${N},${E}););
       out center tags;`;
     let j = null;
     try { j = await overpass(q, m => s.textContent = `${nome}: ${m}`); }
@@ -883,7 +952,6 @@ async function importaOSM() {
       const lat = e.lat ?? (e.center && e.center.lat), lon = e.lon ?? (e.center && e.center.lon);
       if (!isFinite(lat) || !isFinite(lon)) return;
       const buche = parseInt(tg.holes, 10);
-      if (buche && buche < 9) return;
       const esistente = trovaEsistente(nomeC, lat, lon);
       if (esistente) {
         if (!esistente.posizioneCorretta) {
@@ -891,6 +959,7 @@ async function importaOSM() {
           esistente.lat = lat; esistente.lon = lon;
         }
         esistente.osm = chiave;
+        if (esistente.daPosizionare) { delete esistente.daPosizionare; corretti++; }
         if (buche) esistente.buche = buche;
         if (!esistente.l && (tg['addr:city'] || tg['addr:town'])) esistente.l = tg['addr:city'] || tg['addr:town'];
         return;
@@ -911,7 +980,7 @@ async function importaOSM() {
   t.textContent = `${CLUBS.length} circoli in elenco`;
   s.textContent = `${n} aggiunti, ${corretti} segnapost${corretti === 1 ? 'o spostato' : 'i spostati'} sulla posizione esatta`
     + (falliti.length ? ` · zone non scaricate: ${falliti.join(', ')} — premi Aggiorna per riprovare` : '');
-  if (TOKEN) salvaArchivio();
+  salvaTutto();
 }
 const norm = x => (x || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 const nocciolo = x => (x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -1012,7 +1081,7 @@ function flagSvg(wish) {
     : '<path d="M0 0 L0 -12" stroke="#2A2A26" stroke-width="1.3"/><path d="M0 -12.4 L8 -9.6 L0 -6.8 Z" fill="var(--flag)"/>'}</svg>`;
 }
 function clubRow(c) {
-  return `<div class="clubrow" data-club="${c.id}" data-open="${c.id}">
+  return `<div class="clubrow" data-club="${c.id}" data-vai="${c.id}">
     <div class="fl">${flagSvg(c.wish)}</div>
     <div><div class="nm">${c.n}</div><div class="mt">${[c.l, c.buche ? c.buche + ' buche' : '', c.p !== 'Italia' ? c.p : ''].filter(Boolean).join(' · ')}</div></div>
     <div class="sc">${c.wish ? '<span style="color:var(--sand)">In lista</span>'
@@ -1037,6 +1106,7 @@ function renderSide() {
             : '<div><div class="lbl">Stato</div><b style="font-size:15px;color:var(--fair)">Giocato</b></div>'; })()}
         </div>
         ${s.note ? `<p style="font-size:12.5px;color:var(--ink-2);margin:0 0 12px">${s.note}</p>` : ''}
+        ${s.daPosizionare ? '<p class="hint" style="margin:0 0 8px">Posizione approssimativa, presa dalla provincia. Premi ⌖ e tocca la club house sulla mappa.</p>' : ''}
         <div style="display:flex;gap:8px">
           <button class="btn" style="flex:1;justify-content:center" data-open="${s.id}">Apri scheda</button>
           <button class="btn ghost" onclick="segnaGiocato(${s.id})" title="${s.wish ? 'Segna come giocato' : 'Togli la spunta'}">✓</button>
@@ -1092,7 +1162,12 @@ function aggiornaContatori() {
 }
 
 /* --- comandi --- */
-document.addEventListener('click', e => { const t = e.target.closest('[data-open]'); if (t) openCampo(+t.dataset.open); });
+document.addEventListener('click', e => {
+  const o = e.target.closest('[data-open]');
+  if (o) { openCampo(+o.dataset.open); return; }
+  const v = e.target.closest('[data-vai]');
+  if (v) { const id = +v.dataset.vai; go('mappa'); setTimeout(() => { if (MAP) MAP.resize(); select(id); }, 60); }
+});
 function setFilter(key, btn) { filt[key] = !filt[key]; btn.setAttribute('aria-pressed', filt[key]); paint(); renderSide(); }
 document.getElementById('f-played').onclick = e => setFilter('played', e.currentTarget);
 document.getElementById('f-wish').onclick = e => setFilter('wish', e.currentTarget);
@@ -1106,6 +1181,7 @@ document.getElementById('t-sideopen').onclick = () => { document.body.classList.
 function chiudiSide() { document.body.classList.add('no-side'); setTimeout(() => MAP && MAP.resize(), 260); }
 function tema(t) {
   document.body.dataset.tema = t;
+  salvaLocale();
   document.querySelectorAll('#temi button').forEach(b => b.setAttribute('aria-pressed', b.dataset.t === t));
 }
 document.getElementById('m-search').oninput = e => {
@@ -1163,6 +1239,12 @@ function renderCircoli() {
   document.getElementById('cir-sub').textContent = `${CLUBS.filter(c => !c.wish).length} giocati · ${CLUBS.filter(c => c.wish).length} in lista`;
 }
 document.getElementById('cir-search').oninput = renderCircoli;
+document.getElementById('cir-lomb').onclick = () => {
+  const r = importaLombardia();
+  document.getElementById('cir-msg').textContent =
+    `${r.nuovi} circoli aggiunti, ${r.aggiornati} aggiornati con buche e provincia.`
+    + (r.nuovi ? ' I nuovi hanno il segnaposto sulla provincia: premi IMPORTA sulla mappa per la posizione esatta, oppure spostali col mirino ⌖.' : '');
+};
 document.getElementById('cir-import').onclick = () => document.getElementById('impbox').classList.toggle('on');
 document.getElementById('imp-demo').onclick = () => {
   document.getElementById('imp-txt').value = CLUBS.slice(-15).map(c => `${c.n}; ${c.l}; ${c.r}; ${c.par}; ${c.lat}; ${c.lon}`).join('\n');
@@ -1179,9 +1261,9 @@ document.getElementById('imp-go').onclick = () => {
   document.getElementById('imp-msg').textContent = n ? `${n} circoli aggiunti alla mappa` : 'nessuna riga nuova da importare';
   renderCircoli(); renderSide();
 };
-document.querySelectorAll('#cir-filters .chip').forEach(b => b.onclick = () => {
+document.querySelectorAll('#cir-filters .chip[data-f]').forEach(b => b.onclick = () => {
   cirF = b.dataset.f;
-  document.querySelectorAll('#cir-filters .chip').forEach(x => x.setAttribute('aria-pressed', x === b));
+  document.querySelectorAll('#cir-filters .chip[data-f]').forEach(x => x.setAttribute('aria-pressed', x === b));
   renderCircoli();
 });
 
@@ -1209,7 +1291,7 @@ function segnaGiocato(id) {
   c.wish = !c.wish;
   c.segnatoAMano = !c.wish && !giri;
   paint(); renderSide(); renderCircoli(); aggiornaContatori(); renderStats();
-  if (TOKEN) salvaArchivio();
+  salvaTutto();
   openCampo(id);
 }
 function salvaCampo(id, k, v) {
@@ -1220,7 +1302,7 @@ function salvaCampo(id, k, v) {
     c.tee[colore] = c.tee[colore] || {};
     c.tee[colore][campo] = parseFloat(v) || null;
   } else c[k] = k === 'buche' || k === 'par' ? (parseInt(v, 10) || null) : v;
-  if (TOKEN) salvaArchivio();
+  salvaTutto();
 }
 function apriGiro(i) {
   const el = document.getElementById('giro-' + i);
@@ -1647,8 +1729,7 @@ function applicaTestata(data) {
   const segna = (t, v) => LETTI.push(t + ': ' + v);
   if (data.circolo) {
     const nc = nocciolo(data.circolo);
-    const hit = CLUBS.find(c => nocciolo(c.n) === nc)
-      || CLUBS.find(c => nc.length > 4 && (nocciolo(c.n).includes(nc) || nc.includes(nocciolo(c.n))));
+    const hit = CLUBS.find(c => nocciolo(c.n) === nc) || CLUBS.find(c => simile(nocciolo(c.n), nc));
     if (hit) { G.clubId = hit.id; segna('Circolo', hit.n); }
     else segna('Circolo non in elenco', data.circolo);
   }
@@ -1967,6 +2048,28 @@ async function primaSincronizzazione() {
     STATO_DRIVE = 'collegato'; ULTIMA_SYNC = new Date(); renderDrive();
   } catch (e) { STATO_DRIVE = 'errore'; ERRORE_DRIVE = e.message; renderDrive(); }
 }
+const CACHE = 'golfp-v1';
+function salvaLocale() {
+  try {
+    localStorage.setItem(CACHE, JSON.stringify({
+      v: 1, giocatore: ARCHIVIO.giocatore, giri: ARCHIVIO.giri,
+      circoli: CLUBS, sacca: SACCA, tema: document.body.dataset.tema || 'chiaro'
+    }));
+  } catch (e) {}
+}
+function caricaLocale() {
+  try {
+    const j = JSON.parse(localStorage.getItem(CACHE) || 'null');
+    if (!j || !j.circoli) return false;
+    if (j.tema) document.body.dataset.tema = j.tema;
+    Object.assign(ARCHIVIO.giocatore, j.giocatore || {});
+    ARCHIVIO.giri = j.giri || [];
+    CLUBS.length = 0; j.circoli.forEach(c => CLUBS.push(c));
+    SACCA.length = 0; (j.sacca || []).forEach(s => SACCA.push(s));
+    return true;
+  } catch (e) { return false; }
+}
+function salvaTutto() { salvaLocale(); if (TOKEN) salvaArchivio(); }
 async function salvaArchivio() {
   if (!TOKEN || !FILE_ID) return false;
   ARCHIVIO.aggiornato = new Date().toISOString();
@@ -2000,7 +2103,8 @@ async function salvaGiro(btn) {
     }
     ARCHIVIO.giri.push(giro);
     aggiornaCircoloDaGiro(giro);
-    const suDrive = await salvaArchivio();
+    salvaLocale();
+    const suDrive = TOKEN ? await salvaArchivio() : false;
     btn.textContent = suDrive ? 'Salvato su Drive ✓' : 'Salvato qui ✓';
     btn.style.background = suDrive ? 'var(--fair)' : 'var(--sand)';
     aggiornaContatori(); paint(); renderSide(); renderCircoli(); renderStats();
@@ -2046,7 +2150,7 @@ function renderDrive() {
   const on = document.getElementById('dr-on'), off = document.getElementById('dr-off'), sy = document.getElementById('dr-sync');
   if (on) on.onclick = driveCollega;
   if (off) off.onclick = driveScollega;
-  if (sy) sy.onclick = salvaArchivio;
+  if (sy) sy.onclick = salvaTutto;
 }
 
 /* ---------------- sacca ---------------- */
@@ -2160,11 +2264,11 @@ function renderSacca() {
   </div>` : ''}`;
 
   saccaImport();
-  const salva = () => { renderSacca(); if (TOKEN) salvaArchivio(); };
+  const salva = () => { renderSacca(); salvaTutto(); };
   document.querySelectorAll('#sacca-body [data-m]').forEach(inp => inp.onchange = () => {
     const m = SACCA[+inp.dataset.m], k = inp.dataset.k;
     m[k] = (k === 'med' || k === 'max') ? (parseInt(inp.value, 10) || null) : inp.value;
-    if (TOKEN) salvaArchivio();
+    salvaTutto();
   });
   document.querySelectorAll('#sacca-body [data-del]').forEach(b => b.onclick = () => {
     SACCA.splice(+b.dataset.del, 1); salva();
@@ -2275,7 +2379,7 @@ function renderStats() {
 }
 
 /* ---------------- profilo ---------------- */
-function salvaProfilo() { if (TOKEN) salvaArchivio(); aggiornaRail(); }
+function salvaProfilo() { salvaTutto(); aggiornaRail(); }
 function aggiornaRail() {
   const b = document.querySelector('.railfoot b'), p = document.querySelector('.railfoot');
   if (!b) return;
@@ -2402,11 +2506,12 @@ function azione(k) {
     ARCHIVIO.giri = [];
     CLUBS.forEach(c => { c.g = 0; c.b = 0; c.wish = true; });
     paint(); renderSide(); renderCircoli(); aggiornaContatori(); renderStats(); renderSacca(); renderProfilo();
-    if (TOKEN) salvaArchivio();
+    salvaTutto();
   }
 }
 
 /* ---------------- avvio ---------------- */
+caricaLocale();
 aggiornaContatori(); renderSide(); aggiornaRail();
 renderCircoli(); renderGiro(); renderSacca(); renderStats(); renderProfilo();
 document.getElementById('osm-title').textContent = CLUBS.length + ' circoli in elenco';
