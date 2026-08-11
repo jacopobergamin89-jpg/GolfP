@@ -4,6 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>GolfP — atlante dei circoli giocati</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#15201C">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="GolfP">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<link rel="icon" href="/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Antonio:wght@400;600;700&family=Archivo:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -324,6 +331,8 @@ body.no-side .sidetab{display:block}
 
 .mazza{display:grid;grid-template-columns:1.1fr 1.4fr 60px 78px 78px 34px;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--rule)}
 .mazza:last-of-type{border-bottom:0}
+.lnk{background:none;border:0;padding:0;font:inherit;font-size:inherit;color:var(--flag);text-decoration:underline;cursor:pointer}
+.mazza select{padding:8px 9px;border:1px solid var(--rule);border-radius:8px;background:var(--card);font:inherit;font-size:13px;width:100%}
 .mazza input{padding:8px 9px;border:1px solid var(--rule);border-radius:8px;background:var(--card);font:inherit;font-size:13px;width:100%}
 .mazza input:disabled{background:var(--soft);color:var(--ink-2)}
 .mazza .num{text-align:right;font-family:var(--mono)}
@@ -332,6 +341,27 @@ body.no-side .sidetab{display:block}
 .back{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--ink-3);margin-bottom:8px}
 .back:hover{color:var(--flag)}
 @media (max-width:720px){ .mazza{grid-template-columns:1fr 1fr 34px;gap:6px} .mazza-cap{display:none} }
+@media (max-width:720px){
+  /* le file di pulsanti scorrono invece di impilarsi su tre righe */
+  .chips{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;
+    scrollbar-width:none;padding-bottom:2px;margin-right:-16px;padding-right:16px}
+  .chips::-webkit-scrollbar{display:none}
+  .chips .chip{flex:0 0 auto}
+  /* dito, non puntatore: nessun bersaglio sotto i 44 px */
+  .btn,.chip,.iconbtn{min-height:44px}
+  .clubrow{padding-top:12px;padding-bottom:12px}
+  /* la riga della mazza: tipo e marca a tutta riga, i numeri sotto */
+  .mazza{grid-template-columns:1fr 1fr 34px;gap:8px 6px;padding:12px 0}
+  .mazza select,.mazza input[data-k="n"]{grid-column:1 / -1}
+  .mazza input{min-height:40px}
+  /* le due barre sulla mappa stanno una sopra l'altra e non coprono i comandi */
+  .osmbar{left:8px;right:8px;flex-wrap:wrap;gap:8px;padding:10px}
+  .osmbar .btn{flex:1 1 auto}
+  #geobar{bottom:96px}
+  /* la scheda del circolo non deve costringere a zoomare */
+  .kpi{grid-template-columns:repeat(2,1fr)}
+  .gap{grid-template-columns:84px 1fr 46px 34px;gap:7px;font-size:12px}
+}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 
 /* ============ VESTE NUOVA ============ */
@@ -459,7 +489,6 @@ h1,h2,h3{font-family:var(--disp);font-weight:800;letter-spacing:-.03em;text-tran
   animation:vola var(--d) cubic-bezier(.15,.7,.4,1) forwards}
 @keyframes vola{from{opacity:1;transform:translate(-50%,-50%) rotate(0)}
   to{opacity:0;transform:translate(calc(-50% + var(--x)),calc(-50% + var(--y))) rotate(var(--r))}}
-@media (max-width:760px){ .rail{width:100%;flex:none} }
 
 </style>
 </head>
@@ -535,6 +564,7 @@ h1,h2,h3{font-family:var(--disp);font-weight:800;letter-spacing:-.03em;text-tran
         <div class="chips" id="cir-filters">
           <button class="chip" id="cir-elenco" style="background:var(--lime);color:var(--deep)">🏴 Elenco circoli</button>
           <button class="chip" id="cir-percorsi" aria-pressed="false">⛳ Solo percorsi</button>
+          <button class="chip" data-f="daposizionare" aria-pressed="false">⌖ Da posizionare</button>
           <button class="chip" id="cir-import">↥ Importa elenco</button>
           <button class="chip" data-f="tutti" aria-pressed="true">Tutti</button>
           <button class="chip" data-f="giocati" aria-pressed="false">Giocati</button>
@@ -1383,6 +1413,7 @@ function importaElenco() {
   vociElenco().forEach(v => {
     /* i campi pratica senza percorso non entrano in elenco: questa app conta i giri */
     if (v.buche === 0) { saltati++; return; }
+    if ((ARCHIVIO.cancellati || []).some(n => nocciolo(n) === nocciolo(v.nome))) return;
     const reg = v.prov ? v.reg + '/' + v.prov : v.reg;
     const paese = v.reg === 'San Marino' ? 'San Marino' : 'Italia';
     const nc = nocciolo(v.nome);
@@ -1420,16 +1451,26 @@ function importaElenco() {
    Gira una volta sola: ogni circolo trovato viene marcato e non si richiede più.
    Se chiudi a metà, riprende da dove era rimasto. Un colpo al secondo, come chiede
    il servizio, che è pubblico e gratuito. --- */
-const GEOVERSIONE = 1;
+/* Versione della logica di ricerca. Quando migliora — come ora, che ai circoli
+   introvabili per via si prova anche col nome — chi era stato scartato prima
+   torna in coda: sarebbe assurdo condannarlo per un tentativo che non gli era
+   nemmeno stato fatto. Chi invece è già stato posizionato non si tocca. */
+const GEOVERSIONE = 2;
+function riapriScartati() {
+  if (ARCHIVIO.geoLogica === GEOVERSIONE) return 0;
+  let n = 0;
+  CLUBS.forEach(c => { if (c.geoVuoto) { delete c.geoVuoto; n++; } });
+  ARCHIVIO.geoLogica = GEOVERSIONE;
+  if (ARCHIVIO.geo && n) ARCHIVIO.geo = null;   // c'è di nuovo qualcosa da cercare
+  salvaLocale();
+  return n;
+}
 let GEOINCORSO = false, GEOFERMA = false;
 const attesa = ms => new Promise(r => setTimeout(r, ms));
 function daTrovare() {
-  return CLUBS.filter(c => c.via && c.daPosizionare && !c.geo && !c.geoVuoto);
+  return CLUBS.filter(c => (c.via || c.l) && c.daPosizionare && !c.geo && !c.geoVuoto);
 }
-async function unIndirizzo(c) {
-  const comune = (c.l || '').replace(/\s*\([A-Z]{2}\)\s*$/, '').trim();
-  const p = new URLSearchParams({ format: 'json', limit: '1', countrycodes: 'it',
-    street: c.via, city: comune, postalcode: c.cap || '' });
+async function chiedi(p, c) {
   const r = await fetch(NOMINATIM + '?' + p, { headers: { 'Accept': 'application/json' } });
   if (!r.ok) throw new Error('risposta ' + r.status);
   const j = await r.json();
@@ -1439,6 +1480,25 @@ async function unIndirizzo(c) {
   // sanità: se il risultato è lontano dal comune non è il posto giusto
   if (km(c.lat, c.lon, lat, lon) > 25) return null;
   return [lat, lon];
+}
+async function unIndirizzo(c) {
+  const comune = (c.l || '').replace(/\s*\([A-Z]{2}\)\s*$/, '').trim();
+  // primo tentativo: l'indirizzo, campo per campo
+  if (c.via) {
+    const p = new URLSearchParams({ format: 'json', limit: '1', countrycodes: 'it',
+      street: c.via, city: comune, postalcode: c.cap || '' });
+    const r = await chiedi(p, c);
+    if (r) { r.da = 'via'; return r; }
+    await attesa(1200);
+  }
+  // secondo tentativo: il nome del circolo. Le vie di campagna spesso non esistono
+  // negli archivi, il campo da golf sì.
+  const nome = /golf/i.test(c.n) ? c.n : c.n + ' golf';
+  const p2 = new URLSearchParams({ format: 'json', limit: '1', countrycodes: 'it',
+    q: [nome, comune].filter(Boolean).join(', ') });
+  const r2 = await chiedi(p2, c);
+  if (r2) r2.da = 'nome';
+  return r2;
 }
 const BLOCCO = 40;
 function aggiornaGeoBar() {
@@ -1467,7 +1527,11 @@ async function trovaPosizioni() {
     if (GEOFERMA) break;
     try {
       const pos = await unIndirizzo(c);
-      if (pos) { c.lat = pos[0]; c.lon = pos[1]; c.geo = 'indirizzo'; delete c.daPosizionare; fatti++; }
+      if (pos) {
+        c.geoPrima = c.geoPrima || [c.lat, c.lon];   // il comune, per tornare indietro se sbaglia
+        c.lat = pos[0]; c.lon = pos[1]; c.geo = pos.da || 'indirizzo';
+        delete c.daPosizionare; fatti++;
+      }
       else { c.geoVuoto = true; vuoti++; }
       errori = 0;
     } catch (e) {
@@ -1706,7 +1770,9 @@ function flagSvg(wish) {
 function clubRow(c) {
   return `<div class="clubrow" data-club="${c.id}" data-vai="${c.id}">
     <div class="fl">${flagSvg(c.wish)}</div>
-    <div><div class="nm">${c.n}${c.chiuso ? ' <span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);border:1px solid var(--rule);border-radius:4px;padding:1px 5px;vertical-align:middle">chiuso</span>' : ''}</div><div class="mt">${[c.l, c.buche ? c.buche + ' buche' : '', c.p !== 'Italia' ? c.p : ''].filter(Boolean).join(' · ')}</div></div>
+    <div><div class="nm">${c.n}${c.chiuso ? ' <span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);border:1px solid var(--rule);border-radius:4px;padding:1px 5px;vertical-align:middle">chiuso</span>' : ''}</div><div class="mt">${[c.l, c.buche ? c.buche + ' buche' : '', c.p !== 'Italia' ? c.p : '',
+      c.daPosizionare ? (c.geoVuoto ? 'da posizionare a mano' : c.via ? 'posizione da rifinire' : 'senza indirizzo')
+        : c.geo ? 'posizione dal ' + (c.geo === 'nome' ? 'nome' : "l'indirizzo") : ''].filter(Boolean).join(' · ')}</div></div>
     <div class="sc">${c.wish ? '<span style="color:var(--sand)">In lista</span>'
       : (() => { const gg = giriDi(c.id);
           return gg.length ? `<b>${Math.min(...gg.map(g => g.totali.lordo))}</b><span>${gg.length} gir${gg.length === 1 ? 'o' : 'i'}</span>`
@@ -1730,6 +1796,9 @@ function renderSide() {
         </div>
         ${s.note ? `<p style="font-size:12.5px;color:var(--ink-2);margin:0 0 12px">${s.note}</p>` : ''}
         ${s.chiuso ? `<p class="hint" style="margin:0 0 8px">Risulta chiuso: ${s.chiuso}.</p>` : ''}
+        ${s.geo && !s.posizioneCorretta ? `<p class="hint" style="margin:0 0 8px">Segnaposto trovato ${
+          s.geo === 'nome' ? 'cercando il nome del circolo' : "dall'indirizzo"}, non verificato.
+          <button class="lnk" data-nonqui="${s.id}">Non è qui</button></p>` : ''}
         ${s.daPosizionare ? `<p class="hint" style="margin:0 0 8px">${s.l ? 'Segnaposto sul centro del comune, non sulla club house.' : 'Posizione ancora sconosciuta.'} Importa da OpenStreetMap per la posizione esatta, oppure premi ⌖ e tocca la club house sulla mappa.</p>` : ''}
         <div style="display:flex;gap:8px">
           <button class="btn" style="flex:1;justify-content:center" data-open="${s.id}">Apri scheda</button>
@@ -1787,11 +1856,45 @@ function aggiornaContatori() {
 
 /* --- comandi --- */
 document.addEventListener('click', e => {
+  const nq = e.target.closest('[data-nonqui]');
+  if (nq) { e.stopPropagation(); nonEQui(+nq.dataset.nonqui); return; }
   const o = e.target.closest('[data-open]');
   if (o) { openCampo(+o.dataset.open); return; }
   const v = e.target.closest('[data-vai]');
   if (v) { const id = +v.dataset.vai; go('mappa'); setTimeout(() => { if (MAP) MAP.resize(); select(id); }, 60); }
 });
+/* "Non è qui": annulla una posizione trovata in automatico. Torna sul comune,
+   rimette il punto interrogativo e non la ricerca più: se il servizio ha già
+   sbagliato una volta, rifarglielo fare darebbe lo stesso risultato. */
+function nonEQui(id) {
+  const c = CLUBS[id]; if (!c) return;
+  if (c.geoPrima) { c.lat = c.geoPrima[0]; c.lon = c.geoPrima[1]; }
+  delete c.geo; delete c.geoPrima;
+  c.daPosizionare = true; c.geoVuoto = true;
+  salvaTutto(); paint(); renderSide(); renderCircoli(); aggiornaGeoBar();
+}
+/* Eliminare un circolo. Il nome finisce in un elenco di cancellati, altrimenti
+   il prossimo import lo rimetterebbe dentro. Se ci sono giri registrati non si
+   cancella: perderesti i punteggi insieme al circolo. */
+function eliminaCircolo(id) {
+  const c = CLUBS[id]; if (!c) return;
+  const gg = giriDi(id);
+  if (gg.length) {
+    alert(`${c.n} ha ${gg.length} gir${gg.length === 1 ? 'o' : 'i'} registrat${gg.length === 1 ? 'o' : 'i'}. `
+      + 'Cancella prima quelli, dal Profilo, altrimenti perderesti i punteggi.');
+    return;
+  }
+  if (!confirm(`Elimino ${c.n} dall'elenco?\n\nNon tornerà con i prossimi import.`)) return;
+  ARCHIVIO.cancellati = ARCHIVIO.cancellati || [];
+  if (!ARCHIVIO.cancellati.includes(c.n)) ARCHIVIO.cancellati.push(c.n);
+  CLUBS.splice(id, 1);
+  CLUBS.forEach((x, i) => x.id = i);          // gli id sono posizioni: vanno rinumerati
+  if (sel === id) sel = null; else if (sel > id) sel--;
+  ARCHIVIO.giri.forEach(g => { if (g.circolo && g.circolo.id > id) g.circolo.id--; });
+  salvaTutto();
+  paint(); renderSide(); renderCircoli(); aggiornaContatori(); aggiornaGeoBar();
+  go('circoli');
+}
 function setFilter(key, btn) { filt[key] = !filt[key]; btn.setAttribute('aria-pressed', filt[key]); paint(); renderSide(); }
 document.getElementById('f-played').onclick = e => setFilter('played', e.currentTarget);
 document.getElementById('f-wish').onclick = e => setFilter('wish', e.currentTarget);
@@ -1847,6 +1950,7 @@ function renderCircoli() {
   const q = (document.getElementById('cir-search').value || '').toLowerCase();
   let list = CLUBS.filter(c => {
     if (!passaFiltri(c)) return false;
+    if (cirF === 'daposizionare' && !c.daPosizionare) return false;
     if (cirF === 'giocati' && c.wish) return false;
     if (cirF === 'lista' && !c.wish) return false;
     if (cirF === 'italia' && c.p !== 'Italia') return false;
@@ -1961,6 +2065,8 @@ function openCampo(id) {
   }
   document.getElementById('campo-body').innerHTML = `
   <div style="display:flex;gap:9px;flex-wrap:wrap;margin-bottom:16px">
+    <button class="btn ghost" onclick="eliminaCircolo(${id})" title="Togli dall'elenco"
+      style="color:var(--flag)">🗑 Elimina</button>
     <button class="btn ${c.wish ? '' : 'ghost'}" onclick="segnaGiocato(${id})">
       ${c.wish ? '✓ Segna come giocato' : '✓ Giocato — togli la spunta'}</button>
     <button class="btn red" onclick="G.clubId=${id};G.step=0;renderGiro();go('giro')">+ Registra un giro</button>
@@ -2688,7 +2794,7 @@ const NOME_FILE = 'golfp.json', NOME_CARTELLA = 'GolfP';
 
 let TOKEN = null, tokenClient = null, FILE_ID = null, CARTELLA_ID = null,
     ULTIMA_SYNC = null, STATO_DRIVE = 'scollegato', ERRORE_DRIVE = null;
-const ARCHIVIO = { versione: 1, aggiornato: null, elenco: null, geo: null, giocatore: {}, giri: [], bozze: [], circoli: [], sacca: [] };
+const ARCHIVIO = { versione: 1, aggiornato: null, elenco: null, geo: null, geoLogica: null, cancellati: [], giocatore: {}, giri: [], bozze: [], circoli: [], sacca: [] };
 
 async function driveInit() {
   if (tokenClient) return true;
@@ -2765,7 +2871,7 @@ const CACHE = 'golfp-v1';
 function salvaLocale() {
   try {
     localStorage.setItem(CACHE, JSON.stringify({
-      v: 1, elenco: ARCHIVIO.elenco, geo: ARCHIVIO.geo, giocatore: ARCHIVIO.giocatore, giri: ARCHIVIO.giri, bozze: ARCHIVIO.bozze,
+      v: 1, elenco: ARCHIVIO.elenco, geo: ARCHIVIO.geo, geoLogica: ARCHIVIO.geoLogica, cancellati: ARCHIVIO.cancellati, giocatore: ARCHIVIO.giocatore, giri: ARCHIVIO.giri, bozze: ARCHIVIO.bozze,
       circoli: CLUBS, sacca: SACCA, tema: document.body.dataset.tema || 'chiaro'
     }));
   } catch (e) {}
@@ -2780,6 +2886,8 @@ function caricaLocale() {
     ARCHIVIO.bozze = j.bozze || [];
     ARCHIVIO.elenco = j.elenco || null;
     ARCHIVIO.geo = j.geo || null;
+    ARCHIVIO.geoLogica = j.geoLogica || null;
+    ARCHIVIO.cancellati = j.cancellati || [];
     CLUBS.length = 0; j.circoli.forEach(c => CLUBS.push(c));
     SACCA.length = 0; (j.sacca || []).forEach(s => SACCA.push(s));
     return true;
@@ -2875,12 +2983,33 @@ function renderDrive() {
 
 /* ---------------- sacca ---------------- */
 const SACCA = [];
-const SET_BASE = [
-  ["Driver", "", "10.5°"], ["Legno 3", "", "15°"], ["Ibrido 4", "", "22°"],
-  ["Ferro 5", "", "24°"], ["Ferro 6", "", "27°"], ["Ferro 7", "", "30°"],
-  ["Ferro 8", "", "34°"], ["Ferro 9", "", "38°"], ["Pitching wedge", "", "44°"],
-  ["Gap wedge", "", "50°"], ["Sand wedge", "", "56°"], ["Lob wedge", "", "60°"], ["Putter", "", ""]
+/* i tipi di mazza fra cui scegliere. Il loft è quello tipico del tipo, non del tuo
+   modello: è solo un punto di partenza, la casella resta modificabile. */
+const TIPI_MAZZA = [
+  ["Legni", ["Driver", "Legno 3", "Legno 4", "Legno 5", "Legno 7", "Legno 9"]],
+  ["Ibridi", ["Ibrido 2", "Ibrido 3", "Ibrido 4", "Ibrido 5", "Ibrido 6", "Ibrido 7"]],
+  ["Ferri", ["Ferro 2", "Ferro 3", "Ferro 4", "Ferro 5", "Ferro 6", "Ferro 7", "Ferro 8", "Ferro 9"]],
+  ["Wedge", ["Pitching wedge", "Gap wedge", "Sand wedge", "Lob wedge"]],
+  ["Altro", ["Putter", "Chipper", "Driving iron"]]
 ];
+const LOFT_TIPICO = {
+  "Driver": "10.5°", "Legno 3": "15°", "Legno 4": "16.5°", "Legno 5": "18°", "Legno 7": "21°", "Legno 9": "24°",
+  "Ibrido 2": "17°", "Ibrido 3": "19°", "Ibrido 4": "22°", "Ibrido 5": "25°", "Ibrido 6": "28°", "Ibrido 7": "31°",
+  "Ferro 2": "18°", "Ferro 3": "20°", "Ferro 4": "22°", "Ferro 5": "24°", "Ferro 6": "27°", "Ferro 7": "30°",
+  "Ferro 8": "34°", "Ferro 9": "38°", "Pitching wedge": "44°", "Gap wedge": "50°",
+  "Sand wedge": "56°", "Lob wedge": "60°", "Driving iron": "18°", "Chipper": "37°", "Putter": ""
+};
+function opzioniMazza(scelta) {
+  const dentro = TIPI_MAZZA.some(g => g[1].includes(scelta));
+  return `<option value=""${scelta ? '' : ' selected'}>— scegli —</option>`
+    + TIPI_MAZZA.map(([g, v]) => `<optgroup label="${g}">`
+        + v.map(t => `<option${t === scelta ? ' selected' : ''}>${t}</option>`).join('')
+        + `</optgroup>`).join('')
+    + (scelta && !dentro ? `<option selected>${scelta}</option>` : '');
+}
+const SET_BASE = ["Driver", "Legno 3", "Ibrido 4", "Ferro 5", "Ferro 6", "Ferro 7",
+  "Ferro 8", "Ferro 9", "Pitching wedge", "Gap wedge", "Sand wedge", "Lob wedge", "Putter"]
+  .map(t => [t, "", LOFT_TIPICO[t] || ""]);
 const inSacca = () => SACCA.filter(s => s.in !== 0);
 
 /* --- numeri veri, presi dai giri salvati --- */
@@ -2959,9 +3088,9 @@ function renderSacca() {
     ${SACCA.map((m, i) => {
       const d = distanze(m);
       return `<div class="mazza">
-        <input value="${m.t || ''}" data-m="${i}" data-k="t" placeholder="Ferro 7">
+        <select data-m="${i}" data-k="t">${opzioniMazza(m.t || '')}</select>
         <input value="${m.n || ''}" data-m="${i}" data-k="n" placeholder="Titleist T200">
-        <input value="${m.loft || ''}" data-m="${i}" data-k="loft" placeholder="30°">
+        <input value="${m.loft || ''}" data-m="${i}" data-k="loft" placeholder="${LOFT_TIPICO[m.t] || '—'}">
         <input class="num" value="${d.n ? d.med : (m.med || '')}" data-m="${i}" data-k="med" placeholder="—" ${d.n ? 'disabled title="calcolata dai giri"' : ''}>
         <input class="num" value="${d.n ? d.max : (m.max || '')}" data-m="${i}" data-k="max" placeholder="—" ${d.n ? 'disabled title="calcolata dai giri"' : ''}>
         <button class="iconbtn" data-del="${i}" aria-label="Togli la mazza">×</button>
@@ -2988,6 +3117,9 @@ function renderSacca() {
   document.querySelectorAll('#sacca-body [data-m]').forEach(inp => inp.onchange = () => {
     const m = SACCA[+inp.dataset.m], k = inp.dataset.k;
     m[k] = (k === 'med' || k === 'max') ? (parseInt(inp.value, 10) || null) : inp.value;
+    // scelto il tipo, propongo il loft tipico: solo se non ne hai già messo uno tuo
+    if (k === 't' && !m.loft && LOFT_TIPICO[m.t]) m.loft = LOFT_TIPICO[m.t];
+    if (k === 't') { renderSacca(); salvaTutto(); return; }
     salvaTutto();
   });
   document.querySelectorAll('#sacca-body [data-del]').forEach(b => b.onclick = () => {
@@ -3168,6 +3300,17 @@ function renderProfilo() {
     <p class="hint">Pubblicata l'app, la chiave Gemini sta sul server e questo campo resta vuoto.</p>
   </div>
 
+  <div class="card" id="installa" style="padding:16px;margin-bottom:16px;display:none">
+    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+      <img src="/icon-192.png" alt="" width="44" height="44" style="border-radius:12px">
+      <div style="flex:1;min-width:180px">
+        <b style="display:block">Installa GolfP sul telefono</b>
+        <span class="lbl" id="installa-come">Si apre a schermo intero e funziona anche senza rete.</span>
+      </div>
+      <button class="btn red" id="installa-go">Installa</button>
+    </div>
+  </div>
+
   <h3 style="font-size:16px;margin:26px 0 10px">Dati</h3>
   <div class="card" style="padding:4px 14px">
     ${[['circoli', 'Salva l\'elenco circoli su Drive', `${CLUBS.length} circoli con indirizzo e posizione, come foglio di calcolo`],
@@ -3301,13 +3444,44 @@ function elencoAutomatico() {
   return r;
 }
 
+/* --- installazione sul telefono --- */
+let INVITO = null;
+addEventListener('beforeinstallprompt', e => { e.preventDefault(); INVITO = e; mostraInstalla(); });
+addEventListener('appinstalled', () => { INVITO = null; mostraInstalla(); });
+const giaApp = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+const suApple = () => /iPad|iPhone|iPod/.test(navigator.userAgent)
+  || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+function mostraInstalla() {
+  const box = document.getElementById('installa'); if (!box) return;
+  if (giaApp()) { box.style.display = 'none'; return; }
+  const go = document.getElementById('installa-go'), come = document.getElementById('installa-come');
+  if (INVITO) {
+    box.style.display = 'block'; go.style.display = '';
+    come.textContent = 'Si apre a schermo intero e funziona anche senza rete.';
+    go.onclick = async () => { INVITO.prompt(); await INVITO.userChoice; INVITO = null; mostraInstalla(); };
+    return;
+  }
+  if (suApple()) {
+    // su iPhone il pulsante non esiste: Safari non lo prevede, si passa da Condividi
+    box.style.display = 'block'; go.style.display = 'none';
+    come.textContent = 'Su iPhone: premi Condividi ⬆ in fondo a Safari, poi "Aggiungi a Home".';
+    return;
+  }
+  box.style.display = 'none';
+}
+if ('serviceWorker' in navigator) {
+  addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
+}
+
 /* ---------------- avvio ---------------- */
 caricaLocale();
 elencoAutomatico();
 applicaIndirizzi();
+riapriScartati();
 aggiornaGeoBar();
 aggiornaContatori(); renderSide(); aggiornaRail();
 renderCircoli(); renderGiro(); renderSacca(); renderStats(); renderProfilo();
+mostraInstalla();
 document.getElementById('osm-title').textContent = CLUBS.length + ' circoli in elenco';
 const kin = document.getElementById('k-maptiler');
 if (kin) kin.onchange = () => setKey(kin.value);
