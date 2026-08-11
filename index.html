@@ -13,6 +13,7 @@
   --paper:#EDEAE0; --card:#FBFAF4; --rule:#D5D0BF;
   --sea:#17231F; --sea-2:#1E2C27; --land:#E4DFCE; --land-2:#CFC8B0;
   --flag:#CF3A2A; --fair:#1E5C3E; --sand:#C08A1E;
+  --soft:var(--soft); --hover:var(--hover); --ok:var(--ok); --okline:var(--okline);
   --r:10px;
   --disp:"Antonio","Haettenschweiler","Arial Narrow",sans-serif;
   --body:"Archivo",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
@@ -38,7 +39,7 @@ h1,h2,h3{margin:0;font-family:var(--disp);font-weight:600;letter-spacing:.01em;t
 .navbtn{display:flex;align-items:center;gap:11px;width:100%;padding:9px 10px;border-radius:8px;
   font-size:13px;letter-spacing:.03em;color:var(--ink-2);text-align:left;margin-bottom:2px}
 .navbtn i{width:20px;display:grid;place-items:center;opacity:.75}
-.navbtn:hover{background:#F0EDE2}
+.navbtn:hover{background:var(--hover)}
 .navbtn[aria-current="true"]{background:var(--ink);color:#F6F4EC}
 .navbtn[aria-current="true"] i{opacity:1}
 .railfoot{margin-top:auto;padding:12px 8px 0;border-top:1px solid var(--rule);font-size:11px;color:var(--ink-3)}
@@ -75,7 +76,7 @@ main{flex:1;min-width:0;position:relative;overflow:hidden}
 #s-mappa{overflow:hidden}
 .maphead{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:11px 18px;border-bottom:1px solid var(--rule);background:var(--paper)}
 .maphead input{padding:8px 11px}
-.segs{display:flex;gap:3px;background:#E5E1D4;padding:3px;border-radius:8px}
+.segs{display:flex;gap:3px;background:var(--soft);padding:3px;border-radius:8px}
 .segs button{padding:6px 12px;border-radius:6px;font-size:12.5px;color:var(--ink-2)}
 .segs button[aria-pressed="true"]{background:var(--card);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.09)}
 .counts{margin-left:auto;display:flex;gap:18px}
@@ -104,7 +105,7 @@ main{flex:1;min-width:0;position:relative;overflow:hidden}
 .side{width:330px;flex:0 0 330px;border-left:1px solid var(--rule);background:var(--card);overflow-y:auto;padding:16px}
 .side h3{font-size:16px;margin-bottom:2px}
 .clubrow{display:flex;gap:11px;align-items:flex-start;padding:11px 8px;border-radius:8px;cursor:pointer;border-bottom:1px solid var(--rule)}
-.clubrow:hover{background:#F2EFE4}
+.clubrow:hover{background:var(--hover)}
 .clubrow .fl{flex:0 0 14px;margin-top:3px}
 .clubrow .nm{font-weight:600;font-size:13.5px;line-height:1.25}
 .clubrow .mt{font-size:11.5px;color:var(--ink-3);margin-top:2px}
@@ -121,9 +122,9 @@ table.sc{border-collapse:collapse;width:100%;min-width:660px;font-family:var(--m
 table.sc th,table.sc td{border:1px solid var(--rule);padding:6px 0;text-align:center;width:4.6%}
 table.sc th:first-child,table.sc td:first-child{width:12%;text-align:left;padding-left:10px;font-family:var(--body);
   font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);white-space:nowrap}
-table.sc thead th{background:#F1EEE3;font-weight:500;color:var(--ink-2)}
+table.sc thead th{background:var(--soft);font-weight:500;color:var(--ink-2)}
 table.sc tr.par td{color:var(--ink-3)}
-table.sc td.tot{background:#F1EEE3;font-weight:600;width:6%}
+table.sc td.tot{background:var(--soft);font-weight:600;width:6%}
 .sh{display:inline-grid;place-items:center;width:22px;height:22px;font-size:12.5px}
 .sh.b{border:1.5px solid var(--flag);border-radius:50%}
 .sh.e{border:1.5px solid var(--flag);border-radius:50%;box-shadow:0 0 0 3px var(--card),0 0 0 4.5px var(--flag)}
@@ -136,7 +137,7 @@ table.sc td.tot{background:#F1EEE3;font-weight:600;width:6%}
 .kpi .big{margin:6px 0 3px}
 .delta{font-size:11.5px;font-family:var(--mono)}
 .delta.up{color:var(--fair)} .delta.dn{color:var(--flag)}
-.bar{height:9px;background:#E3DFD1;border-radius:100px;overflow:hidden}
+.bar{height:9px;background:var(--soft);border-radius:100px;overflow:hidden}
 .bar i{display:block;height:100%;background:var(--fair);border-radius:100px}
 .hist{display:flex;align-items:flex-end;gap:6px;height:120px}
 .hist div{flex:1;background:var(--land-2);border-radius:3px 3px 0 0;position:relative}
@@ -193,11 +194,11 @@ table.sc td.tot{background:#F1EEE3;font-weight:600;width:6%}
   .big{font-size:29px}
 }
 
-.modebar{display:flex;gap:4px;background:#E5E1D4;padding:4px;border-radius:10px;margin-bottom:16px;width:fit-content;flex-wrap:wrap}
+.modebar{display:flex;gap:4px;background:var(--soft);padding:4px;border-radius:10px;margin-bottom:16px;width:fit-content;flex-wrap:wrap}
 .modebar button{padding:8px 14px;border-radius:7px;font-size:13px;color:var(--ink-2)}
 .modebar button[aria-pressed="true"]{background:var(--card);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.09)}
 .drop{display:grid;place-items:center;gap:6px;padding:38px 20px;border:1.5px dashed var(--rule);border-radius:var(--r);background:var(--card);text-align:center;cursor:pointer}
-.drop:hover{border-color:var(--flag);background:#FDFBF3}
+.drop:hover{border-color:var(--flag);background:var(--hover)}
 .drop .dropico{font-size:26px;color:var(--flag)}
 .drop span{font-size:12.5px;color:var(--ink-3);max-width:340px}
 .thumb{width:74px;height:56px;object-fit:cover;border-radius:6px;border:1px solid var(--rule)}
@@ -210,7 +211,7 @@ input.mini{width:64px;padding:6px 8px;border:1px solid var(--rule);border-radius
 .wiz{display:flex;gap:6px;margin-bottom:18px;flex-wrap:wrap}
 .wiz button{display:flex;align-items:center;gap:8px;padding:9px 14px;border:1px solid var(--rule);border-radius:100px;
   font-size:13px;color:var(--ink-3);background:var(--card)}
-.wiz button b{width:19px;height:19px;border-radius:50%;background:#E3DFD1;color:var(--ink-2);font-family:var(--mono);
+.wiz button b{width:19px;height:19px;border-radius:50%;background:var(--soft);color:var(--ink-2);font-family:var(--mono);
   font-size:11px;display:grid;place-items:center;font-weight:500}
 .wiz button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:#F6F4EC}
 .wiz button[aria-pressed="true"] b{background:var(--flag);color:#fff}
@@ -221,7 +222,7 @@ input.mini{width:64px;padding:6px 8px;border:1px solid var(--rule);border-radius
 .dots{display:flex;gap:3px;margin-bottom:14px;flex-wrap:wrap}
 .dots .dot{flex:1;min-width:22px;height:26px;border:1px solid var(--rule);border-radius:6px;background:var(--card);
   font-family:var(--mono);font-size:10.5px;color:var(--ink-3)}
-.dots .dot.ok{background:#E6EFE7;border-color:#BFD4C3;color:var(--fair)}
+.dots .dot.ok{background:var(--ok);border-color:var(--okline);color:var(--fair)}
 .dots .dot.cur{border-color:var(--flag);border-width:2px;color:var(--flag)}
 .holecard{padding:18px 16px}
 .holecard .hh{display:flex;align-items:center;gap:16px;margin-bottom:10px;flex-wrap:wrap}
@@ -255,7 +256,7 @@ pre.json{background:#15201C;color:#CFE3D4;border-radius:8px;padding:12px;font-fa
 
 .gap{display:grid;grid-template-columns:110px 1fr 56px 40px;align-items:center;gap:10px;margin-bottom:7px;font-size:12.5px}
 .gap .gt{color:var(--ink-2)}
-.gap .gbar{position:relative;height:14px;background:#E3DFD1;border-radius:100px}
+.gap .gbar{position:relative;height:14px;background:var(--soft);border-radius:100px}
 .gap .gbar i{display:block;height:100%;background:var(--fair);border-radius:100px}
 .gap .gbar u{position:absolute;top:-3px;width:2px;height:20px;background:var(--flag);border-radius:2px}
 .gap .gm{text-align:right;font-size:14px}
@@ -277,10 +278,51 @@ table.diff td.num,table.diff th:not(:first-child){text-align:right}
 table.diff td:not(:first-child){text-align:right;font-family:var(--mono)}
 table.diff tr.new td:first-child{color:var(--sand)}
 
+
+body[data-tema="chiaro"]{
+  --ink:#0E1512; --ink-2:#4C5A54; --ink-3:#8A968F;
+  --paper:#F1F3F0; --card:#FFFFFF; --rule:#DFE4DF;
+  --soft:#E9EDE9; --hover:#F3F6F2; --ok:#E4F1EA; --okline:#B9DCC8;
+  --flag:#C7443A; --fair:#0F7B52; --sand:#C98A1A;
+}
+body[data-tema="notte"]{
+  --ink:#EAEFEB; --ink-2:#A6B2AC; --ink-3:#78847E;
+  --paper:#11171A; --card:#192024; --rule:#2A3339;
+  --soft:#222B31; --hover:#222C31; --ok:#1B3A2C; --okline:#2E5C45;
+  --flag:#F0655A; --fair:#4FD99B; --sand:#E2AC4A;
+}
+body[data-tema="notte"] .btn{background:var(--fair);color:#0B1113}
+body[data-tema="notte"] .btn.red{background:var(--flag);color:#160B0A}
+body[data-tema="notte"] .btn.ghost{background:none;color:var(--ink)}
+body[data-tema="notte"] .navbtn[aria-current="true"]{background:var(--fair);color:#0B1113}
+body[data-tema="notte"] .chip[aria-pressed="true"]{background:var(--fair);border-color:var(--fair);color:#0B1113}
+body[data-tema="notte"] .segs button[aria-pressed="true"],
+body[data-tema="notte"] .modebar button[aria-pressed="true"]{background:var(--card);color:var(--ink)}
+body[data-tema="notte"] .wiz button[aria-pressed="true"]{background:var(--fair);color:#0B1113}
+body[data-tema="notte"] .mini-st button.on{background:var(--fair);color:#0B1113}
+body[data-tema="notte"] pre.json{background:#0C1114}
+body[data-tema="notte"] .maplibregl-popup-content{background:var(--card)!important;color:var(--ink)!important}
+
+/* pannelli richiudibili */
+body.no-rail .rail{display:none}
+body.no-side .side{display:none}
+.railtoggle{position:absolute;left:0;top:0;z-index:6}
+.iconbtn{width:32px;height:32px;border:1px solid var(--rule);border-radius:8px;background:var(--card);
+  display:grid;place-items:center;font-size:15px;color:var(--ink-2);flex:none}
+.iconbtn:hover{border-color:var(--flag);color:var(--flag)}
+.sidehead{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.sidetab{display:none;position:absolute;right:0;top:50%;transform:translateY(-50%);z-index:4;
+  width:26px;height:64px;border-radius:8px 0 0 8px;border:1px solid var(--rule);border-right:0;
+  background:var(--card);color:var(--ink-2);font-size:13px}
+body.no-side .sidetab{display:block}
+.mapwrap.mira{cursor:crosshair}
+.mira-nota{position:absolute;left:50%;top:14px;transform:translateX(-50%);z-index:6;background:var(--flag);
+  color:#fff;border-radius:100px;padding:8px 16px;font-size:12.5px;box-shadow:0 4px 14px rgba(0,0,0,.25)}
+
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
-<body>
+<body data-tema="chiaro">
 <div class="app">
   <aside class="rail">
     <div class="mark">
@@ -299,7 +341,8 @@ table.diff tr.new td:first-child{color:var(--sand)}
     <!-- ============ MAPPA ============ -->
     <section class="screen on" id="s-mappa">
       <div class="maphead">
-        <div class="field" style="margin:0;flex:0 0 200px"><input id="m-search" type="search" placeholder="Cerca un circolo…"></div>
+        <button class="iconbtn" id="t-rail" aria-label="Nascondi o mostra il menu">☰</button>
+        <div class="field" style="margin:0;flex:1 1 160px;max-width:220px"><input id="m-search" type="search" placeholder="Cerca un circolo…"></div>
         <div class="chips">
           <button class="chip red" id="f-played" aria-pressed="true">Giocati</button>
           <button class="chip ochre" id="f-wish" aria-pressed="true">Da giocare</button>
@@ -323,6 +366,7 @@ table.diff tr.new td:first-child{color:var(--sand)}
             <button id="z-in" aria-label="Ingrandisci">+</button>
             <button id="z-out" aria-label="Riduci">−</button>
           </div>
+          <button class="sidetab" id="t-sideopen" aria-label="Mostra l'elenco">‹</button>
           <div class="osmbar" id="osmbar">
             <div>
               <b id="osm-title">Elenco parziale</b>
@@ -630,6 +674,13 @@ function addLayers() {
     });
     MAP.on('mouseleave', id, () => { MAP.getCanvas().style.cursor = ''; if (popup) popup.remove(); });
   });
+  MAP.on('click', e => {
+    if (MIRA == null) return;
+    const c = CLUBS[MIRA];
+    c.lat = e.lngLat.lat; c.lon = e.lngLat.lng; c.posizioneCorretta = true;
+    fineMira(); paint(); renderSide();
+    if (TOKEN) salvaArchivio();
+  });
   MAP.on('moveend', renderSide);
   renderSide();
 }
@@ -659,48 +710,92 @@ function setKey(k) {
 }
 
 /* --- import da OpenStreetMap --- */
-const OVERPASS = "https://overpass-api.de/api/interpreter";
+const SPECCHI = [
+  "https://overpass-api.de/api/interpreter",
+  "https://overpass.kumi.systems/api/interpreter",
+  "https://overpass.private.coffee/api/interpreter",
+  "https://overpass.osm.jp/api/interpreter"
+];
+const OVERPASS = SPECCHI[0];
+// l'Italia divisa in riquadri: richieste piccole, meno rifiuti
+const RIQUADRI = [
+  ["Nord ovest", 43.8, 6.5, 47.2, 11.2],
+  ["Nord est", 43.8, 11.2, 47.2, 14.1],
+  ["Centro", 41.2, 9.4, 43.9, 16.2],
+  ["Sud", 37.5, 12.9, 41.4, 18.7],
+  ["Isole", 36.5, 7.8, 41.5, 15.8]
+];
+let SPECCHIO_BUONO = null;
+async function overpass(q, avviso) {
+  let ultimo = '';
+  const ordine = SPECCHIO_BUONO ? [SPECCHIO_BUONO, ...SPECCHI.filter(u => u !== SPECCHIO_BUONO)] : SPECCHI;
+  for (const url of ordine) {
+    try {
+      const r = await fetch(url, { method: 'POST', body: 'data=' + encodeURIComponent(q),
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
+      if (r.ok) { SPECCHIO_BUONO = url; return await r.json(); }
+      ultimo = 'risposta ' + r.status;
+      if (r.status === 429 || r.status === 504) { if (avviso) avviso('server occupato, provo un altro'); continue; }
+    } catch (e) { ultimo = 'rete non raggiungibile'; }
+  }
+  throw new Error(ultimo || 'nessun server ha risposto');
+}
 async function importaOSM() {
-  const bar = document.getElementById('osmbar');
   const t = document.getElementById('osm-title'), s = document.getElementById('osm-sub');
-  t.textContent = 'Scarico da OpenStreetMap…'; s.textContent = 'può volerci un minuto, sto interrogando tutta l\'Italia';
-  const q = `[out:json][timeout:180];area["ISO3166-1"="IT"][admin_level=2]->.a;
-    (way["leisure"="golf_course"](area.a);relation["leisure"="golf_course"](area.a);node["leisure"="golf_course"](area.a););
-    out center tags;`;
-  try {
-    const r = await fetch(OVERPASS, { method: 'POST', body: 'data=' + encodeURIComponent(q),
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
-    const j = await r.json();
-    let n = 0, corretti = 0, scartati = 0;
-    j.elements.forEach(e => {
-      const tg = e.tags || {}, nome = tg.name || tg['name:it'];
-      if (!nome) { scartati++; return; }
+  const go = document.getElementById('osm-go');
+  go.disabled = true;
+  const visti = new Set();
+  let n = 0, corretti = 0, falliti = [];
+  for (let i = 0; i < RIQUADRI.length; i++) {
+    const [nome, S, W, N, E] = RIQUADRI[i];
+    t.textContent = `Scarico da OpenStreetMap — ${i + 1} di ${RIQUADRI.length}`;
+    s.textContent = `${nome}: interrogo il server…`;
+    const q = `[out:json][timeout:90];
+      (way["leisure"="golf_course"](${S},${W},${N},${E});
+       relation["leisure"="golf_course"](${S},${W},${N},${E});
+       node["leisure"="golf_course"](${S},${W},${N},${E}););
+      out center tags;`;
+    let j = null;
+    try { j = await overpass(q, m => s.textContent = `${nome}: ${m}`); }
+    catch (e) { falliti.push(nome); continue; }
+    (j.elements || []).forEach(e => {
+      const chiave = e.type + '/' + e.id;
+      if (visti.has(chiave)) return;
+      visti.add(chiave);
+      const tg = e.tags || {}, nomeC = tg.name || tg['name:it'];
+      if (!nomeC) return;
       const lat = e.lat ?? (e.center && e.center.lat), lon = e.lon ?? (e.center && e.center.lon);
       if (!isFinite(lat) || !isFinite(lon)) return;
       const buche = parseInt(tg.holes, 10);
       if (buche && buche < 9) return;
-      const esistente = trovaEsistente(nome, lat, lon);
+      const esistente = trovaEsistente(nomeC, lat, lon);
       if (esistente) {
-        const spostato = km(esistente.lat, esistente.lon, lat, lon) > 0.25;
-        esistente.lat = lat; esistente.lon = lon;
-        esistente.osm = e.type + '/' + e.id;
+        if (!esistente.posizioneCorretta) {
+          if (km(esistente.lat, esistente.lon, lat, lon) > 0.25) corretti++;
+          esistente.lat = lat; esistente.lon = lon;
+        }
+        esistente.osm = chiave;
         if (buche) esistente.buche = buche;
         if (!esistente.l && (tg['addr:city'] || tg['addr:town'])) esistente.l = tg['addr:city'] || tg['addr:town'];
-        if (spostato) corretti++;
         return;
       }
-      addClub({ n: titolo(nome), l: tg['addr:city'] || tg['addr:town'] || '', r: '', buche: buche || 18,
-        par: 72, lat, lon, osm: e.type + '/' + e.id, sito: tg.website });
+      addClub({ n: titolo(nomeC), l: tg['addr:city'] || tg['addr:town'] || '', r: '', buche: buche || 18,
+        par: 72, lat, lon, osm: chiave, sito: tg.website });
       n++;
     });
-    paint(); renderSide(); renderCircoli(); aggiornaContatori();
-    t.textContent = `${CLUBS.length} circoli in elenco`;
-    s.textContent = `${n} aggiunti da OpenStreetMap, ${corretti} segnaposto spostati sulla posizione esatta del campo.`;
-    document.getElementById('osm-go').textContent = 'Aggiorna';
-  } catch (err) {
-    t.textContent = 'Import non riuscito';
-    s.textContent = 'OpenStreetMap non ha risposto. Riprova fra qualche minuto: il servizio è pubblico e a volte è saturo.';
+    paint(); renderSide(); aggiornaContatori();
   }
+  renderCircoli();
+  go.disabled = false; go.textContent = 'Aggiorna';
+  if (falliti.length === RIQUADRI.length) {
+    t.textContent = 'Import non riuscito';
+    s.textContent = 'Nessun server OpenStreetMap ha risposto. È un servizio pubblico gratuito e a volte è saturo: riprova fra qualche minuto.';
+    return;
+  }
+  t.textContent = `${CLUBS.length} circoli in elenco`;
+  s.textContent = `${n} aggiunti, ${corretti} segnapost${corretti === 1 ? 'o spostato' : 'i spostati'} sulla posizione esatta`
+    + (falliti.length ? ` · zone non scaricate: ${falliti.join(', ')} — premi Aggiorna per riprovare` : '');
+  if (TOKEN) salvaArchivio();
 }
 const norm = x => (x || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 const nocciolo = x => (x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -820,10 +915,14 @@ function renderSide() {
           ${s.wish ? '' : `<div><div class="lbl">Best</div><b class="num" style="font-size:19px;color:var(--flag)">${s.b}</b></div>`}
         </div>
         ${s.note ? `<p style="font-size:12.5px;color:var(--ink-2);margin:0 0 12px">${s.note}</p>` : ''}
-        <button class="btn" style="width:100%;justify-content:center" data-open="${s.id}">Apri scheda</button>
+        <div style="display:flex;gap:8px">
+          <button class="btn" style="flex:1;justify-content:center" data-open="${s.id}">Apri scheda</button>
+          <button class="btn ghost" onclick="miraPosizione(${s.id})" title="Sposta il segnaposto">⌖</button>
+        </div>
       </div>` : '')
-    + `<div style="display:flex;align-items:baseline;justify-content:space-between;margin:2px 4px 8px">
-        <h3>In questa vista</h3><span class="lbl">${v.length} circoli</span></div>`
+    + `<div class="sidehead" style="margin:2px 4px 8px">
+        <h3>In questa vista</h3><span class="lbl" style="margin-left:auto">${v.length} circoli</span>
+        <button class="iconbtn" style="width:26px;height:26px;font-size:13px" onclick="chiudiSide()" aria-label="Nascondi l'elenco">›</button></div>`
     + (v.length ? v.slice(0, 200).map(clubRow).join('')
       : '<p style="font-size:13px;color:var(--ink-3);padding:8px 4px">Nessun circolo qui. Sposta la mappa o riattiva un filtro.</p>');
 }
@@ -833,6 +932,20 @@ function select(id) {
   if (MAP) MAP.easeTo({ center: [c.lon, c.lat], zoom: Math.max(MAP.getZoom(), 11), duration: 700 });
   renderSide(); document.getElementById('side').scrollTop = 0;
 }
+let MIRA = null;
+function miraPosizione(id) {
+  MIRA = id;
+  document.querySelector('.mapwrap').classList.add('mira');
+  let n = document.querySelector('.mira-nota');
+  if (!n) { n = document.createElement('div'); n.className = 'mira-nota'; document.querySelector('.mapwrap').appendChild(n); }
+  n.textContent = `Tocca la club house di ${CLUBS[id].n} — Esc per annullare`;
+}
+function fineMira() {
+  MIRA = null;
+  document.querySelector('.mapwrap').classList.remove('mira');
+  const n = document.querySelector('.mira-nota'); if (n) n.remove();
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && MIRA != null) fineMira(); });
 function addClub(o) {
   const c = Object.assign({ p: "Italia", m: 6000, a: "—", y: 0, buche: 18, par: 72, wish: 1, g: 0, b: 0 }, o);
   c.id = CLUBS.length; c.wish = !!c.wish; CLUBS.push(c);
@@ -854,6 +967,13 @@ document.getElementById('z-italy').onclick = () => MAP && MAP.fitBounds(ITALY, {
 document.getElementById('z-in').onclick = () => MAP && MAP.zoomIn();
 document.getElementById('z-out').onclick = () => MAP && MAP.zoomOut();
 document.getElementById('osm-go').onclick = importaOSM;
+document.getElementById('t-rail').onclick = () => { document.body.classList.toggle('no-rail'); setTimeout(() => MAP && MAP.resize(), 260); };
+document.getElementById('t-sideopen').onclick = () => { document.body.classList.remove('no-side'); setTimeout(() => MAP && MAP.resize(), 260); };
+function chiudiSide() { document.body.classList.add('no-side'); setTimeout(() => MAP && MAP.resize(), 260); }
+function tema(t) {
+  document.body.dataset.tema = t;
+  document.querySelectorAll('#temi button').forEach(b => b.setAttribute('aria-pressed', b.dataset.t === t));
+}
 document.getElementById('m-search').oninput = e => {
   const q = e.target.value.toLowerCase().trim();
   if (q.length < 3) return;
@@ -1864,6 +1984,15 @@ function renderProfilo() {
   <div class="badges">${badges.map(b => `<div class="badge ${b[3] ? '' : 'off'}">
       <div style="font-size:22px;color:${b[3] ? 'var(--flag)' : 'var(--ink-3)'}">${b[0]}</div>
       <b>${b[1]}</b><span>${b[2]}</span></div>`).join('')}</div>
+  <h3 style="font-size:16px;margin:26px 0 10px">Aspetto</h3>
+  <div class="card" style="padding:16px;margin-bottom:8px">
+    <div class="segs" id="temi" style="width:fit-content">
+      <button data-t="chiaro" aria-pressed="true">Chiaro</button>
+      <button data-t="carta" aria-pressed="false">Carta</button>
+      <button data-t="notte" aria-pressed="false">Notte</button>
+    </div>
+    <p class="hint">Cambia subito, senza ricaricare. Notte è comoda per segnare i punteggi al tramonto.</p>
+  </div>
   <h3 style="font-size:16px;margin:26px 0 10px">Importa da Garmin Golf</h3>
   <div class="card" style="padding:16px;margin-bottom:8px">
     <label class="drop" id="garmin-drop" style="padding:26px 18px">
@@ -1892,6 +2021,8 @@ function renderProfilo() {
       <div class="sc" style="color:var(--ink-3)">→</div></div>`).join('')}
   </div>`;
   renderDrive();
+  document.querySelectorAll('#temi button').forEach(b => b.onclick = () => tema(b.dataset.t));
+  document.querySelectorAll('#temi button').forEach(b => b.setAttribute('aria-pressed', b.dataset.t === (document.body.dataset.tema || 'chiaro')));
 }
 
 /* ---------------- avvio ---------------- */
