@@ -331,6 +331,15 @@ body.no-side .sidetab{display:block}
 
 .mazza{display:grid;grid-template-columns:1.1fr 1.4fr 60px 78px 78px 34px;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--rule)}
 .mazza:last-of-type{border-bottom:0}
+.tendina{position:absolute;left:0;right:0;top:100%;margin-top:4px;z-index:40;max-height:270px;overflow-y:auto;
+  background:var(--card);border:1px solid var(--rule);border-radius:12px;box-shadow:0 12px 30px rgba(0,0,0,.16)}
+.tendina button{display:block;width:100%;text-align:left;padding:11px 13px;background:none;border:0;
+  border-bottom:1px solid var(--rule);cursor:pointer;font:inherit;min-height:46px}
+.tendina button:last-child{border-bottom:0}
+.tendina button:hover,.tendina button.su{background:var(--bg)}
+.tendina button b{display:block;font-size:14px;font-weight:600}
+.tendina button span{display:block;font-size:11.5px;color:var(--ink-3);margin-top:1px}
+.tendina button.vuoto{color:var(--ink-3);cursor:default}
 .lnk{background:none;border:0;padding:0;font:inherit;font-size:inherit;color:var(--flag);text-decoration:underline;cursor:pointer}
 .mazza select{padding:8px 9px;border:1px solid var(--rule);border-radius:8px;background:var(--card);font:inherit;font-size:13px;width:100%}
 .mazza input{padding:8px 9px;border:1px solid var(--rule);border-radius:8px;background:var(--card);font:inherit;font-size:13px;width:100%}
@@ -520,8 +529,7 @@ h1,h2,h3{font-family:var(--disp);font-weight:800;letter-spacing:-.03em;text-tran
           <button class="chip ochre" id="f-wish" aria-pressed="true">Da giocare</button>
         </div>
         <div class="segs" id="m-style">
-          <button data-s="mappa" aria-pressed="true">Mappa</button>
-          <button data-s="terreno" aria-pressed="false">Terreno</button>
+          <button data-s="mappa" aria-pressed="true">Chiaro</button>
           <button data-s="sat" aria-pressed="false">Satellite</button>
         </div>
         <div class="counts">
@@ -785,9 +793,9 @@ const MLCSS = ["https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibr
 /* --- stili --- */
 const RASTER = (tiles, attr) => ({ version: 8, sources: { r: { type: 'raster', tiles: [tiles], tileSize: 256, attribution: attr } },
   layers: [{ id: 'r', type: 'raster', source: 'r' }] });
-const STILI = { mappa: 'dataviz', terreno: 'landscape', sat: 'hybrid' };
+const STILI = { mappa: 'bright', sat: 'hybrid' };   // solo due viste: chiaro e satellite
 function styleFor(kind) {
-  if (MAPKEY) return `https://api.maptiler.com/maps/${STILI[kind] || 'dataviz'}/style.json?key=${MAPKEY}`;
+  if (MAPKEY) return `https://api.maptiler.com/maps/${STILI[kind] || STILI.mappa}/style.json?key=${MAPKEY}`;
   return kind === 'sat'
     ? RASTER('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', 'Esri, Maxar, Earthstar Geographics')
     : RASTER('https://tile.openstreetmap.org/{z}/{x}/{y}.png', '© OpenStreetMap');
@@ -1687,6 +1695,11 @@ function aggiornaGeoBar() {
 }
 async function trovaPosizioni() {
   if (GEOINCORSO) return;
+  if (OSMINCORSO) {
+    const sub = document.getElementById('geo-sub');
+    if (sub) sub.textContent = "Aspetto che finisca lo scarico da OpenStreetMap, poi parto.";
+    return;
+  }
   const lista = daTrovare().slice(0, BLOCCO);
   if (!lista.length) { ARCHIVIO.geo = GEOVERSIONE; salvaLocale(); aggiornaGeoBar(); return; }
   GEOINCORSO = true; GEOFERMA = false;
@@ -1763,9 +1776,15 @@ async function overpass(q, avviso) {
   }
   throw new Error(ultimo || 'nessun server ha risposto');
 }
+let OSMINCORSO = false;
 async function importaOSM() {
   const t = document.getElementById('osm-title'), s = document.getElementById('osm-sub');
   const go = document.getElementById('osm-go');
+  /* Le due ricerche scrivono sugli stessi circoli: se girassero insieme, quella
+     più lenta sovrascriverebbe il lavoro dell'altra. Una alla volta. */
+  if (GEOINCORSO) { s.textContent = 'Aspetto che finisca la ricerca degli indirizzi, poi parto.'; return; }
+  if (OSMINCORSO) return;
+  OSMINCORSO = true;
   go.disabled = true;
   const visti = new Set();
   let n = 0, corretti = 0, falliti = [];
@@ -1809,6 +1828,7 @@ async function importaOSM() {
     paint(); renderSide(); aggiornaContatori();
   }
   renderCircoli();
+  OSMINCORSO = false;
   go.disabled = false; go.textContent = 'Aggiorna';
   if (falliti.length === RIQUADRI.length) {
     t.textContent = 'Import non riuscito';
@@ -1944,6 +1964,8 @@ function clubRow(c) {
     <div class="fl">${flagSvg(c.wish)}</div>
     <div><div class="nm">${c.n}${c.chiuso ? ' <span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);border:1px solid var(--rule);border-radius:4px;padding:1px 5px;vertical-align:middle">chiuso</span>' : ''}</div><div class="mt">${[c.l, c.buche ? c.buche + ' buche' : '', c.p !== 'Italia' ? c.p : '',
       c.daPosizionare ? (c.geoVuoto ? 'da posizionare a mano' : c.via ? 'posizione da rifinire' : 'senza indirizzo')
+        : c.posizioneCorretta ? 'posizione confermata da te'
+        : c.osm ? 'posizione da OpenStreetMap'
         : c.geo ? 'posizione dal ' + (c.geo === 'nome' ? 'nome' : "l'indirizzo") : ''].filter(Boolean).join(' · ')}</div></div>
     <div class="sc">${c.wish ? '<span style="color:var(--sand)">In lista</span>'
       : (() => { const gg = giriDi(c.id);
@@ -1968,8 +1990,9 @@ function renderSide() {
         </div>
         ${s.note ? `<p style="font-size:12.5px;color:var(--ink-2);margin:0 0 12px">${s.note}</p>` : ''}
         ${s.chiuso ? `<p class="hint" style="margin:0 0 8px">Risulta chiuso: ${s.chiuso}.</p>` : ''}
-        ${s.geo && !s.posizioneCorretta ? `<p class="hint" style="margin:0 0 8px">Segnaposto trovato ${
-          s.geo === 'nome' ? 'cercando il nome del circolo' : "dall'indirizzo"}, non verificato.
+        ${(s.geo || s.osm) && !s.posizioneCorretta ? `<p class="hint" style="margin:0 0 8px">Segnaposto ${
+          s.osm ? 'preso da OpenStreetMap' : s.geo === 'nome' ? 'trovato cercando il nome del circolo'
+                : "trovato dall'indirizzo"}, non verificato.
           <button class="lnk" data-nonqui="${s.id}">Non è qui</button></p>` : ''}
         ${s.daPosizionare ? `<p class="hint" style="margin:0 0 8px">${s.l ? 'Segnaposto sul centro del comune, non sulla club house.' : 'Posizione ancora sconosciuta.'} Importa da OpenStreetMap per la posizione esatta, oppure premi ⌖ e tocca la club house sulla mappa.</p>` : ''}
         <div style="display:flex;gap:8px">
@@ -2041,7 +2064,7 @@ document.addEventListener('click', e => {
 function nonEQui(id) {
   const c = CLUBS[id]; if (!c) return;
   if (c.geoPrima) { c.lat = c.geoPrima[0]; c.lon = c.geoPrima[1]; }
-  delete c.geo; delete c.geoPrima;
+  delete c.geo; delete c.geoPrima; delete c.osm;
   c.daPosizionare = true; c.geoVuoto = true;
   salvaTutto(); paint(); renderSide(); renderCircoli(); aggiornaGeoBar();
 }
@@ -2097,7 +2120,23 @@ const NAV = [
   { id: 'profilo', t: 'Profilo', i: '☺' }];
 let STORIA = [], SCHERMO = 'mappa';
 function indietro() { const p = STORIA.pop(); if (p) go(p, false); }
+/* quello che è scritto nei campi del Profilo viene messo al sicuro prima di
+   cambiare schermata, anche se non hai toccato Invio né spostato il cursore */
+function salvaCampiProfilo() {
+  const m = { 'p-nome': 'nome', 'p-fig': 'fig', 'p-index': 'index', 'p-ob': 'obiettivo',
+              'p-da': 'obDa', 'p-a': 'obA', 'p-home': 'home', 'p-pross': 'prossimo' };
+  const num = new Set(['index', 'obDa', 'obA']);
+  let cambiato = false;
+  Object.keys(m).forEach(id => {
+    const e = document.getElementById(id); if (!e) return;
+    const v = num.has(m[id]) ? (parseFloat(e.value) || null) : e.value;
+    if ((ARCHIVIO.giocatore[m[id]] ?? '') !== (v ?? '')) { ARCHIVIO.giocatore[m[id]] = v; cambiato = true; }
+  });
+  if (cambiato) { salvaTutto(); aggiornaRail(); }
+}
+addEventListener('pagehide', () => { if (document.getElementById('p-nome')) salvaCampiProfilo(); });
 function go(id, push = true) {
+  if (document.getElementById('p-nome')) salvaCampiProfilo();
   if (push && id !== SCHERMO) STORIA.push(SCHERMO);
   SCHERMO = id;
   document.querySelectorAll('.back').forEach(b => b.style.visibility = STORIA.length ? 'visible' : 'hidden');
@@ -2453,7 +2492,6 @@ function bindFoot() {
 function step0(c) {
   const tset = (c.tee || {})[G.tee];
   if (tset && !G.datiDaFoto) { if (tset.cr) G.cr = tset.cr; if (tset.sr) G.sr = tset.sr; }
-  const opts = CLUBS.map(x => `<option value="${x.id}"${x.id === G.clubId ? ' selected' : ''}>${x.n}</option>`).join('');
   const percorsi = c.buche >= 27 ? ["18 buche", "9 buche (andata)", "9 buche (ritorno)", "Giallo + Rosso", "Blu + Giallo"]
     : ["18 buche", "9 buche (andata)", "9 buche (ritorno)"];
   wb().innerHTML = `
@@ -2466,7 +2504,11 @@ function step0(c) {
   </label>
   <div id="letto0"></div>
   <div class="card" style="padding:16px;max-width:560px">
-    <div class="field"><span class="lbl">Circolo</span><select id="f-club">${opts}</select></div>
+    <div class="field" style="position:relative"><span class="lbl">Circolo</span>
+      <input id="f-club-cerca" placeholder="Scrivi il nome o il comune…" autocomplete="off"
+        value="${(CLUBS[G.clubId] || {}).n || ''}">
+      <div id="f-club-lista" class="tendina" hidden></div>
+    </div>
     <div class="duo">
       <div class="field"><span class="lbl">Data</span><input type="date" id="f-data" value="${G.data}"></div>
       <div class="field"><span class="lbl">Ora di partenza</span><input type="time" id="f-ora" value="${G.ora}"></div>
@@ -2500,13 +2542,66 @@ function step0(c) {
         <p class="hint">Controlla i campi qui sotto: quello che ho letto è già dentro.</p></div>`;
     });
   };
-  document.getElementById('f-club').onchange = e => {
-    G.clubId = +e.target.value;
-    const c2 = CLUBS[G.clubId], t = (c2.tee || {})[G.tee];
-    if (t && t.cr) G.cr = t.cr;
-    if (t && t.sr) G.sr = t.sr;
-    renderGiro();
-  };
+  /* ricerca del circolo: 352 voci in una tendina sono ingestibili, soprattutto
+     col dito. Si scrive un pezzo di nome o di comune e si sceglie. */
+  (function () {
+    const inp = document.getElementById('f-club-cerca');
+    const box = document.getElementById('f-club-lista');
+    if (!inp || !box) return;
+    let evidenziato = -1, risultati = [];
+    const testo = c => `${c.n} ${c.l || ''} ${(c.r || '').split('/')[0]}`.toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const cerca = q => {
+      const t = q.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+      const base = CLUBS.filter(c => !c.chiuso);
+      if (!t) {
+        // senza testo: prima quelli dove hai già giocato, poi i più vicini a casa
+        const giocati = base.filter(c => !c.wish);
+        return (giocati.length ? giocati : base).slice(0, 12);
+      }
+      return base.filter(c => testo(c).includes(t))
+        .sort((a, b) => a.n.toLowerCase().indexOf(t) - b.n.toLowerCase().indexOf(t))
+        .slice(0, 12);
+    };
+    const disegna = () => {
+      box.innerHTML = risultati.length
+        ? risultati.map((c, i) => `<button type="button" data-club="${c.id}"
+            class="${i === evidenziato ? 'su' : ''}">
+            <b>${c.n}</b><span>${[c.l, c.buche ? c.buche + ' buche' : ''].filter(Boolean).join(' · ')}</span>
+          </button>`).join('')
+        : `<button type="button" class="vuoto" disabled>Nessun circolo trovato</button>`;
+      box.hidden = false;
+    };
+    const scegli = id => {
+      G.clubId = id;
+      const c2 = CLUBS[id], t = (c2.tee || {})[G.tee];
+      if (t && t.cr) G.cr = t.cr;
+      if (t && t.sr) G.sr = t.sr;
+      box.hidden = true;
+      renderGiro();
+    };
+    inp.oninput = () => { risultati = cerca(inp.value); evidenziato = -1; disegna(); };
+    inp.onfocus = () => { risultati = cerca(''); evidenziato = -1; disegna(); inp.select(); };
+    inp.onkeydown = e => {
+      if (box.hidden) return;
+      if (e.key === 'ArrowDown') { evidenziato = Math.min(risultati.length - 1, evidenziato + 1); disegna(); e.preventDefault(); }
+      else if (e.key === 'ArrowUp') { evidenziato = Math.max(0, evidenziato - 1); disegna(); e.preventDefault(); }
+      else if (e.key === 'Enter') {
+        const c = risultati[evidenziato < 0 ? 0 : evidenziato];
+        if (c) { scegli(c.id); e.preventDefault(); }
+      } else if (e.key === 'Escape') box.hidden = true;
+    };
+    box.onmousedown = e => {
+      const b = e.target.closest('[data-club]');
+      if (b) { e.preventDefault(); scegli(+b.dataset.club); }
+    };
+    inp.onblur = () => setTimeout(() => {
+      box.hidden = true;
+      // se hai scritto e non hai scelto, rimetto il nome del circolo attuale
+      const c = CLUBS[G.clubId];
+      if (c && inp.value !== c.n) inp.value = c.n;
+    }, 180);
+  })();
   document.getElementById('f-data').onchange = e => G.data = e.target.value;
   document.getElementById('f-ora').onchange = e => G.ora = e.target.value;
   ['cr','sr','hg'].forEach(k => document.getElementById('f-' + k).oninput = e => {
