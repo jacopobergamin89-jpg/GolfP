@@ -1172,18 +1172,37 @@ function km(la1, lo1, la2, lo2) {
   const a = Math.sin(dla / 2) ** 2 + Math.cos(la1 * r) * Math.cos(la2 * r) * Math.sin(dlo / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(a));
 }
+/* le parole che contano di un nome: si buttano i termini generici e le paroline.
+   Serve perché "Mandria" e "Circolo Golf Torino - La Mandria" sono lo stesso campo. */
+const GENERICI = new Set(['golf','club','circolo','country','resort','societa','sportiva','asd','ssd',
+  'dilettantistica','della','dello','delle','degli','dell','del','dei','sul','sulla','nel','con']);
+const parole = x => (x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  .replace(/[^a-z0-9]+/g, ' ').trim().split(' ')
+  .filter(p => p.length >= 4 && !GENERICI.has(p));
+/* vero se un nome è contenuto nell'altro parola per parola, in qualunque ordine */
+function stessoNome(a, b) {
+  const A = parole(a), B = parole(b);
+  if (!A.length || !B.length) return false;
+  const [c, l] = A.length <= B.length ? [A, B] : [B, A];
+  if (!c.every(p => l.includes(p))) return false;
+  return c.some(p => p.length >= 5);
+}
 function trovaEsistente(nome, lat, lon) {
   const nc = nocciolo(nome);
-  let vago = null;
+  let migliore = null, punti = 0, dist = Infinity;
+  const proponi = (c, p, d) => {
+    if (p > punti || (p === punti && d < dist)) { migliore = c; punti = p; dist = d; }
+  };
   for (const c of CLUBS) {
     const d = km(c.lat, c.lon, lat, lon);
-    if (d < 0.4) return c;                                   // stesso punto: è lui
-    if (nc && nc.length > 3 && nocciolo(c.n) === nc && d < 25) return c;   // stesso nome, stessa zona
-    // segnaposto ancora da posizionare: il nome basta, la distanza non conta perché
-    // sta provvisoriamente al centro della sua regione
-    if (nc && nc.length > 3 && c.daPosizionare && !vago && nocciolo(c.n) === nc) vago = c;
+    if (d < 0.4) return c;                                                  // stesso punto: è lui
+    if (nc && nc.length > 3 && nocciolo(c.n) === nc && d < 25) proponi(c, 3, d);  // stesso nome, stessa zona
+    if (!c.daPosizionare) continue;
+    // segnaposto ancora provvisorio: sta al centro della sua regione, la distanza conta poco
+    if (nc && nc.length > 3 && nocciolo(c.n) === nc) proponi(c, 2, d);
+    else if (d < 200 && stessoNome(c.n, nome)) proponi(c, 1, d);
   }
-  return vago;
+  return migliore;
 }
 const titolo = x => x.length > 4 && x === x.toUpperCase()
   ? x.toLowerCase().replace(/(^|[\s'"(\-])(\w)/g, (m, a, b) => a + b.toUpperCase()) : x;
