@@ -1586,7 +1586,7 @@ const G = {
   step: 0, clubId: 0, data: "2026-08-11", ora: "08:40", percorso: "18 buche", tee: "Gialle",
   tipo: "Amichevole", formula: "Stableford", gara: "", categoria: "2ª", posizione: "", compagno: "", hcpCompagno: "",
   index: null, hcpGioco: 16, cr: 70.4, sr: 128, meteo: "Sereno", campo: "Asciutto", flight: "", note: "",
-  valido: true, foto: null, vista: "buca",
+  valido: true, foto: null, vista: "buca", bozzaId: null,
   buche: Array.from({ length: 18 }, (_, i) => ({ par: P72[i], si: SI18[i], m: 0, colpi: null, putt: null, fw: null, pen: 0, perse: 0, trovate: 0, dett: [] }))
 };
 const attive = () => G.percorso === "9 buche (ritorno)" ? G.buche.slice(9)
@@ -1610,6 +1610,54 @@ function netto() { return fatte() === attive().length && fatte() ? tot('colpi') 
 function differenziale() {
   if (fatte() < attive().length) return null;
   return ((113 / G.sr) * (tot('colpi') - G.cr)).toFixed(1);
+}
+
+/* --- giri in sospeso: si registra la gara oggi, lo score si aggiunge quando salta fuori --- */
+function inSospeso(btn) {
+  const c = CLUBS[G.clubId] || CLUBS[0];
+  const b = JSON.parse(JSON.stringify({ ...G, step: 2 }));   // i file non sono serializzabili
+  delete b.fotoFiles;
+  b.bozzaId = G.bozzaId || ('bozza_' + Date.now());
+  b.salvata = new Date().toISOString();
+  b.circoloNome = c.n;
+  const i = ARCHIVIO.bozze.findIndex(x => x.bozzaId === b.bozzaId);
+  if (i >= 0) ARCHIVIO.bozze[i] = b; else ARCHIVIO.bozze.push(b);
+  G.bozzaId = b.bozzaId;
+  salvaLocale();
+  if (TOKEN) salvaArchivio();
+  if (btn) { btn.textContent = 'Messo in sospeso ✓'; btn.disabled = true; }
+  const avviso = document.getElementById('salva-nota');
+  if (avviso) avviso.textContent = `In sospeso: ${ARCHIVIO.bozze.length} giro${ARCHIVIO.bozze.length > 1 ? 'i' : ''} da completare. `
+    + 'Lo ritrovi in cima a Nuovo giro: premi Riprendi e carica la scorecard.';
+}
+function riprendiBozza(id) {
+  const b = ARCHIVIO.bozze.find(x => x.bozzaId === id); if (!b) return;
+  Object.keys(b).forEach(k => { if (k !== 'salvata' && k !== 'circoloNome') G[k] = b[k]; });
+  G.fotoFiles = [];
+  G.step = 2;
+  renderGiro();
+}
+function scartaBozza(id) {
+  const b = ARCHIVIO.bozze.find(x => x.bozzaId === id); if (!b) return;
+  if (!confirm(`Elimino il giro in sospeso del ${b.data} a ${b.circoloNome}?`)) return;
+  ARCHIVIO.bozze = ARCHIVIO.bozze.filter(x => x.bozzaId !== id);
+  if (G.bozzaId === id) G.bozzaId = null;
+  salvaLocale();
+  if (TOKEN) salvaArchivio();
+  renderGiro();
+}
+function elencoBozze() {
+  if (!ARCHIVIO.bozze.length) return '';
+  return `<div class="card" style="padding:16px;max-width:560px;margin-bottom:14px">
+    <div class="lbl">In sospeso, manca lo score</div>
+    ${ARCHIVIO.bozze.map(b => `<div class="clubrow" style="cursor:default">
+      <div><div class="nm">${b.circoloNome || '—'}</div>
+        <div class="mt">${b.data}${b.gara ? ' · ' + b.gara : ' · ' + b.tipo} · partenze ${(b.tee || '').toLowerCase()}</div></div>
+      <div class="sc" style="display:flex;gap:6px">
+        <button class="btn" style="padding:8px 14px" onclick="riprendiBozza('${b.bozzaId}')">Riprendi</button>
+        <button class="btn ghost" style="padding:8px 12px" onclick="scartaBozza('${b.bozzaId}')" title="Elimina">✕</button>
+      </div></div>`).join('')}
+  </div>`;
 }
 
 function renderGiro() {
@@ -1670,11 +1718,12 @@ function step0(c) {
   const percorsi = c.buche >= 27 ? ["18 buche", "9 buche (andata)", "9 buche (ritorno)", "Giallo + Rosso", "Blu + Giallo"]
     : ["18 buche", "9 buche (andata)", "9 buche (ritorno)"];
   wb().innerHTML = `
+  ${elencoBozze()}
   <label class="drop" id="drop0" style="max-width:560px;margin-bottom:14px;padding:22px 18px">
-    <input type="file" accept="image/*" id="f-foto0" multiple hidden>
+    <input type="file" accept="${ACCETTA}" id="f-foto0" multiple hidden>
     <div class="dropico">▣</div>
-    <b>Parti dalla foto</b>
-    <span>Fotografa la scorecard, anche fronte e retro: leggo circolo, data, partenze, rating, slope, handicap e tutti i punteggi. Quello che segue resta solo da controllare.</span>
+    <b>Parti da una foto o da un file</b>
+    <span>Scorecard fotografata fronte e retro, un PDF, o l'export del tuo orologio in CSV o JSON: leggo circolo, data, partenze, rating, slope, handicap e tutti i punteggi. Quello che segue resta solo da controllare.</span>
   </label>
   <div id="letto0"></div>
   <div class="card" style="padding:16px;max-width:560px">
@@ -1876,10 +1925,10 @@ function vistaTabella() {
 function vistaFoto() {
   document.getElementById('vista').innerHTML = `
   <label class="drop" id="drop">
-    <input type="file" accept="image/*" id="g-file" multiple hidden>
+    <input type="file" accept="${ACCETTA}" id="g-file" multiple hidden>
     <div class="dropico">▣</div>
-    <b>Fotografa la scorecard</b>
-    <span>Puoi caricare più immagini insieme: fronte e retro, andata e ritorno, o lo screenshot Garmin del punteggio e quello delle statistiche. Le unisco in un giro solo.</span>
+    <b>Carica la scorecard</b>
+    <span>Foto, PDF o export CSV/JSON, anche più file insieme: fronte e retro, andata e ritorno, o lo screenshot Garmin del punteggio e quello delle statistiche. Li unisco in un giro solo.</span>
   </label>
   <div id="ocr" style="margin-top:14px"></div>
   ${riga()}`;
@@ -1888,7 +1937,11 @@ function vistaFoto() {
   file.onchange = async () => {
     const files = [...file.files]; if (!files.length) return;
     G.fotoFiles = (G.fotoFiles || []).concat(files);
-    const mini = f => `<img src="${URL.createObjectURL(f)}" class="thumb" alt="Scorecard">`;
+    const mini = f => /^image\//.test(f.type)
+      ? `<img src="${URL.createObjectURL(f)}" class="thumb" alt="Scorecard">`
+      : `<div class="thumb" style="display:grid;place-items:center;text-align:center;padding:6px;
+           background:var(--bg);border:1px solid var(--rule);font-size:10px;line-height:1.25;overflow:hidden">
+           <span><b style="display:block;font-size:15px">${ePdf(f) ? 'PDF' : 'FILE'}</b>${f.name.slice(0, 22)}</span></div>`;
     ocr.innerHTML = `<div class="card" style="padding:14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
       ${files.map(mini).join('')}
       <div><b>Lettura in corso…</b><div class="lbl" style="margin-top:4px">${files.length} immagine${files.length > 1 ? 'i' : ''} da leggere</div></div></div>`;
@@ -2031,6 +2084,7 @@ function step3() {
       <p id="salva-nota" class="hint" style="min-height:18px"></p>
       <div class="wizfoot" style="border:0;padding:0">
         <button class="btn ghost" id="w-prev">Indietro</button>
+        <button class="btn ghost" id="w-hold">Metti in sospeso</button>
         <button class="btn red" id="w-save">Salva il giro</button>
       </div>
     </div>
@@ -2043,6 +2097,7 @@ function step3() {
   document.getElementById('f-note').oninput = e => G.note = e.target.value;
   document.getElementById('w-prev').onclick = () => { G.step = 2; renderGiro(); };
   document.getElementById('w-save').onclick = e => salvaGiro(e.currentTarget);
+  document.getElementById('w-hold').onclick = e => inSospeso(e.currentTarget);
 }
 
 /* ---------------- lettura immagini (Google Gemini) ---------------- */
@@ -2065,12 +2120,26 @@ const SCHEMA_MAZZE = { type: 'object', properties: {
   unita: N('string'), mazze: { type: 'array', items: { type: 'object', properties: {
     mazza: N('string'), media: N('integer'), max: N('integer'), colpi: N('integer') } } } } };
 
+/* tipi accettati in lettura: foto, PDF e gli export testuali (Garmin e simili) */
+const ACCETTA = 'image/*,application/pdf,.pdf,.csv,.txt,.json,.tsv';
+const eTesto = f => /^text\//.test(f.type) || /\.(csv|txt|json|tsv)$/i.test(f.name)
+  || f.type === 'application/json';
+const ePdf = f => f.type === 'application/pdf' || /\.pdf$/i.test(f.name);
+const leggiTesto = f => new Promise((res, rej) => {
+  const r = new FileReader(); r.onload = () => res(String(r.result)); r.onerror = rej; r.readAsText(f);
+});
 async function visione(file, istruzioni, schema) {
-  const b64 = await toB64(file);
+  let parte;
+  if (eTesto(file)) {
+    /* un export non va guardato, va letto: lo passo come testo */
+    const txt = (await leggiTesto(file)).slice(0, 200000);
+    parte = { text: `Contenuto del file "${file.name}":\n\n${txt}` };
+  } else {
+    const b64 = await toB64(file);
+    parte = { inline_data: { mime_type: ePdf(file) ? 'application/pdf' : (file.type || 'image/jpeg'), data: b64 } };
+  }
   const body = {
-    contents: [{ role: 'user', parts: [
-      { inline_data: { mime_type: file.type, data: b64 } },
-      { text: istruzioni }] }],
+    contents: [{ role: 'user', parts: [parte, { text: istruzioni }] }],
     generationConfig: { responseMimeType: 'application/json', responseSchema: schema, temperature: 0 }
   };
   // 1) in produzione: funzione serverless su Vercel, la chiave resta sul server
@@ -2167,7 +2236,7 @@ const NOME_FILE = 'golfp.json', NOME_CARTELLA = 'GolfP';
 
 let TOKEN = null, tokenClient = null, FILE_ID = null, CARTELLA_ID = null,
     ULTIMA_SYNC = null, STATO_DRIVE = 'scollegato', ERRORE_DRIVE = null;
-const ARCHIVIO = { versione: 1, aggiornato: null, giocatore: {}, giri: [], circoli: [], sacca: [] };
+const ARCHIVIO = { versione: 1, aggiornato: null, giocatore: {}, giri: [], bozze: [], circoli: [], sacca: [] };
 
 async function driveInit() {
   if (tokenClient) return true;
@@ -2244,7 +2313,7 @@ const CACHE = 'golfp-v1';
 function salvaLocale() {
   try {
     localStorage.setItem(CACHE, JSON.stringify({
-      v: 1, giocatore: ARCHIVIO.giocatore, giri: ARCHIVIO.giri,
+      v: 1, giocatore: ARCHIVIO.giocatore, giri: ARCHIVIO.giri, bozze: ARCHIVIO.bozze,
       circoli: CLUBS, sacca: SACCA, tema: document.body.dataset.tema || 'chiaro'
     }));
   } catch (e) {}
@@ -2256,6 +2325,7 @@ function caricaLocale() {
     if (j.tema) document.body.dataset.tema = j.tema;
     Object.assign(ARCHIVIO.giocatore, j.giocatore || {});
     ARCHIVIO.giri = j.giri || [];
+    ARCHIVIO.bozze = j.bozze || [];
     CLUBS.length = 0; j.circoli.forEach(c => CLUBS.push(c));
     SACCA.length = 0; (j.sacca || []).forEach(s => SACCA.push(s));
     return true;
@@ -2290,10 +2360,14 @@ async function salvaGiro(btn) {
   try {
     if (TOKEN && (G.fotoFiles || []).length) {
       giro.foto = [];
-      for (let i = 0; i < G.fotoFiles.length; i++)
-        giro.foto.push(await caricaFoto(G.fotoFiles[i], `scorecard-${giro.data.slice(0, 10)}-${CLUBS[G.clubId].n}-${i + 1}.jpg`));
+      for (let i = 0; i < G.fotoFiles.length; i++) {
+        const f = G.fotoFiles[i];
+        const est = (f.name.match(/\.[a-z0-9]+$/i) || ['.jpg'])[0];
+        giro.foto.push(await caricaFoto(f, `scorecard-${giro.data.slice(0, 10)}-${CLUBS[G.clubId].n}-${i + 1}${est}`));
+      }
     }
     ARCHIVIO.giri.push(giro);
+    if (G.bozzaId) { ARCHIVIO.bozze = ARCHIVIO.bozze.filter(x => x.bozzaId !== G.bozzaId); G.bozzaId = null; }
     aggiornaCircoloDaGiro(giro);
     salvaLocale();
     const suDrive = TOKEN ? await salvaArchivio() : false;
