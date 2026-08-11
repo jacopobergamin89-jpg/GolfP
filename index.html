@@ -319,6 +319,17 @@ body.no-side .sidetab{display:block}
 .mira-nota{position:absolute;left:50%;top:14px;transform:translateX(-50%);z-index:6;background:var(--flag);
   color:#fff;border-radius:100px;padding:8px 16px;font-size:12.5px;box-shadow:0 4px 14px rgba(0,0,0,.25)}
 
+
+.mazza{display:grid;grid-template-columns:1.1fr 1.4fr 60px 78px 78px 34px;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--rule)}
+.mazza:last-of-type{border-bottom:0}
+.mazza input{padding:8px 9px;border:1px solid var(--rule);border-radius:8px;background:var(--card);font:inherit;font-size:13px;width:100%}
+.mazza input:disabled{background:var(--soft);color:var(--ink-2)}
+.mazza .num{text-align:right;font-family:var(--mono)}
+.mazza-cap{border-bottom:1px solid var(--rule);padding-bottom:8px;margin-bottom:4px}
+.mazza-cap .lbl{display:block}
+.back{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--ink-3);margin-bottom:8px}
+.back:hover{color:var(--flag)}
+@media (max-width:720px){ .mazza{grid-template-columns:1fr 1fr 34px;gap:6px} .mazza-cap{display:none} }
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
@@ -486,28 +497,28 @@ const SI18 = [5,11,17,1,13,7,15,3,9,6,18,12,2,8,4,16,10,14];
 
 /* elenco italiano: nome, comune, regione, buche, par, lat, lon, giri, miglior lordo */
 const IT = [
-["Barlassina Country Club","Lentate sul Seveso (MB)","Lombardia",18,72,45.680,9.120,8,87],
-["Golf Club Le Robinie","Solbiate Olona (VA)","Lombardia",18,72,45.650,8.870,6,89],
-["La Pinetina Golf Club","Appiano Gentile (CO)","Lombardia",18,71,45.730,8.990,9,86],
-["Circolo Golf Villa d'Este","Montorfano (CO)","Lombardia",18,69,45.789,9.153,5,85],
+["Barlassina Country Club","Lentate sul Seveso (MB)","Lombardia",18,72,45.680,9.120,0,0],
+["Golf Club Le Robinie","Solbiate Olona (VA)","Lombardia",18,72,45.650,8.870,0,0],
+["La Pinetina Golf Club","Appiano Gentile (CO)","Lombardia",18,71,45.730,8.990,0,0],
+["Circolo Golf Villa d'Este","Montorfano (CO)","Lombardia",18,69,45.789,9.153,0,0],
 ["Golf Club Carimate","Carimate (CO)","Lombardia",18,71,45.700,9.120,0,0],
-["Golf Club Le Rovedine","Opera (MI)","Lombardia",18,72,45.400,9.200,12,88],
+["Golf Club Le Rovedine","Opera (MI)","Lombardia",18,72,45.400,9.200,0,0],
 ["Golf Club Lecco","Annone Brianza (LC)","Lombardia",18,70,45.800,9.340,0,0],
 ["Golf Club Varese","Luvinate (VA)","Lombardia",18,72,45.850,8.790,0,0],
 ["Golf Club Villa Paradiso","Cornate d'Adda (MB)","Lombardia",18,71,45.650,9.470,0,0],
-["Molinetto Country Club","Cernusco sul Naviglio (MI)","Lombardia",18,71,45.520,9.330,10,87],
+["Molinetto Country Club","Cernusco sul Naviglio (MI)","Lombardia",18,71,45.520,9.330,0,0],
 ["Franciacorta Golf Club","Corte Franca (BS)","Lombardia",27,72,45.620,10.000,0,0],
 ["Gardagolf Country Club","Soiano del Lago (BS)","Lombardia",27,72,45.510,10.530,0,0],
 ["Golf Club Bergamo L'Albenza","Almenno San Bartolomeo (BG)","Lombardia",27,72,45.750,9.580,0,0],
-["Golf Club Milano","Parco di Monza (MB)","Lombardia",27,72,45.606,9.283,7,86],
+["Golf Club Milano","Parco di Monza (MB)","Lombardia",27,72,45.606,9.283,0,0],
 ["Chervò Golf San Vigilio","Pozzolengo (BS)","Lombardia",36,72,45.420,10.580,0,0],
-["Golf Club Monticello","Cassina Rizzardi (CO)","Lombardia",36,72,45.730,9.090,6,90],
+["Golf Club Monticello","Cassina Rizzardi (CO)","Lombardia",36,72,45.730,9.090,0,0],
 ["Golf Club Cherasco","Cherasco (CN)","Piemonte",18,71,44.650,7.860,0,0],
 ["Golf Club Le Betulle","Magnano (BI)","Piemonte",18,73,45.510,8.000,0,0],
 ["Castelconturbia","Agrate Conturbia (NO)","Piemonte",27,72,45.690,8.530,0,0],
 ["Golf Club Colline del Gavi","Tassarolo (AL)","Piemonte",27,72,44.730,8.750,0,0],
-["Circolo Golf Bogogno","Bogogno (NO)","Piemonte",36,72,45.650,8.490,4,90],
-["Circolo Golf Torino-La Mandria","Fiano (TO)","Piemonte",36,72,45.130,7.570,3,92],
+["Circolo Golf Bogogno","Bogogno (NO)","Piemonte",36,72,45.650,8.490,0,0],
+["Circolo Golf Torino-La Mandria","Fiano (TO)","Piemonte",36,72,45.130,7.570,0,0],
 ["Golf Club Margara","Fubine (AL)","Piemonte",36,72,44.920,8.480,0,0],
 ["Golf Club Villa Carolina","Capriata d'Orba (AL)","Piemonte",36,72,44.720,8.700,0,0],
 ["Royal Park I Roveri","Fiano (TO)","Piemonte",36,72,45.146,7.585,0,0],
@@ -517,20 +528,20 @@ const IT = [
 ["Golf Club Verona","Sommacampagna (VR)","Veneto",18,72,45.400,10.850,0,0],
 ["Villa Condulmer Golf Club","Mogliano Veneto (TV)","Veneto",18,72,45.580,12.240,0,0],
 ["Asolo Golf Club","Cavaso del Tomba (TV)","Veneto",27,72,45.870,11.900,0,0],
-["Golf della Montecchia","Selvazzano Dentro (PD)","Veneto",27,72,45.383,11.809,4,88],
-["Circolo Golf Roma Acquasanta","Roma","Lazio",18,71,41.833,12.552,5,84],
+["Golf della Montecchia","Selvazzano Dentro (PD)","Veneto",27,72,45.383,11.809,0,0],
+["Circolo Golf Roma Acquasanta","Roma","Lazio",18,71,41.833,12.552,0,0],
 ["Country Club Castel Gandolfo","Castel Gandolfo (RM)","Lazio",18,71,41.750,12.650,0,0],
 ["Golf Le Querce","Sutri (VT)","Lazio",18,72,42.230,12.240,0,0],
-["Marco Simone Golf & CC","Guidonia Montecelio (RM)","Lazio",27,71,41.983,12.712,3,88],
-["Olgiata Golf Club","Roma","Lazio",27,72,42.038,12.362,4,86],
+["Marco Simone Golf & CC","Guidonia Montecelio (RM)","Lazio",27,71,41.983,12.712,0,0],
+["Olgiata Golf Club","Roma","Lazio",27,72,42.038,12.362,0,0],
 ["Parco de' Medici Golf Club","Roma","Lazio",27,72,41.830,12.400,0,0],
 ["Golf Bacedasco","Castell'Arquato (PC)","Emilia-Romagna",18,72,44.850,9.860,0,0],
 ["Golf Club Bologna","Monte San Pietro (BO)","Emilia-Romagna",18,72,44.440,11.190,0,0],
-["Golf Club Le Fonti","Castel San Pietro Terme (BO)","Emilia-Romagna",18,72,44.371,11.440,3,90],
+["Golf Club Le Fonti","Castel San Pietro Terme (BO)","Emilia-Romagna",18,72,44.371,11.440,0,0],
 ["Modena Golf & Country Club","Formigine (MO)","Emilia-Romagna",18,72,44.550,10.850,0,0],
 ["Adriatic Golf Club Cervia","Cervia (RA)","Emilia-Romagna",27,72,44.271,12.313,0,0],
-["Argentario Golf","Monte Argentario (GR)","Toscana",18,71,42.428,11.196,2,92],
-["Circolo del Golf Ugolino","Impruneta (FI)","Toscana",18,72,43.694,11.271,4,87],
+["Argentario Golf","Monte Argentario (GR)","Toscana",18,71,42.428,11.196,0,0],
+["Circolo del Golf Ugolino","Impruneta (FI)","Toscana",18,72,43.694,11.271,0,0],
 ["Golf Club Punta Ala","Punta Ala (GR)","Toscana",18,72,42.815,10.752,0,0],
 ["Royal Golf La Bagnaia","Bagnaia (SI)","Toscana",18,72,43.250,11.420,0,0],
 ["Golf Club Castelfalfi","Montaione (FI)","Toscana",27,73,43.550,10.900,0,0],
@@ -540,11 +551,11 @@ const IT = [
 
 /* qualche circolo all'estero, per la vista mondo */
 const ES = [
-["The Old Course","St Andrews, Scozia","Regno Unito",18,72,56.348,-2.812,1,96],
-["Golf de Chantilly","Chantilly, Francia","Francia",18,71,49.185,2.472,2,94],
-["Emirates Golf Club — Majlis","Dubai","Emirati Arabi Uniti",18,72,25.093,55.166,2,92],
-["Praia d'El Rey","Óbidos","Portogallo",18,72,39.316,-9.316,3,91],
-["Real Club Valderrama","Sotogrande","Spagna",18,71,36.278,-5.283,1,98],
+["The Old Course","St Andrews, Scozia","Regno Unito",18,72,56.348,-2.812,0,0],
+["Golf de Chantilly","Chantilly, Francia","Francia",18,71,49.185,2.472,0,0],
+["Emirates Golf Club — Majlis","Dubai","Emirati Arabi Uniti",18,72,25.093,55.166,0,0],
+["Praia d'El Rey","Óbidos","Portogallo",18,72,39.316,-9.316,0,0],
+["Real Club Valderrama","Sotogrande","Spagna",18,71,36.278,-5.283,0,0],
 ["Pebble Beach Golf Links","California","Stati Uniti",18,72,36.568,-121.949,0,0],
 ["Augusta National","Georgia","Stati Uniti",18,72,33.503,-82.022,0,0],
 ["Pinehurst No. 2","North Carolina","Stati Uniti",18,72,35.195,-79.468,0,0],
@@ -986,7 +997,12 @@ const NAV = [
   { id: 'mappa', t: 'Mappa', i: '◎' }, { id: 'circoli', t: 'Circoli', i: '⚑' },
   { id: 'giro', t: 'Nuovo giro', i: '＋' }, { id: 'sacca', t: 'Sacca', i: '⛳' }, { id: 'stats', t: 'Statistiche', i: '▤' },
   { id: 'profilo', t: 'Profilo', i: '☺' }];
-function go(id) {
+let STORIA = [], SCHERMO = 'mappa';
+function indietro() { const p = STORIA.pop(); if (p) go(p, false); }
+function go(id, push = true) {
+  if (push && id !== SCHERMO) STORIA.push(SCHERMO);
+  SCHERMO = id;
+  document.querySelectorAll('.back').forEach(b => b.style.visibility = STORIA.length ? 'visible' : 'hidden');
   document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.id === 's-' + id));
   document.querySelectorAll('[data-nav]').forEach(b => b.setAttribute('aria-current', b.dataset.nav === id));
   if (id === 'mappa' && MAP) setTimeout(() => MAP.resize(), 60);
@@ -994,6 +1010,13 @@ function go(id) {
 document.getElementById('nav').innerHTML = NAV.map(n => `<button class="navbtn" data-nav="${n.id}"><i>${n.i}</i>${n.t}</button>`).join('');
 document.getElementById('tabs').innerHTML = NAV.map(n => `<button data-nav="${n.id}"><span style="font-size:17px">${n.i}</span>${n.t}</button>`).join('');
 document.querySelectorAll('[data-nav]').forEach(b => b.onclick = () => go(b.dataset.nav));
+document.querySelectorAll('.tbar').forEach(t => {
+  if (t.querySelector('.back')) return;
+  const b = document.createElement('button');
+  b.className = 'back'; b.innerHTML = '‹ Indietro'; b.style.visibility = 'hidden';
+  b.onclick = indietro;
+  t.firstElementChild.prepend(b);
+});
 
 /* ---------------- circoli ---------------- */
 let cirF = 'tutti';
@@ -1088,7 +1111,7 @@ function openCampo(id) {
   go('campo');
   apriMappaCampo(c);
 }
-document.getElementById('campo-back').onclick = () => go('mappa');
+document.getElementById('campo-back').onclick = indietro;
 document.getElementById('campo-newround').onclick = () => go('giro');
 
 /* ---------------- nuovo giro ---------------- */
@@ -1100,7 +1123,7 @@ const CAMPO_COND = ["Asciutto", "Bagnato", "Green veloci", "Green lenti", "Prefe
 const G = {
   step: 0, clubId: 0, data: "2026-08-11", ora: "08:40", percorso: "18 buche", tee: "Gialle",
   tipo: "Amichevole", formula: "Stableford", gara: "", categoria: "2ª", posizione: "", compagno: "", hcpCompagno: "",
-  index: 14.2, hcpGioco: 16, cr: 70.4, sr: 128, meteo: "Sereno", campo: "Asciutto", flight: "", note: "",
+  index: null, hcpGioco: 16, cr: 70.4, sr: 128, meteo: "Sereno", campo: "Asciutto", flight: "", note: "",
   valido: true, foto: null, vista: "buca",
   buche: Array.from({ length: 18 }, (_, i) => ({ par: P72[i], si: SI18[i], m: 0, colpi: null, putt: null, fw: null, pen: 0, perse: 0, trovate: 0, dett: [] }))
 };
@@ -1473,7 +1496,7 @@ function costruisciGiro() {
     percorso: G.percorso, tee: G.tee, data: G.data + "T" + G.ora, tipo: G.tipo, formula: G.formula,
     gara: G.gara || null, categoria: G.gara ? G.categoria : null, posizione: G.posizione || null,
     compagno: G.compagno || null, flight: G.flight ? G.flight.split(',').map(x => x.trim()) : [],
-    index: G.index, handicapGioco: G.hcpGioco, courseRating: G.cr, slope: G.sr,
+    index: G.index ?? ARCHIVIO.giocatore.index ?? null, handicapGioco: G.hcpGioco, courseRating: G.cr, slope: G.sr,
     meteo: G.meteo, campo: G.campo, valido: G.valido, foto: (G.fotoFiles || []).map(f => f.name),
     buche: attive().map((b, i) => ({ n: i + 1, par: b.par, si: b.si, colpi: b.colpi, putt: b.putt, fw: b.fw, pen: b.pen,
       pallePerse: b.perse || 0, palleTrovate: b.trovate || 0,
@@ -1505,7 +1528,7 @@ function step3() {
           <div><div class="lbl">Differenziale</div><div class="big" style="color:var(--flag)">${d ?? '—'}</div></div>
         </div>
         ${n < attive().length ? `<p class="hint">Mancano ${attive().length - n} buche: il differenziale si calcola solo a giro completo.</p>`
-          : `<p class="hint">Con questo differenziale il tuo index passerebbe da <b class="num">${G.index}</b> a <b class="num">${(G.index - 0.3).toFixed(1)}</b>.</p>`}
+          : `<p class="hint">${ARCHIVIO.giocatore.index ? `Index attuale <b class="num">${ARCHIVIO.giocatore.index}</b>: questo differenziale entra nella media degli otto migliori su venti.` : 'Metti il tuo index nel profilo e qui ti dico come si muove.'}</p>`}
         <div class="field" style="margin:14px 0 0"><span class="lbl">Note</span>
           <textarea rows="2" id="f-note" placeholder="Driver in forma, tre tre-putt, doppio alla 14…">${G.note}</textarea></div>
       </div>
@@ -1643,12 +1666,12 @@ function saccaImport() {
 
 /* ---------------- archivio su Google Drive ---------------- */
 const CLIENT_ID = '505891186907-tp0l417mrr3dq49j9npnnr0ka6r45o0e.apps.googleusercontent.com';
-const SCOPE = 'https://www.googleapis.com/auth/drive.file';
+const SCOPE = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email';
 const NOME_FILE = 'golfp.json', NOME_CARTELLA = 'GolfP';
 
 let TOKEN = null, tokenClient = null, FILE_ID = null, CARTELLA_ID = null,
     ULTIMA_SYNC = null, STATO_DRIVE = 'scollegato', ERRORE_DRIVE = null;
-const ARCHIVIO = { versione: 1, aggiornato: null, giocatore: { nome: 'Jacopo', index: 14.2 }, giri: [], circoli: [], sacca: [] };
+const ARCHIVIO = { versione: 1, aggiornato: null, giocatore: {}, giri: [], circoli: [], sacca: [] };
 
 async function driveInit() {
   if (tokenClient) return true;
@@ -1658,16 +1681,23 @@ async function driveInit() {
       client_id: CLIENT_ID, scope: SCOPE,
       callback: r => {
         if (r.error) { STATO_DRIVE = 'errore'; ERRORE_DRIVE = r.error; return renderDrive(); }
-        TOKEN = r.access_token; primaSincronizzazione();
+        TOKEN = r.access_token; chiEsono().then(primaSincronizzazione);
       }
     });
     return true;
   } catch (e) { STATO_DRIVE = 'errore'; ERRORE_DRIVE = 'libreria Google non caricata'; renderDrive(); return false; }
 }
+let ACCOUNT = null;
+async function chiEsono() {
+  try {
+    const r = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', { headers: { Authorization: 'Bearer ' + TOKEN } });
+    if (r.ok) ACCOUNT = (await r.json()).email;
+  } catch (e) { ACCOUNT = null; }
+}
 async function driveCollega() {
   STATO_DRIVE = 'in corso'; ERRORE_DRIVE = null; renderDrive();
   if (!(await driveInit())) return;
-  tokenClient.requestAccessToken({ prompt: '' });
+  tokenClient.requestAccessToken({ prompt: 'select_account' });
 }
 function driveScollega() {
   if (TOKEN && window.google) google.accounts.oauth2.revoke(TOKEN, () => {});
@@ -1775,7 +1805,7 @@ function renderDrive() {
   const stati = {
     scollegato: ['var(--ink-3)', 'Non collegato', 'I giri restano solo in questa sessione finché non colleghi il Drive.'],
     'in corso': ['var(--sand)', 'Collegamento in corso…', 'Sto cercando il file nel tuo Drive.'],
-    collegato: ['var(--fair)', 'Collegato', `Ultima sincronizzazione: ${ULTIMA_SYNC ? ULTIMA_SYNC.toLocaleTimeString('it-IT') : '—'} · ${giri} giri, ${CLUBS.length} circoli`],
+    collegato: ['var(--fair)', 'Collegato' + (ACCOUNT ? ' — ' + ACCOUNT : ''), `Ultima sincronizzazione: ${ULTIMA_SYNC ? ULTIMA_SYNC.toLocaleTimeString('it-IT') : '—'} · ${giri} giri, ${CLUBS.length} circoli`],
     scaduto: ['var(--sand)', 'Sessione scaduta', 'Ricollegati: Google fa scadere l\'accesso dopo un\'ora.'],
     errore: ['var(--flag)', 'Errore', ERRORE_DRIVE || 'Google ha rifiutato la richiesta.']
   }[STATO_DRIVE];
@@ -1788,7 +1818,7 @@ function renderDrive() {
       </div>
       ${STATO_DRIVE === 'collegato'
         ? `<button class="btn ghost" id="dr-off">Scollega</button><button class="btn" id="dr-sync">Sincronizza adesso</button>`
-        : `<button class="btn red" id="dr-on">Collega Google Drive</button>`}
+        : `<button class="btn red" id="dr-on">Scegli l'account Google</button>`}
     </div>
     <p class="hint">L'app chiede il permesso <span class="num">drive.file</span>: vede soltanto i file che crea lei — l'archivio e le foto delle scorecard nella cartella <b>GolfP</b>. Il resto del tuo Drive le resta invisibile.</p>
   </div>`;
@@ -1799,191 +1829,278 @@ function renderDrive() {
 }
 
 /* ---------------- sacca ---------------- */
-const SACCA = [
-  { t: "Driver", n: "TaylorMade Stealth 2", loft: "10.5°", med: 205, max: 238, in: 1 },
-  { t: "Legno 3", n: "TaylorMade Stealth 2", loft: "15°", med: 186, max: 204, in: 1 },
-  { t: "Ibrido 4", n: "Ping G430", loft: "22°", med: 170, max: 187, in: 1 },
-  { t: "Ferro 5", n: "Titleist T200", loft: "24°", med: 158, max: 172, in: 1 },
-  { t: "Ferro 6", n: "Titleist T200", loft: "27°", med: 148, max: 161, in: 1 },
-  { t: "Ferro 7", n: "Titleist T200", loft: "30°", med: 138, max: 150, in: 1 },
-  { t: "Ferro 8", n: "Titleist T200", loft: "34°", med: 127, max: 139, in: 1 },
-  { t: "Ferro 9", n: "Titleist T200", loft: "38°", med: 116, max: 127, in: 1 },
-  { t: "Pitching wedge", n: "Titleist T200", loft: "43°", med: 105, max: 115, in: 1 },
-  { t: "Gap wedge", n: "Vokey SM10", loft: "50°", med: 92, max: 101, in: 1 },
-  { t: "Sand wedge", n: "Vokey SM10", loft: "56°", med: 78, max: 87, in: 1 },
-  { t: "Lob wedge", n: "Vokey SM10", loft: "60°", med: 62, max: 71, in: 1 },
-  { t: "Putter", n: "Odyssey Ai-One", loft: "3°", med: 0, max: 0, in: 1 }
+const SACCA = [];
+const SET_BASE = [
+  ["Driver", "", "10.5°"], ["Legno 3", "", "15°"], ["Ibrido 4", "", "22°"],
+  ["Ferro 5", "", "24°"], ["Ferro 6", "", "27°"], ["Ferro 7", "", "30°"],
+  ["Ferro 8", "", "34°"], ["Ferro 9", "", "38°"], ["Pitching wedge", "", "44°"],
+  ["Gap wedge", "", "50°"], ["Sand wedge", "", "56°"], ["Lob wedge", "", "60°"], ["Putter", "", ""]
 ];
-const LUNGHI = [
-  { t: "Driver", d: 238, c: "Golf Club Le Rovedine", b: 12, dt: "4 lug 2026" },
-  { t: "Driver", d: 231, c: "Barlassina Country Club", b: 5, dt: "18 mag 2026" },
-  { t: "Legno 3", d: 204, c: "Golf Club Milano", b: 15, dt: "2 giu 2026" },
-  { t: "Ibrido 4", d: 187, c: "La Pinetina Golf Club", b: 8, dt: "29 mar 2026" },
-  { t: "Ferro 5", d: 172, c: "Circolo Golf Villa d'Este", b: 3, dt: "11 apr 2026" }
-];
-const inSacca = () => SACCA.filter(s => s.in);
+const inSacca = () => SACCA.filter(s => s.in !== 0);
+
+/* --- numeri veri, presi dai giri salvati --- */
+function colpiSalvati() {
+  return ARCHIVIO.giri.flatMap(g => (g.buche || []).flatMap(b => (b.colpiDettaglio || [])
+    .filter(c => c.metri && c.mazza).map(c => ({ mazza: c.mazza, metri: c.metri, giro: g }))));
+}
+function statMazze() {
+  const per = {};
+  colpiSalvati().forEach(c => {
+    (per[c.mazza] = per[c.mazza] || []).push(c);
+  });
+  return per;
+}
+function distanze(m) {
+  const s = statMazze()[m.t] || [];
+  if (!s.length) return { med: m.med || null, max: m.max || null, n: 0, stimata: !!m.med };
+  const v = s.map(x => x.metri);
+  return { med: Math.round(v.reduce((a, b) => a + b, 0) / v.length), max: Math.max(...v), n: v.length, stimata: false };
+}
+function piuLunghi(n) {
+  return colpiSalvati().sort((a, b) => b.metri - a.metri).slice(0, n);
+}
+function pallePerse() {
+  return ARCHIVIO.giri.reduce((a, g) => a + (g.totali?.pallePerse || 0), 0);
+}
+function palleTrovate() {
+  return ARCHIVIO.giri.reduce((a, g) => a + (g.totali?.palleTrovate || 0), 0);
+}
 
 function renderSacca() {
-  const maxD = Math.max(...SACCA.map(s => s.max));
+  const dati = SACCA.map(m => Object.assign({}, m, distanze(m)));
+  const conD = dati.filter(d => d.max);
+  const maxD = conD.length ? Math.max(...conD.map(d => d.max)) : 1;
+  const lunghi = piuLunghi(5);
+  const perse = pallePerse(), trovate = palleTrovate(), giri = ARCHIVIO.giri.length;
   document.getElementById('sacca-body').innerHTML = `
   <div class="kpi" style="margin-bottom:18px">
-    <div class="card"><div class="lbl">Mazze in sacca</div><div class="big">${inSacca().length}<span style="font-size:16px;color:var(--ink-3)">/14</span></div><div class="delta">${14 - inSacca().length} posti liberi</div></div>
-    <div class="card"><div class="lbl">Colpo più lungo</div><div class="big" style="color:var(--flag)">${LUNGHI[0].d}<span style="font-size:16px">m</span></div><div class="delta">${LUNGHI[0].t} · ${LUNGHI[0].c}</div></div>
-    <div class="card"><div class="lbl">Buco più grande</div><div class="big">16<span style="font-size:16px">m</span></div><div class="delta dn">fra legno 3 e ibrido</div></div>
-    <div class="card"><div class="lbl">Palle perse</div><div class="big">1.8</div><div class="delta up">−0.6 sul 2025 · a giro</div></div>
+    <div class="card"><div class="lbl">Mazze in sacca</div><div class="big">${inSacca().length}<span style="font-size:16px;color:var(--ink-3)">/14</span></div><div class="delta">${Math.max(0, 14 - inSacca().length)} posti liberi</div></div>
+    <div class="card"><div class="lbl">Colpo più lungo</div><div class="big" style="color:var(--flag)">${lunghi[0] ? lunghi[0].metri : '—'}${lunghi[0] ? '<span style="font-size:16px">m</span>' : ''}</div><div class="delta">${lunghi[0] ? lunghi[0].mazza + ' · ' + (lunghi[0].giro.circolo?.nome || '') : 'nessun colpo registrato'}</div></div>
+    <div class="card"><div class="lbl">Palle perse</div><div class="big">${giri ? (perse / giri).toFixed(1) : '—'}</div><div class="delta">${giri ? 'a giro · ' + perse + ' in totale' : 'nessun giro salvato'}</div></div>
+    <div class="card"><div class="lbl">Palle trovate</div><div class="big" style="color:var(--fair)">${trovate || '—'}</div><div class="delta">${perse ? 'saldo ' + (trovate - perse) : ''}</div></div>
   </div>
 
   <div id="sacca-import" style="margin-bottom:16px"></div>
 
+  ${SACCA.length ? `
   <div class="card" style="padding:16px;margin-bottom:16px">
-    <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px">
+    <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px;gap:10px;flex-wrap:wrap">
       <h3 style="font-size:16px">Distanze per mazza</h3>
       <span class="lbl">barra piena = media · tacca = massimo</span></div>
-    ${SACCA.filter(s => s.max).map(s => `
+    ${conD.length ? dati.filter(d => d.max).map(d => `
       <div class="gap">
-        <span class="gt">${s.t}</span>
-        <div class="gbar"><i style="width:${s.med / maxD * 100}%"></i>
-          <u style="left:${s.max / maxD * 100}%"></u></div>
-        <span class="num gm">${s.med}<small>m</small></span>
-        <span class="num gx">${s.max}</span>
-      </div>`).join('')}
-    <p class="hint">Le medie si aggiornano da sole a ogni giro in cui segni mazza e distanza. Il buco fra due mazze vicine ti dice dove manca un ferro.</p>
+        <span class="gt">${d.t}</span>
+        <div class="gbar"><i style="width:${d.med / maxD * 100}%"></i><u style="left:${d.max / maxD * 100}%"></u></div>
+        <span class="num gm">${d.med}<small>m</small></span>
+        <span class="num gx">${d.max}</span>
+      </div>`).join('')
+      : '<p class="hint" style="margin:0">Nessuna distanza ancora. Segna mazza e metri quando inserisci un giro, oppure importa uno screenshot delle statistiche mazze qui sopra.</p>'}
+    ${conD.some(d => d.stimata) ? '<p class="hint">I valori in corsivo sono quelli che hai scritto a mano: si aggiornano da soli appena ci sono colpi registrati con quella mazza.</p>' : ''}
+  </div>` : ''}
+
+  <div style="display:flex;align-items:baseline;justify-content:space-between;margin:22px 0 10px;gap:10px;flex-wrap:wrap">
+    <h3 style="font-size:16px">Le tue mazze</h3>
+    <div style="display:flex;gap:8px">
+      ${SACCA.length ? '' : '<button class="btn ghost" id="sk-base">Carica un set standard</button>'}
+      <button class="btn" id="sk-add">+ Aggiungi mazza</button></div>
   </div>
 
-  <div class="grid" style="grid-template-columns:1fr 1fr;margin-bottom:16px">
-    <div class="card" style="padding:16px">
-      <h3 style="font-size:16px;margin-bottom:12px">Classifica dei colpi più lunghi</h3>
-      ${LUNGHI.map((l, i) => `<div class="clubrow" style="cursor:default">
-        <div class="fl num" style="color:var(--ink-3)">${i + 1}</div>
-        <div><div class="nm">${l.t} — <span class="num">${l.d} m</span></div>
-        <div class="mt">${l.c} · buca ${l.b} · ${l.dt}</div></div></div>`).join('')}
+  ${SACCA.length ? `
+  <div class="card" style="padding:14px">
+    <div class="mazza mazza-cap">
+      <span class="lbl">Mazza</span><span class="lbl">Marca e modello</span><span class="lbl">Loft</span>
+      <span class="lbl" style="text-align:right">Media</span><span class="lbl" style="text-align:right">Max</span><span></span>
     </div>
-    <div class="card" style="padding:16px">
-      <h3 style="font-size:16px;margin-bottom:12px">Palline</h3>
-      <div style="display:flex;gap:24px;margin-bottom:14px">
-        <div><div class="lbl">Perse quest'anno</div><b class="num" style="font-size:26px;color:var(--flag)">41</b></div>
-        <div><div class="lbl">Trovate</div><b class="num" style="font-size:26px;color:var(--fair)">27</b></div>
-        <div><div class="lbl">Saldo</div><b class="num" style="font-size:26px">−14</b></div>
-      </div>
-      <div class="lbl" style="margin-bottom:8px">Dove le perdi</div>
-      ${[["Fuori limite col driver", 38], ["Acqua sui par 3", 24], ["Rough alto", 21], ["Bunker e altro", 17]].map(r => `
-        <div style="margin-bottom:9px"><div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:4px">
-          <span>${r[0]}</span><span class="num" style="color:var(--ink-3)">${r[1]}%</span></div>
-        <div class="bar"><i style="width:${r[1]}%;background:var(--flag)"></i></div></div>`).join('')}
-    </div>
-  </div>
+    ${SACCA.map((m, i) => {
+      const d = distanze(m);
+      return `<div class="mazza">
+        <input value="${m.t || ''}" data-m="${i}" data-k="t" placeholder="Ferro 7">
+        <input value="${m.n || ''}" data-m="${i}" data-k="n" placeholder="Titleist T200">
+        <input value="${m.loft || ''}" data-m="${i}" data-k="loft" placeholder="30°">
+        <input class="num" value="${d.n ? d.med : (m.med || '')}" data-m="${i}" data-k="med" placeholder="—" ${d.n ? 'disabled title="calcolata dai giri"' : ''}>
+        <input class="num" value="${d.n ? d.max : (m.max || '')}" data-m="${i}" data-k="max" placeholder="—" ${d.n ? 'disabled title="calcolata dai giri"' : ''}>
+        <button class="iconbtn" data-del="${i}" aria-label="Togli la mazza">×</button>
+      </div>`;
+    }).join('')}
+    <p class="hint">Le caselle grigie sono calcolate dai colpi che hai registrato: quelle vincono sempre sui valori scritti a mano.</p>
+  </div>`
+  : `<div class="card" style="padding:26px;text-align:center">
+      <p style="margin:0 0 6px;font-weight:600">La sacca è vuota</p>
+      <p class="hint" style="margin:0 auto 16px;max-width:420px">Aggiungi le tue mazze una per una, parti da un set standard e correggilo, oppure importa le distanze da uno screenshot di Garmin Golf.</p>
+    </div>`}
 
-  <div style="display:flex;align-items:baseline;justify-content:space-between;margin:22px 0 10px">
-    <h3 style="font-size:16px">Le tue mazze</h3><button class="btn ghost">+ Aggiungi mazza</button></div>
+  ${lunghi.length ? `
+  <h3 style="font-size:16px;margin:26px 0 10px">I colpi più lunghi</h3>
   <div class="card" style="padding:0 14px">
-    ${SACCA.map(s => `<div class="clubrow" style="cursor:default">
-      <div><div class="nm">${s.t}</div><div class="mt">${s.n} · ${s.loft}</div></div>
-      <div class="sc">${s.max ? `<b>${s.med}</b><span>media in metri</span>` : '<span>—</span>'}</div></div>`).join('')}
-  </div>`;
+    ${lunghi.map((l, i) => `<div class="clubrow" style="cursor:default">
+      <div class="fl num" style="color:var(--ink-3)">${i + 1}</div>
+      <div><div class="nm">${l.mazza} — <span class="num">${l.metri} m</span></div>
+      <div class="mt">${l.giro.circolo?.nome || ''} · ${(l.giro.data || '').slice(0, 10)}</div></div></div>`).join('')}
+  </div>` : ''}`;
+
   saccaImport();
+  const salva = () => { renderSacca(); if (TOKEN) salvaArchivio(); };
+  document.querySelectorAll('#sacca-body [data-m]').forEach(inp => inp.onchange = () => {
+    const m = SACCA[+inp.dataset.m], k = inp.dataset.k;
+    m[k] = (k === 'med' || k === 'max') ? (parseInt(inp.value, 10) || null) : inp.value;
+    if (TOKEN) salvaArchivio();
+  });
+  document.querySelectorAll('#sacca-body [data-del]').forEach(b => b.onclick = () => {
+    SACCA.splice(+b.dataset.del, 1); salva();
+  });
+  const add = document.getElementById('sk-add');
+  if (add) add.onclick = () => { SACCA.push({ t: '', n: '', loft: '', med: null, max: null, in: 1 }); salva(); };
+  const base = document.getElementById('sk-base');
+  if (base) base.onclick = () => {
+    SET_BASE.forEach(r => SACCA.push({ t: r[0], n: r[1], loft: r[2], med: null, max: null, in: 1 }));
+    salva();
+  };
 }
 
 /* ---------------- statistiche ---------------- */
-const NPAESI = new Set(CLUBS.filter(c => !c.wish).map(c => c.p)).size;
-const NREG = new Set(CLUBS.filter(c => !c.wish && c.p === 'Italia').map(c => c.r.split('/')[0])).size;
+const giriValidi = () => ARCHIVIO.giri.filter(g => g.totali && g.totali.lordo);
 function renderStats() {
-  document.getElementById('stats-sub').textContent = `Ultime 4 stagioni · ${CLUBS.reduce((a, c) => a + (c.g || 0), 0)} giri`;
-  const hcp = [[ '2022', 24.3], ['', 23.1], ['2023', 21.6], ['', 20.4], ['2024', 19.2], ['', 17.9], ['2025', 16.4], ['', 15.6], ['2026', 14.8], ['', 14.2]];
-  const w = 640, h = 170, mn = 13.5, mx = 25;
-  const pts = hcp.map((d, i) => [26 + i * ((w - 40) / (hcp.length - 1)), h - 24 - (d[1] - mn) / (mx - mn) * (h - 50)]);
-  const line = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
-  const area = line + ` L${pts[pts.length - 1][0].toFixed(1)} ${h - 20} L26 ${h - 20} Z`;
-  const dist = [[ '≤84', 9], ['85-89', 24], ['90-94', 38], ['95-99', 29], ['100-104', 14], ['≥105', 4]];
-  const mxd = 38;
+  const gs = giriValidi();
+  document.getElementById('stats-sub').textContent = gs.length
+    ? `${gs.length} giri registrati` : 'nessun giro registrato';
+  const body = document.getElementById('stats-body');
+  if (!gs.length) {
+    body.innerHTML = `<div class="card" style="padding:34px;text-align:center">
+      <p style="margin:0 0 6px;font-weight:600">Ancora nessun dato</p>
+      <p class="hint" style="margin:0 auto 18px;max-width:440px">Le statistiche si costruiscono da sole man mano che registri i giri: media, andamento dell'handicap, rendimento per par, copertura delle regioni.</p>
+      <button class="btn red" onclick="go('giro')">Registra il primo giro</button></div>`;
+    return;
+  }
+  const lordi = gs.map(g => g.totali.lordo);
+  const media = (lordi.reduce((a, b) => a + b, 0) / lordi.length).toFixed(1);
+  const best = gs.reduce((a, g) => g.totali.lordo < a.totali.lordo ? g : a);
+  const diffs = gs.filter(g => g.totali.differenziale).map(g => +g.totali.differenziale);
+  const buche = gs.flatMap(g => g.buche || []).filter(b => b.colpi);
+  const perPar = p => {
+    const b = buche.filter(x => x.par === p);
+    if (!b.length) return null;
+    const gir = b.filter(x => x.colpi - (x.putt || 2) <= p - 2).length;
+    return { m: (b.reduce((a, x) => a + x.colpi, 0) / b.length).toFixed(1), gir: Math.round(gir / b.length * 100), n: b.length };
+  };
+  const fasce = [['≤79', 0, 79], ['80-84', 80, 84], ['85-89', 85, 89], ['90-94', 90, 94], ['95-99', 95, 99], ['100+', 100, 999]]
+    .map(f => [f[0], lordi.filter(v => v >= f[1] && v <= f[2]).length]);
+  const maxF = Math.max(...fasce.map(f => f[1]), 1);
   const rmap = {};
   CLUBS.filter(c => c.p === 'Italia' && c.r).forEach(c => {
     const k = c.r.split('/')[0];
     rmap[k] = rmap[k] || [k, 0, 0]; rmap[k][2]++; if (!c.wish) rmap[k][1]++;
   });
-  const regs = Object.values(rmap).sort((a, b) => b[1] - a[1] || b[2] - a[2] || a[0].localeCompare(b[0]));
-  document.getElementById('stats-body').innerHTML = `
+  const regs = Object.values(rmap).filter(r => r[1]).sort((a, b) => b[1] - a[1]);
+  const nreg = regs.length, npaesi = new Set(CLUBS.filter(c => !c.wish).map(c => c.p)).size;
+  const putt = buche.filter(b => b.putt != null);
+  const fw = buche.filter(b => b.fw != null);
+  const birdie = buche.filter(b => b.colpi < b.par).length;
+  const eagle = buche.filter(b => b.colpi <= b.par - 2).length;
+
+  // andamento: differenziale giro per giro
+  const w = 640, h = 170;
+  let grafico = '';
+  if (diffs.length > 1) {
+    const mn = Math.min(...diffs) - 1, mx = Math.max(...diffs) + 1;
+    const pts = diffs.map((v, i) => [26 + i * ((w - 40) / (diffs.length - 1)), h - 24 - (v - mn) / (mx - mn) * (h - 50)]);
+    const line = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
+    grafico = `<div class="card" style="padding:16px;margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline"><h3 style="font-size:16px">Andamento dei differenziali</h3>
+      <span class="lbl">${diffs.length} giri completi</span></div>
+      <svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;margin-top:8px" role="img" aria-label="Andamento">
+        <path d="${line} L${pts[pts.length - 1][0].toFixed(1)} ${h - 20} L26 ${h - 20} Z" fill="rgba(15,123,82,.10)"/>
+        <path d="${line}" fill="none" stroke="var(--fair)" stroke-width="2.2" stroke-linejoin="round"/>
+        ${pts.map((p, i) => `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="${i === pts.length - 1 ? 4.5 : 2.6}" fill="${i === pts.length - 1 ? 'var(--flag)' : 'var(--fair)'}"/>`).join('')}
+      </svg></div>`;
+  }
+  body.innerHTML = `
   <div class="kpi" style="margin-bottom:16px">
-    <div class="card"><div class="lbl">Handicap index</div><div class="big" style="color:var(--fair)">14.2</div><div class="delta up">−1.4 nella stagione</div></div>
-    <div class="card"><div class="lbl">Media lorda</div><div class="big">93.7</div><div class="delta up">−2.1 sul 2025</div></div>
-    <div class="card"><div class="lbl">Miglior lordo</div><div class="big" style="color:var(--flag)">84</div><div class="delta">Acquasanta · 12 mag 2026</div></div>
-    <div class="card"><div class="lbl">Circoli giocati</div><div class="big">${CLUBS.filter(c => !c.wish).length}</div><div class="delta">in ${NPAESI} paesi · ${NREG} regioni</div></div>
+    <div class="card"><div class="lbl">Handicap index</div><div class="big" style="color:var(--fair)">${ARCHIVIO.giocatore.index || '—'}</div><div class="delta">${ARCHIVIO.giocatore.index ? 'inserito nel profilo' : 'da inserire nel profilo'}</div></div>
+    <div class="card"><div class="lbl">Media lorda</div><div class="big">${media}</div><div class="delta">su ${gs.length} giri</div></div>
+    <div class="card"><div class="lbl">Miglior lordo</div><div class="big" style="color:var(--flag)">${best.totali.lordo}</div><div class="delta">${best.circolo?.nome || ''} · ${(best.data || '').slice(0, 10)}</div></div>
+    <div class="card"><div class="lbl">Circoli giocati</div><div class="big">${CLUBS.filter(c => !c.wish).length}</div><div class="delta">in ${npaesi} paes${npaesi === 1 ? 'e' : 'i'} · ${nreg} region${nreg === 1 ? 'e' : 'i'}</div></div>
   </div>
-
-  <div class="card" style="padding:16px;margin-bottom:16px">
-    <div style="display:flex;justify-content:space-between;align-items:baseline"><h3 style="font-size:16px">Andamento handicap</h3><span class="lbl">2022 → oggi</span></div>
-    <svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;margin-top:8px" role="img" aria-label="Grafico dell'handicap">
-      ${[15,18,21,24].map(v => { const y = h - 24 - (v - mn) / (mx - mn) * (h - 50); return `<line x1="26" x2="${w - 8}" y1="${y}" y2="${y}" stroke="#D5D0BF"/><text x="0" y="${y + 4}" font-size="10" font-family="IBM Plex Mono" fill="#8A9089">${v}</text>`; }).join('')}
-      <path d="${area}" fill="rgba(30,92,62,.10)"/>
-      <path d="${line}" fill="none" stroke="var(--fair)" stroke-width="2.2" stroke-linejoin="round"/>
-      ${pts.map((p, i) => `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="${i === pts.length - 1 ? 4.5 : 2.6}" fill="${i === pts.length - 1 ? 'var(--flag)' : 'var(--fair)'}"/>`).join('')}
-      ${hcp.map((d, i) => d[0] ? `<text x="${pts[i][0]}" y="${h - 5}" font-size="10" font-family="IBM Plex Mono" fill="#8A9089" text-anchor="middle">${d[0]}</text>` : '').join('')}
-    </svg>
-  </div>
-
+  ${grafico}
   <div class="grid" style="grid-template-columns:1fr 1fr;margin-bottom:16px">
     <div class="card" style="padding:16px">
       <h3 style="font-size:16px;margin-bottom:16px">Distribuzione dei punteggi</h3>
-      <div class="hist">${dist.map(d => `<div class="${d[0] === '90-94' ? 'hi' : ''}" style="height:${d[1] / mxd * 100}%"><span>${d[1]}</span></div>`).join('')}</div>
-      <div class="xax">${dist.map(d => `<span>${d[0]}</span>`).join('')}</div>
+      <div class="hist">${fasce.map(f => `<div class="${f[1] === maxF ? 'hi' : ''}" style="height:${f[1] / maxF * 100}%"><span>${f[1] || ''}</span></div>`).join('')}</div>
+      <div class="xax">${fasce.map(f => `<span>${f[0]}</span>`).join('')}</div>
     </div>
     <div class="card" style="padding:16px">
       <h3 style="font-size:16px;margin-bottom:14px">Rendimento per par</h3>
-      ${[['Par 3', 3.7, 62], ['Par 4', 5.1, 48], ['Par 5', 6.2, 71]].map(r => `
+      ${[3, 4, 5].map(p => { const r = perPar(p); return r ? `
         <div style="margin-bottom:14px">
           <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px">
-            <span>${r[0]} — media <b class="num">${r[1]}</b></span><span class="num" style="color:var(--ink-3)">${r[2]}% green in regolamentazione</span></div>
-          <div class="bar"><i style="width:${r[2]}%"></i></div></div>`).join('')}
-      <div style="display:flex;gap:18px;border-top:1px solid var(--rule);padding-top:13px;margin-top:4px">
-        <div><div class="lbl">Fairway</div><b class="num" style="font-size:19px">52%</b></div>
-        <div><div class="lbl">Putt/giro</div><b class="num" style="font-size:19px">33.4</b></div>
-        <div><div class="lbl">Birdie</div><b class="num" style="font-size:19px">34</b></div>
-        <div><div class="lbl">Eagle</div><b class="num" style="font-size:19px">1</b></div>
+            <span>Par ${p} — media <b class="num">${r.m}</b></span><span class="num" style="color:var(--ink-3)">${r.gir}% in regolamentazione</span></div>
+          <div class="bar"><i style="width:${r.gir}%"></i></div></div>` : ''; }).join('')
+        || '<p class="hint" style="margin:0">Serve almeno un giro con il dettaglio buca per buca.</p>'}
+      <div style="display:flex;gap:18px;flex-wrap:wrap;border-top:1px solid var(--rule);padding-top:13px;margin-top:4px">
+        <div><div class="lbl">Fairway</div><b class="num" style="font-size:19px">${fw.length ? Math.round(fw.filter(b => b.fw === 1).length / fw.length * 100) + '%' : '—'}</b></div>
+        <div><div class="lbl">Putt/giro</div><b class="num" style="font-size:19px">${putt.length >= 18 ? (putt.reduce((a, b) => a + b.putt, 0) / gs.length).toFixed(1) : '—'}</b></div>
+        <div><div class="lbl">Birdie</div><b class="num" style="font-size:19px">${birdie}</b></div>
+        <div><div class="lbl">Eagle</div><b class="num" style="font-size:19px">${eagle}</b></div>
       </div>
     </div>
   </div>
-
-  <div class="card" style="padding:16px">
+  ${regs.length ? `<div class="card" style="padding:16px">
     <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:14px">
-      <h3 style="font-size:16px">Copertura per regione</h3><span class="lbl">${NREG} regioni su 20 · ${regs.length} con almeno un circolo in elenco</span></div>
+      <h3 style="font-size:16px">Copertura per regione</h3><span class="lbl">${nreg} region${nreg === 1 ? 'e' : 'i'} su 20</span></div>
     <div class="regprog">${regs.map(r => `<div class="rw">
         <div><div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:4px"><span>${r[0]}</span></div>
         <div class="bar"><i style="width:${r[1] / r[2] * 100}%;background:${r[1] === r[2] ? 'var(--flag)' : 'var(--fair)'}"></i></div></div>
         <span class="num" style="font-size:12.5px;text-align:right">${r[1]}/${r[2]}</span></div>`).join('')}</div>
-  </div>`;
+  </div>` : ''}`;
 }
 
 /* ---------------- profilo ---------------- */
+function salvaProfilo() { if (TOKEN) salvaArchivio(); aggiornaRail(); }
+function aggiornaRail() {
+  const b = document.querySelector('.railfoot b'), p = document.querySelector('.railfoot');
+  if (!b) return;
+  b.textContent = ARCHIVIO.giocatore.index || '—';
+  p.lastChild.textContent = ARCHIVIO.giocatore.index ? ' aggiornato a mano' : ' da inserire nel profilo';
+}
 function renderProfilo() {
-  const badges = [['⚑', '9 regioni', 'su 20 in Italia', 1], ['◎', 'Giro sotto 85', 'Acquasanta, 84', 1], ['✦', 'Eagle', 'Is Molas, buca 12', 1],
-    ['⌘', 'Links scozzese', 'Old Course', 1], ['◐', 'Handicap 12', 'mancano 2.2', 0], ['✶', 'Tutte le regioni', '11 mancanti', 0]];
+  const g = ARCHIVIO.giocatore;
+  const gs = giriValidi();
+  const daGiocare = CLUBS.filter(c => c.wish);
+  const prossimo = g.prossimo && CLUBS.find(c => c.id === +g.prossimo);
   document.getElementById('prof-body').innerHTML = `
   <div class="grid" style="grid-template-columns:1fr 1fr;margin-bottom:16px">
     <div class="card" style="padding:18px">
-      <div class="lbl">Giocatore</div>
-      <h3 style="font-size:24px;margin:6px 0 2px">Jacopo</h3>
-      <p style="margin:0 0 14px;font-size:13px;color:var(--ink-3)">Tessera FIG 0084512 · Home club: Barlassina Country Club</p>
-      <div style="display:flex;gap:22px">
-        <div><div class="lbl">Index</div><b class="num" style="font-size:26px;color:var(--fair)">14.2</b></div>
-        <div><div class="lbl">Giri</div><b class="num" style="font-size:26px">122</b></div>
-        <div><div class="lbl">Dal</div><b class="num" style="font-size:26px">2022</b></div>
+      <div class="lbl" style="margin-bottom:10px">Giocatore</div>
+      <div class="field"><span class="lbl">Nome</span><input id="p-nome" value="${g.nome || ''}" placeholder="Come ti chiami"></div>
+      <div class="duo">
+        <div class="field"><span class="lbl">Tessera FIG</span><input id="p-fig" value="${g.fig || ''}" placeholder="numero tessera"></div>
+        <div class="field"><span class="lbl">Handicap index</span><input class="num" id="p-index" value="${g.index || ''}" placeholder="es. 14.2"></div>
       </div>
+      <div class="field" style="margin-bottom:0"><span class="lbl">Circolo di appartenenza</span>
+        <select id="p-home"><option value="">— nessuno —</option>
+          ${CLUBS.map(c => `<option value="${c.id}"${+g.home === c.id ? ' selected' : ''}>${c.n}</option>`).join('')}</select></div>
     </div>
     <div class="card" style="padding:18px">
-      <div class="lbl">Obiettivo della stagione</div>
-      <h3 style="font-size:18px;margin:6px 0 12px">Scendere sotto 13.0 entro ottobre</h3>
-      <div class="bar" style="height:12px"><i style="width:64%"></i></div>
-      <p style="margin:9px 0 0;font-size:12.5px;color:var(--ink-3)">14.2 di partenza · servono 4 giri sotto 90</p>
+      <div class="lbl" style="margin-bottom:10px">Obiettivo</div>
+      <div class="field"><span class="lbl">Cosa vuoi ottenere</span><input id="p-ob" value="${g.obiettivo || ''}" placeholder="Scendere sotto 13.0 entro ottobre"></div>
+      <div class="duo">
+        <div class="field"><span class="lbl">Da</span><input class="num" id="p-da" value="${g.obDa || ''}" placeholder="14.2"></div>
+        <div class="field"><span class="lbl">A</span><input class="num" id="p-a" value="${g.obA || ''}" placeholder="13.0"></div>
+      </div>
+      ${(() => {
+        const da = +g.obDa, a = +g.obA, ora = +g.index;
+        if (!da || !a || !ora) return '<p class="hint" style="margin:0">Compila i tre numeri e qui compare quanto ti manca.</p>';
+        const q = Math.max(0, Math.min(100, (da - ora) / (da - a) * 100));
+        return `<div class="bar" style="height:12px"><i style="width:${q}%"></i></div>
+          <p class="hint">Sei a <b class="num">${ora}</b> · mancano <b class="num">${(ora - a).toFixed(1)}</b> punti</p>`;
+      })()}
       <div style="border-top:1px solid var(--rule);margin-top:14px;padding-top:12px">
-        <div class="lbl">Prossimo circolo in lista</div>
-        <div style="display:flex;align-items:center;gap:9px;margin-top:6px">${flagSvg(true)}<b>Golf Club Carimate</b>
-        <span class="pill o" style="margin-left:auto">Lombardia</span></div>
+        <div class="lbl">Prossimo circolo da giocare</div>
+        <select id="p-pross" style="margin-top:6px"><option value="">— scegline uno —</option>
+          ${daGiocare.slice(0, 300).map(c => `<option value="${c.id}"${prossimo && prossimo.id === c.id ? ' selected' : ''}>${c.n}${c.l ? ' — ' + c.l : ''}</option>`).join('')}</select>
       </div>
     </div>
   </div>
-  <h3 style="font-size:16px;margin:22px 0 10px">Traguardi</h3>
-  <div class="badges">${badges.map(b => `<div class="badge ${b[3] ? '' : 'off'}">
-      <div style="font-size:22px;color:${b[3] ? 'var(--flag)' : 'var(--ink-3)'}">${b[0]}</div>
-      <b>${b[1]}</b><span>${b[2]}</span></div>`).join('')}</div>
+
   <h3 style="font-size:16px;margin:26px 0 10px">Aspetto</h3>
   <div class="card" style="padding:16px;margin-bottom:8px">
     <div class="segs" id="temi" style="width:fit-content">
@@ -1991,42 +2108,85 @@ function renderProfilo() {
       <button data-t="carta" aria-pressed="false">Carta</button>
       <button data-t="notte" aria-pressed="false">Notte</button>
     </div>
-    <p class="hint">Cambia subito, senza ricaricare. Notte è comoda per segnare i punteggi al tramonto.</p>
+    <p class="hint">Cambia subito, senza ricaricare.</p>
   </div>
-  <h3 style="font-size:16px;margin:26px 0 10px">Importa da Garmin Golf</h3>
-  <div class="card" style="padding:16px;margin-bottom:8px">
-    <label class="drop" id="garmin-drop" style="padding:26px 18px">
-      <input type="file" accept=".json,.zip,.csv,.fit" hidden>
-      <div class="dropico">↧</div>
-      <b>Trascina qui l'export di Garmin</b>
-      <span>Accetto il file JSON degli scorecard, lo zip del data dump o i .fit dei singoli giri.</span>
-    </label>
-    <p class="hint">Se il file non ce l'hai, va benissimo lo screenshot: lo trascini in Nuovo giro o nella Sacca e viene letto allo stesso modo. Il dettaglio colpo per colpo con la mazza esiste solo se usi i sensori CT10; senza, dal Garmin arrivano punteggi, putt, fairway e distanze dei colpi rilevati dal GPS.</p>
-  </div>
-  <h3 style="font-size:16px;margin:26px 0 10px">Chiavi e collegamenti</h3>
-  <div class="card" style="padding:16px;margin-bottom:8px">
-    <div class="field"><span class="lbl">Chiave MapTiler</span>
-      <input id="k-maptiler" placeholder="incolla qui la chiave del tuo account MapTiler"></div>
-    <p style="margin:-4px 0 10px;font-size:12px;color:var(--ink-3)">Senza chiave la mappa usa i riquadri pubblici di OpenStreetMap: funziona, ma è più lenta e senza satellite ad alta risoluzione.</p>
-    <div class="field" style="margin-bottom:4px"><span class="lbl">Chiave Google Gemini — solo per le prove</span>
-      <input id="k-gemini" placeholder="AIza…"></div>
-    <p style="margin:0;font-size:12px;color:var(--ink-3)">Serve per leggere scorecard e screenshot. Pubblicata l'app, la chiave sta sul server e questo campo resta vuoto: una chiave dentro la pagina sarebbe leggibile da chiunque.</p>
-  </div>
+
   <h3 style="font-size:16px;margin:26px 0 10px">Archivio su Google Drive</h3>
   <div id="drive-box"></div>
+
+  <h3 style="font-size:16px;margin:26px 0 10px">Chiavi</h3>
+  <div class="card" style="padding:16px;margin-bottom:8px">
+    <div class="field"><span class="lbl">Chiave MapTiler</span>
+      <input id="k-maptiler" placeholder="lasciala vuota per usare quella già configurata"></div>
+    <div class="field" style="margin-bottom:4px"><span class="lbl">Chiave Google Gemini — solo per le prove</span>
+      <input id="k-gemini" placeholder="AIza…"></div>
+    <p class="hint">Pubblicata l'app, la chiave Gemini sta sul server e questo campo resta vuoto.</p>
+  </div>
+
   <h3 style="font-size:16px;margin:26px 0 10px">Dati</h3>
   <div class="card" style="padding:4px 14px">
-    ${[['Esporta i giri in CSV', 'per il foglio di calcolo'], ['Backup della mappa', 'circoli, note e bandierine'], ['Importa da FIG', 'sincronizza i punteggi ufficiali'], ['Aggiungi un circolo', 'anche uno non in elenco']].map(r => `
-      <div class="clubrow"><div><div class="nm">${r[0]}</div><div class="mt">${r[1]}</div></div>
+    ${[['csv', 'Esporta i giri in CSV', gs.length ? `${gs.length} giri, per il foglio di calcolo` : 'nessun giro da esportare'],
+       ['json', "Scarica una copia dell'archivio", 'circoli, giri, sacca e correzioni'],
+       ['circolo', 'Aggiungi un circolo a mano', 'se non è in elenco né su OpenStreetMap'],
+       ['svuota', 'Cancella tutti i giri', "l'elenco dei circoli resta"]].map(r => `
+      <div class="clubrow" data-azione="${r[0]}"><div><div class="nm">${r[1]}</div><div class="mt">${r[2]}</div></div>
       <div class="sc" style="color:var(--ink-3)">→</div></div>`).join('')}
-  </div>`;
+  </div>
+  <div id="prof-msg" class="hint" style="margin-top:8px"></div>`;
+
+  const b = (id, k, num) => {
+    const e = document.getElementById(id);
+    e.onchange = () => { g[k] = num ? (parseFloat(e.value) || null) : e.value; salvaProfilo(); if (k === 'index' || k.startsWith('ob')) renderProfilo(); };
+  };
+  b('p-nome', 'nome'); b('p-fig', 'fig'); b('p-index', 'index', true);
+  b('p-ob', 'obiettivo'); b('p-da', 'obDa', true); b('p-a', 'obA', true);
+  b('p-home', 'home'); b('p-pross', 'prossimo');
   renderDrive();
-  document.querySelectorAll('#temi button').forEach(b => b.onclick = () => tema(b.dataset.t));
-  document.querySelectorAll('#temi button').forEach(b => b.setAttribute('aria-pressed', b.dataset.t === (document.body.dataset.tema || 'chiaro')));
+  document.querySelectorAll('#temi button').forEach(x => {
+    x.setAttribute('aria-pressed', x.dataset.t === (document.body.dataset.tema || 'chiaro'));
+    x.onclick = () => tema(x.dataset.t);
+  });
+  const kin = document.getElementById('k-maptiler');
+  kin.onchange = () => { if (kin.value.trim()) setKey(kin.value); };
+  const gin = document.getElementById('k-gemini');
+  gin.onchange = () => GKEY = gin.value.trim();
+  document.querySelectorAll('#prof-body [data-azione]').forEach(r => r.onclick = () => azione(r.dataset.azione));
+}
+function scarica(nome, testo, tipo) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([testo], { type: tipo }));
+  a.download = nome; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+function azione(k) {
+  const msg = document.getElementById('prof-msg');
+  if (k === 'csv') {
+    const gs = giriValidi();
+    if (!gs.length) return msg.textContent = 'Non c\'è ancora nessun giro da esportare.';
+    const col = ['data', 'circolo', 'percorso', 'partenze', 'tipo', 'lordo', 'netto', 'stableford', 'differenziale', 'putt', 'palle perse'];
+    const righe = gs.map(g => [g.data, g.circolo?.nome, g.percorso, g.tee, g.tipo, g.totali.lordo, g.totali.netto,
+      g.totali.stableford, g.totali.differenziale, g.totali.putt, g.totali.pallePerse]
+      .map(v => `"${(v ?? '').toString().replace(/"/g, '""')}"`).join(';'));
+    scarica('golfp-giri.csv', [col.join(';'), ...righe].join('\n'), 'text/csv');
+    msg.textContent = `${gs.length} giri esportati.`;
+  }
+  if (k === 'json') {
+    ARCHIVIO.circoli = CLUBS; ARCHIVIO.sacca = SACCA;
+    scarica('golfp.json', JSON.stringify(ARCHIVIO, null, 1), 'application/json');
+    msg.textContent = 'Copia scaricata.';
+  }
+  if (k === 'circolo') { go('circoli'); document.getElementById('impbox').classList.add('on'); document.getElementById('imp-txt').focus(); }
+  if (k === 'svuota') {
+    if (!confirm('Cancello tutti i giri registrati? I circoli e la sacca restano.')) return;
+    ARCHIVIO.giri = [];
+    CLUBS.forEach(c => { c.g = 0; c.b = 0; c.wish = true; });
+    paint(); renderSide(); renderCircoli(); aggiornaContatori(); renderStats(); renderSacca(); renderProfilo();
+    if (TOKEN) salvaArchivio();
+  }
 }
 
 /* ---------------- avvio ---------------- */
-aggiornaContatori(); renderSide();
+aggiornaContatori(); renderSide(); aggiornaRail();
 renderCircoli(); renderGiro(); renderSacca(); renderStats(); renderProfilo();
 document.getElementById('osm-title').textContent = CLUBS.length + ' circoli in elenco';
 const kin = document.getElementById('k-maptiler');
