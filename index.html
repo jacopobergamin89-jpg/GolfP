@@ -91,6 +91,8 @@ main{flex:1;min-width:0;position:relative;overflow:hidden}
 .zoomers button{width:34px;height:34px;background:rgba(12,21,18,.86);color:#DFDBCB;border:1px solid rgba(232,228,214,.18);
   border-radius:8px;font-size:15px;line-height:1;display:grid;place-items:center;backdrop-filter:blur(7px)}
 .zoomers button:hover{background:var(--flag);color:#fff}
+#geobar{bottom:88px}
+.osmbar[hidden]{display:none}
 .osmbar{position:absolute;left:12px;right:12px;bottom:12px;z-index:3;display:flex;align-items:center;gap:14px;
   background:rgba(12,21,18,.9);border:1px solid rgba(232,228,214,.18);border-radius:10px;padding:11px 13px;
   color:#E5E1D2;backdrop-filter:blur(8px)}
@@ -515,6 +517,11 @@ h1,h2,h3{font-family:var(--disp);font-weight:800;letter-spacing:-.03em;text-tran
             </div>
             <button class="btn red" id="osm-go">Importa</button>
           </div>
+          <div class="osmbar" id="geobar" hidden>
+            <div><b id="geo-title"></b><span id="geo-sub"></span></div>
+            <button class="btn red" id="geo-go">Cerca 40 indirizzi</button>
+            <button class="btn ghost" id="geo-stop" hidden>Ferma</button>
+          </div>
         </div>
         <aside class="side" id="side"></aside>
       </div>
@@ -905,6 +912,325 @@ const NUOVI = [
   [4, "Mantova Golf Club", "Curtatone", "MN", "Lombardia", 45.147, 10.717],
   [0, "TEE UP Urban Golf Hub", "Milano", "MI", "Lombardia", 45.466, 9.161]
 ];
+/* --- indirizzi ufficiali Federgolf: comune, provincia, coordinate del comune, via e CAP.
+   Il segnaposto nasce sul comune giusto; la via serve alla scheda e al collegamento alle mappe. --- */
+const INDIRIZZI = {
+  "Abano": ["Abano Terme", "PD", 45.3594, 11.7887, "Via Carabinieri snc", "35031"],
+  "Abbadia": ["Colle di Val d'Elsa", "SI", 43.4212, 11.1178, "Loc. La Badia 14/A", "53034"],
+  "Acaya": ["Vernole", "LE", 40.2885, 18.2987, "Loc. Masseria S. Pietro - Str. Prov. Life km 5", "73029"],
+  "Acquabona": ["Portoferraio", "LI", 42.8153, 10.3312, "Loc. Acquabona - Strada del Golf 8", "57037"],
+  "Adriatic Golf Club Cervia": ["Cervia", "RA", 44.2609, 12.3498, "Via Jelenia Gora 6", "48015"],
+  "Alisei Pietrasanta": ["Pietrasanta", "LU", 43.9596, 10.2277, "Via Spirito Santo 30 - Loc. La Sparta", "55045"],
+  "Alpe della Luna": ["Borgo Pace", "PU", 43.6582, 12.2946, "Via Taramone 2", "61040"],
+  "Alpino": ["Stresa", "VB", 45.8839, 8.5407, "Viale Golf Panorama 48 - Vezzo", "28839"],
+  "Alta Badia": ["Corvara in Badia", "BZ", 46.5529, 11.8745, "Strada Planac 9", "39033"],
+  "Altogarda": ["Riva del Garda", "TN", 45.885, 10.8389, "Loc. San Tommaso", "38066"],
+  "Ambrosiano Golf Club": ["Bubbiano", "MI", 45.3273, 9.0134, "Cascina Bertacca snc", "20080"],
+  "Ancora": ["Meolo", "VE", 45.619, 12.4527, "Via Armando Diaz 122", "30020"],
+  "Antico Borgo Camuzzago": ["Bellusco", "MB", 45.6186, 9.4178, "Via del Borgo 6", "20882"],
+  "Antognolla": ["Perugia", "PG", 43.1068, 12.3882, "Str. S. Giovanni del Pantano - Loc. Antognolla", "06133"],
+  "Aosta Arsanieres": ["Gignod", "AO", 45.7783, 7.2962, "Frazione Arsanieres", "11010"],
+  "Aosta Brissogne": ["Brissogne", "AO", 45.7272, 7.4046, "Località Les Iles 3", "11020"],
+  "Appiano - Golf & Country": ["Nova Levante", "BZ", 46.4298, 11.5356, "Via Carezza 171", "39056"],
+  "Aprica Orobie Golf Club": ["Aprica", "SO", 46.1533, 10.1521, "Corso Roma 150 - Loc. Sondellini", "23031"],
+  "Archi di Claudio": ["Roma", "RM", 41.8928, 12.4837, "Via Gamiana 45", "00178"],
+  "Argenta": ["Argenta", "FE", 44.6144, 11.837, "Via Poderi 2/A", "44011"],
+  "Argentario Golf": ["Monte Argentario", "GR", 42.4392, 11.1158, "Via Acquedotto Leopoldino snc - Porto Ercole", "58018"],
+  "Arona": ["Borgo Ticino", "NO", 45.6881, 8.6039, "Via in Prè", "28048"],
+  "Arzaga Golf Club": ["Calvagese della Riviera", "BS", 45.5392, 10.446, "Via Arzaga 1", "25080"],
+  "Asiago": ["Asiago", "VI", 45.8757, 11.5091, "Via Meltar 2", "36012"],
+  "Asolo Golf Club": ["Cavaso del Tomba", "TV", 45.8603, 11.8952, "Via dei Borghi 1", "31034"],
+  "Assisi": ["Assisi", "PG", 43.0708, 12.6154, "Via S. Bernardino da Siena 116 - S.M. Angeli", "06081"],
+  "Avio 2.0": ["Montegiorgio", "FM", 43.13, 13.5378, "Via Piane 10", "63833"],
+  "Bagnaia": ["Murlo", "SI", 43.1685, 11.3911, "SS 223 Siena-Grosseto km 56 - Loc. Bagnaia", "53016"],
+  "Barialto": ["Casamassima", "BA", 40.9554, 16.9181, "SS 100 km 18", "70010"],
+  "Barlassina Country Club": ["Lentate sul Seveso", "MB", 45.6782, 9.1192, "Via Privata Golf 42", "20823"],
+  "Bat Fly": ["Barletta", "BT", 41.3196, 16.2772, "Contrada Pantaniello snc", "76121"],
+  "Bellosguardo": ["Vinci", "FI", 43.7871, 10.9265, "Via Prov.le di Mercatale 25", "50059"],
+  "Biella Betulle": ["Magnano", "BI", 45.4627, 8.0051, "Regione Valcarrozza 2", "13887"],
+  "Bosco": ["Oderzo", "TV", 45.7809, 12.4931, "Via Madonna della Salute 7", "31046"],
+  "Botanic Sa Cuba": ["Olbia", "SS", 40.9232, 9.5049, "SS 199 km 54,2 - Loc. Sa Cuba", "07026"],
+  "Boves": ["Boves", "CN", 44.3298, 7.552, "Via degli Angeli 3 - Fraz. Mellana", "12012"],
+  "Break Point": ["Pergine Valsugana", "TN", 46.0603, 11.2405, "Località Maso Grillo 4", "38057"],
+  "Bresciagolf Country Club": ["Brescia", "BS", 45.5399, 10.2191, "Via Stretta 48", "25128"],
+  "Brolo": ["Bassano del Grappa", "VI", 45.7671, 11.7342, "Via Colbacchini 2", "36061"],
+  "CUS Ferrara": ["Ferrara", "FE", 44.836, 11.6187, "Via Gramicia 41", "44123"],
+  "CUS Parma": ["Parma", "PR", 44.8011, 10.3283, "Parco Area delle Scienze 105/A", "43124"],
+  "Ca' Amata": ["Castelfranco Veneto", "TV", 45.6714, 11.9264, "Via Loreggia di Salvarosa 44", "31033"],
+  "Ca' Moro Punto Due": ["Pontremoli", "MS", 44.3774, 9.8829, "Loc. Casa Corvi", "54027"],
+  "Ca' Ulivi": ["Costermano sul Garda", "VR", 45.5866, 10.7385, "Via Ghiandare 2", "37010"],
+  "Ca' Vendri": ["Verona", "VR", 45.4384, 10.9935, "Via Pantheon 86-88", "37142"],
+  "Campo Pratica Golf Monza": ["Muggiò", "MB", 45.5937, 9.2296, "Via Giovanni Falcone 15", "20835"],
+  "Campo Pratica Orsini": ["Peschiera Borromeo", "MI", 45.4318, 9.3111, "Via Bruno Buozzi 4/C", "20068"],
+  "Cansiglio": ["Tambre", "BL", 46.1293, 12.4231, "Pian del Cansiglio", "32010"],
+  "Caorle": ["Caorle", "VE", 45.598, 12.8876, "Viale Altanea 201", "30021"],
+  "Capanne": ["Bibbona", "LI", 43.2694, 10.5982, "Via Aurelia km 273", "57020"],
+  "Casal Palocco": ["Roma", "RM", 41.8928, 12.4837, "Via Niceneto 2/4", "00124"],
+  "Casalunga": ["Castenaso", "BO", 44.5089, 11.4688, "Via Ca' Belfiore 8", "40055"],
+  "Casentino": ["Poppi", "AR", 43.7245, 11.7653, "Via Fronzola 6", "52014"],
+  "Cassino": ["Cassino", "FR", 41.4927, 13.8301, "Via Solfegna Cantoni", "03043"],
+  "Castelconturbia": ["Agrate Conturbia", "NO", 45.676, 8.5599, "Via Castelconturbia 10", "28010"],
+  "Castello": ["Marsciano", "PG", 42.9102, 12.3395, "Vocabolo Palazzo Rossi", "06055"],
+  "Cavaglià": ["Cavaglià", "BI", 45.4058, 8.0935, "Via Santhià 75", "13881"],
+  "Cervia": ["Cervia", "RA", 44.2609, 12.3498, "Via Jelenia Gora 6", "48015"],
+  "Cervino": ["Valtournenche", "AO", 45.8771, 7.6227, "Via Circonvallazione 18", "11028"],
+  "Chervò Golf San Vigilio": ["Pozzolengo", "BS", 45.4029, 10.6271, "Località San Vigilio", "25010"],
+  "Ciliegi": ["Pecetto Torinese", "TO", 45.0196, 7.7487, "Strada Valle Sauglio 130", "10020"],
+  "Cingoli": ["Cingoli", "MC", 43.3743, 13.2165, "Via Botontano 61 - Fattoria Castiglioni", "62011"],
+  "Circolo Golf Bogogno": ["Bogogno", "NO", 45.6672, 8.5345, "Via Sant'Isidoro 1", "28010"],
+  "Circolo Golf Napoli": ["Pozzuoli", "NA", 40.8468, 14.0909, "Via Campiglione 11 - Arco Felice", "80078"],
+  "Circolo Golf Rapallo": ["Rapallo", "GE", 44.3502, 9.2317, "Via Mameli 377", "16035"],
+  "Circolo Golf Roma Acquasanta": ["Roma", "RM", 41.8928, 12.4837, "Via Appia Nuova 716/A", "00178"],
+  "Circolo Golf Venezia": ["Venezia", "VE", 45.4349, 12.3385, "Strada Vecchia 1", "30126"],
+  "Circolo Golf Villa d'Este": ["Montorfano", "CO", 45.7854, 9.1445, "Via Cantù 13", "22030"],
+  "Circolo Golf degli Ulivi Sanremo": ["Sanremo", "IM", 43.821, 7.7846, "Strada Campo Golf 59", "18038"],
+  "Circolo del Golf Ugolino": ["Impruneta", "FI", 43.6857, 11.2544, "Via Chiantigiana per Strada 3", "50023"],
+  "Città d'Asti": ["Asti", "AT", 44.8991, 8.2041, "Recinto San Rocco 5", "14100"],
+  "Claviere": ["Claviere", "TO", 44.9386, 6.7493, "Via Nazionale 45", "10050"],
+  "Club Giardino": ["Carpi", "MO", 44.7825, 10.8853, "SS 468 Motta 39", "41012"],
+  "Colli Euganei": ["Cervarese Santa Croce", "PD", 45.4029, 11.6919, "Via Bosco 21", "35030"],
+  "Colonnetti": ["Torino", "TO", 45.0733, 7.6807, "Via M. Panetti 30", "10127"],
+  "Conero": ["Sirolo", "AN", 43.526, 13.616, "Via Betelico 6", "60020"],
+  "Continental Verbania": ["Verbania", "VB", 45.9214, 8.5511, "Via 42 Martiri - SS 34 del Lago Maggiore", "28924"],
+  "Cortina": ["Cortina d'Ampezzo", "BL", 46.5367, 12.1385, "Località Fraina 14/15", "32043"],
+  "Cosmopolitan": ["Pisa", "PI", 43.7155, 10.4013, "Via delle Eriche 133 - Tirrenia", "56128"],
+  "Cossato": ["Cossato", "BI", 45.5701, 8.1806, "Via Mino 46", "13836"],
+  "Courmayeur": ["Courmayeur", "AO", 45.793, 6.9721, "Loc. Le Pont - Val Ferret", "11013"],
+  "Croara": ["Gazzola", "PC", 44.9593, 9.5471, "Strada Prov.le 28 - Loc. Croara", "29010"],
+  "Daunia": ["San Giovanni Rotondo", "FG", 41.7078, 15.7266, "Tenuta S. Lucia - Contrada Posta Tuori - SS 89 km 180", "71013"],
+  "Des Iles Borromées": ["Brovello-Carpugnino", "VB", 45.8427, 8.5332, "Località Motta Rossa 1", "28833"],
+  "Dolomiti Golf Club": ["Sarnonico", "TN", 46.42, 11.1414, "Località Centro Sport Verde 1", "38011"],
+  "Druento": ["Druento", "TO", 45.1347, 7.5762, "Strada della Barra 21", "10040"],
+  "Ducato": ["Sala Baganza", "PR", 44.7155, 10.2282, "Via Campi 8", "43038"],
+  "Easy Golf": ["Verona", "VR", 45.4384, 10.9935, "Via Sogare 13", "37138"],
+  "European Golf Club Ispra": ["Ispra", "VA", 45.8162, 8.6103, "Via Esperia 467", "21027"],
+  "Faenza Cicogne": ["Faenza", "RA", 44.2854, 11.8828, "Via S. Orsola 10/E", "48018"],
+  "Fioranello": ["Roma", "RM", 41.8928, 12.4837, "Via della Falcognana 61", "00134"],
+  "Firenze Ugolino": ["Impruneta", "FI", 43.6857, 11.2544, "Via Chiantigiana per Strada 3", "50023"],
+  "Fiuggi 1928": ["Fiuggi", "FR", 41.8043, 13.2212, "S.S. Anticolana snc", "03014"],
+  "Florinas": ["Florinas", "SS", 40.6479, 8.6657, "Località Cantaruena snc", "07030"],
+  "Folgaria": ["Folgaria", "TN", 45.9166, 11.1701, "Maso Spilzi - Fraz. Costa", "38064"],
+  "Forte dei Marmi": ["Pietrasanta", "LU", 43.9596, 10.2277, "Via della Sipe 100", "55045"],
+  "Franciacorta Golf Club": ["Corte Franca", "BS", 45.6372, 10.007, "Via Provinciale 34/B", "25040"],
+  "Frassanelle": ["Rovolon", "PD", 45.3858, 11.6522, "Via Rialto 5/A", "35030"],
+  "Fronde": ["Avigliana", "TO", 45.0794, 7.3963, "Via Sant'Agostino 68", "10051"],
+  "GGZ - Zerman": ["Mogliano Veneto", "TV", 45.5616, 12.2365, "Via Malombra 4/B - Loc. Zerman", "31021"],
+  "Gardagolf Country Club": ["Soiano del Lago", "BS", 45.5367, 10.5136, "Via Angelo Omodeo 2", "25080"],
+  "Garessio": ["Garessio", "CN", 44.1973, 8.0299, "Viale Marro 15", "12075"],
+  "Garfagnana": ["Pieve Fosciana", "LU", 44.1306, 10.4107, "Loc. Braccicorti - Pontecosi", "55036"],
+  "Garlenda Golf Club": ["Garlenda", "SV", 44.0336, 8.0968, "Via del Golf 7", "17033"],
+  "Girasoli": ["Carmagnola", "TO", 44.8465, 7.7182, "Via Pralormo 315", "10022"],
+  "Globale Jesolo": ["Jesolo", "VE", 45.5335, 12.6365, "Via St Andrews 2", "30016"],
+  "Golf Brianza Country Club": ["Usmate Velate", "MB", 45.6507, 9.3615, "Loc. Cascina Cazzù 4", "20865"],
+  "Golf Ca' della Nave": ["Martellago", "VE", 45.5461, 12.1599, "Piazza della Vittoria 14", "30030"],
+  "Golf Club Airone": ["Castel Goffredo", "MN", 45.298, 10.4746, "Strada Casalmoro 20", "46042"],
+  "Golf Club Arenzano La Pineta": ["Arenzano", "GE", 44.4018, 8.6823, "Piazza del Golf 2", "16011"],
+  "Golf Club Bergamo L'Albenza": ["Almenno San Bartolomeo", "BG", 45.7483, 9.5783, "Via Longoni 12", "24030"],
+  "Golf Club Bogliaco": ["Toscolano Maderno", "BS", 45.6417, 10.6062, "Via del Golf 21", "25088"],
+  "Golf Club Bologna": ["Monte San Pietro", "BO", 44.4578, 11.1997, "Via Sabattini 69", "40050"],
+  "Golf Club Bormio": ["Bormio", "SO", 46.4702, 10.3756, "Via Giustizia snc", "23032"],
+  "Golf Club Carimate": ["Carimate", "CO", 45.7027, 9.1153, "Via Airoldi 2", "22060"],
+  "Golf Club Castelfalfi": ["Montaione", "FI", 43.5523, 10.9123, "Località Castelfalfi", "50050"],
+  "Golf Club Castellaro": ["Castellaro", "IM", 43.8647, 7.8683, "Strada per i Piani 1", "18011"],
+  "Golf Club Castello di Tolcinasco": ["Pieve Emanuele", "MI", 45.3512, 9.1997, "Località Tolcinasco", "20072"],
+  "Golf Club Centanni": ["Bagno a Ripoli", "FI", 43.7514, 11.3194, "Via di Centanni 8", "50012"],
+  "Golf Club Cherasco": ["Cherasco", "CN", 44.6522, 7.8582, "Via Fraschetta 8", "12062"],
+  "Golf Club Colli Berici": ["Brendola", "VI", 45.4694, 11.4552, "Str. Monti Comunali", "36040"],
+  "Golf Club Colline del Gavi": ["Tassarolo", "AL", 44.7266, 8.7695, "Località Fara Nuova 7", "15060"],
+  "Golf Club Como": ["Guanzate", "CO", 45.7243, 9.0109, "Via Roma 37", "22070"],
+  "Golf Club Grado": ["Grado", "GO", 45.6755, 13.3865, "Via Monfalcone 27", "34073"],
+  "Golf Club Lanzo": ["Alta Valle Intelvi", "CO", 45.98, 9.03, "Loc. Piano delle Noci", "22024"],
+  "Golf Club Lazzate": ["Lazzate", "MB", 45.6688, 9.0842, "Via Vittorio Emanuele 150", "20824"],
+  "Golf Club Le Betulle": ["Magnano", "BI", 45.4627, 8.0051, "Regione Valcarrozza 2", "13887"],
+  "Golf Club Le Fonti": ["Castel San Pietro Terme", "BO", 44.3981, 11.5892, "Viale Terme 1800", "40024"],
+  "Golf Club Le Robinie": ["Solbiate Olona", "VA", 45.6536, 8.8873, "Via per Busto Arsizio 9", "21058"],
+  "Golf Club Le Rovedine": ["Opera", "MI", 45.3779, 9.2115, "Via Karl Marx 18", "20090"],
+  "Golf Club Lecco": ["Annone di Brianza", "LC", 45.8052, 9.331, "Frazione Pizzighettone 1", "23841"],
+  "Golf Club Lignano": ["Lignano Sabbiadoro", "UD", 45.6883, 13.1298, "Via Casa Bianca 6", "33054"],
+  "Golf Club Madesimo": ["Madesimo", "SO", 46.4282, 9.3442, "Via Innocenti De Giacomi 5", "23024"],
+  "Golf Club Margara": ["Fubine Monferrato", "AL", 44.9656, 8.4254, "Via Tenuta Margara 7", "15043"],
+  "Golf Club Menaggio e Cadenabbia": ["Grandola ed Uniti", "CO", 46.0313, 9.2071, "Località Golf 1", "22010"],
+  "Golf Club Milano": ["Monza", "MB", 45.5844, 9.2736, "Viale Mulini San Giorgio 7", "20900"],
+  "Golf Club Mirasole": ["Opera", "MI", 45.3779, 9.2115, "Via Karl Marx 16", "20090"],
+  "Golf Club Montecampione": ["Artogne", "BS", 45.8483, 10.1645, "Via Legazzuolo di Montecampione snc", "25040"],
+  "Golf Club Monticello": ["Cassina Rizzardi", "CO", 45.751, 9.0304, "Via A. Volta 63", "22070"],
+  "Golf Club Petersberg": ["Nova Ponente", "BZ", 46.4141, 11.4256, "Petersberg - Unterwinkl 5", "39050"],
+  "Golf Club Ponte di Legno": ["Ponte di Legno", "BS", 46.2565, 10.5115, "Via Risorgimento 5", "25056"],
+  "Golf Club Pordenone": ["Aviano", "PN", 46.0672, 12.5882, "Via San Gregorio 5 - Loc. Castel d'Aviano", "33081"],
+  "Golf Club Punta Ala": ["Castiglione della Pescaia", "GR", 42.762, 10.8788, "Via del Golf 1 - Punta Ala", "58043"],
+  "Golf Club Salerno": ["Pontecagnano Faiano", "SA", 40.643, 14.8734, "Via Lago Trasimeno 11", "84098"],
+  "Golf Club Sappada": ["Sappada", "UD", 46.567, 12.688, "Via Palù 5", "33012"],
+  "Golf Club Serenissima": ["Castenedolo", "BS", 45.4714, 10.3004, "Via Serenissima 34 - Fraz. Bettole di Buffalora", "25129"],
+  "Golf Club Tarvisio": ["Tarvisio", "UD", 46.5061, 13.5733, "Via Priesnig 5", "33018"],
+  "Golf Club Varese": ["Luvinate", "VA", 45.8396, 8.7725, "Via Vittorio Veneto 59", "21020"],
+  "Golf Club Verona": ["Sommacampagna", "VR", 45.4071, 10.8404, "Loc. Ca' del Sale 15", "37066"],
+  "Golf Club Vigevano": ["Vigevano", "PV", 45.3176, 8.8599, "Via Chitola 49", "27029"],
+  "Golf Club Villa Carolina": ["Capriata d'Orba", "AL", 44.73, 8.6889, "Loc. Villa Carolina 32", "15060"],
+  "Golf Club Villa Paradiso": ["Cornate d'Adda", "MB", 45.6488, 9.4639, "Via Villa Paradiso 12/A", "20872"],
+  "Golf Club Volturno": ["Castel Volturno", "CE", 41.0346, 13.9409, "Via Domitiana km 35,300", "81030"],
+  "Golf Club Zoate": ["Tribiano", "MI", 45.4042, 9.3683, "Via Verdi 8", "20067"],
+  "Golf Club il Colombaro": ["Salò", "BS", 45.6071, 10.5323, "Via Colombaro 1", "25087"],
+  "Golf Club il Laghetto": ["Peschiera Borromeo", "MI", 45.4318, 9.3111, "Via Lombardia 2", "20068"],
+  "Golf Club il Torrazzo Cremona": ["Cremona", "CR", 45.1334, 10.0242, "Via Castelleone 101 - Loc. S. Predengo", "26100"],
+  "Golf Club la Rossera": ["Chiuduno", "BG", 45.6469, 9.8538, "Via Montebello 4", "24060"],
+  "Golf Country Club Castello di Spessa": ["Capriva del Friuli", "GO", 45.9421, 13.5146, "Via Spessa 14", "34070"],
+  "Golf Crema Resort": ["Crema", "CR", 45.3633, 9.6874, "Via Ombrianello 21", "26013"],
+  "Golf San Vito": ["Gaggiano", "MI", 45.4057, 9.0345, "Via Marta Lodi 2/C", "20083"],
+  "Golf dei Laghi": ["Travedona-Monate", "VA", 45.8057, 8.6773, "Via Trevisani 926", "21028"],
+  "Golf della Montecchia": ["Selvazzano Dentro", "PD", 45.3945, 11.781, "Via Montecchia 12", "35030"],
+  "Golfino del Monzeglio": ["Ispra", "VA", 45.8162, 8.6103, "Via Mongini 919", "21027"],
+  "Green Club Lainate": ["Lainate", "MI", 45.5715, 9.0271, "Via Manzoni 45", "20045"],
+  "Gressoney": ["Gressoney-Saint-Jean", "AO", 45.777, 7.8276, "Via Villa Margherita 1", "11025"],
+  "Gubbio": ["Gubbio", "PG", 43.3535, 12.5788, "Via Linosa 12", "06024"],
+  "Harbour Club Milano": ["Milano", "MI", 45.4668, 9.1903, "Via Cascina Bellaria 19", "20153"],
+  "Hermitage": ["Portoferraio", "LI", 42.8153, 10.3312, "Località Biodola 1", "57037"],
+  "Idea Verde Golf Club": ["Olgiate Olona", "VA", 45.6278, 8.8908, "Via San Francesco 17", "21057"],
+  "Imola Zolino": ["Imola", "BO", 44.3531, 11.7142, "Via Maria Zanotti 22", "40026"],
+  "Is Arenas": ["Narbolia", "OR", 40.0477, 8.575, "Loc. Pineta Is Arenas", "09070"],
+  "Is Molas": ["Pula", "CA", 39.0107, 9.0008, "Località Is Molas", "09010"],
+  "Kavallotta Golf Academy": ["Novara", "NO", 45.4459, 8.6219, "Via Case Sparse Santa Rita 6", "28100"],
+  "La Castelluccia": ["Roma", "RM", 41.8928, 12.4837, "Via G. A. Provana snc", "00123"],
+  "La Colombera Golf Resort": ["Castrezzato", "BS", 45.5111, 9.9767, "Via Barussa 1", "25030"],
+  "La Pinetina Golf Club": ["Carbonate", "CO", 45.6851, 8.9404, "Via al Golf 4 - Loc. La Pinetina", "22070"],
+  "Lamborghini": ["Panicale", "PG", 43.0294, 12.1006, "Località Soderi 1", "06064"],
+  "Lana": ["Lana", "BZ", 46.6161, 11.1453, "Brandisweg 13", "39011"],
+  "Lauri": ["Montefiore dell'Aso", "AP", 43.0516, 13.7509, "C.da San Giovanni 2", "63062"],
+  "Limone": ["Limone Piemonte", "CN", 44.2013, 7.5761, "Frazione San Bernardo", "12015"],
+  "Livorno": ["Livorno", "LI", 43.5523, 10.3087, "Largo Christian Bartoli 7", "57128"],
+  "Madonna di Campiglio": ["Tre Ville", "TN", 46.0545, 10.7783, "Via Cima Tosa 15", "38095"],
+  "Mandria": ["Druento", "TO", 45.1347, 7.5762, "Via A. De Gasperi snc", "10040"],
+  "Mantova Golf Club": ["Curtatone", "MN", 45.1338, 10.7163, "Via Colombina 60", "46010"],
+  "Marco Polo": ["Vittorio Veneto", "TV", 45.9899, 12.2961, "Via Luigino De Nadai 30", "31029"],
+  "Marco Simone Golf & CC": ["Guidonia Montecelio", "RM", 42.0001, 12.7264, "Via di Marco Simone 84/88", "00012"],
+  "Mare di Roma": ["Ardea", "RM", 41.6093, 12.5454, "Via Enna 30", "00040"],
+  "Margherita": ["Poirino", "TO", 44.9212, 7.8436, "S.P. 134 Carmagnola-Pralormo 3", "10046"],
+  "Marina Velka": ["Tarquinia", "VT", 42.2545, 11.7582, "Via Olimpia snc", "01016"],
+  "Metaponto Golf Club": ["Bernalda", "MT", 40.4082, 16.6864, "Contrada Pizzica", "75010"],
+  "Mia": ["Camerata Picena", "AN", 43.5782, 13.3528, "Via Clementina 12/A", "60033"],
+  "Miglianico Golf & Country Club": ["Miglianico", "CH", 42.3595, 14.2915, "Contrada Cerreto 120", "66010"],
+  "Miniere": ["Cavriglia", "AR", 43.5237, 11.4891, "Località Valle del Pero 10/C", "52022"],
+  "Mirabella Golf Club": ["Mirabella Eclano", "AV", 41.0414, 14.9922, "Contrada Corpo di Cristo", "83036"],
+  "Modena Golf & Country Club": ["Formigine", "MO", 44.576, 10.8402, "Via Castelnuovo Rangone 4", "41043"],
+  "Molinetto Country Club": ["Cernusco sul Naviglio", "MI", 45.5242, 9.335, "Strada Padana Superiore 1", "20063"],
+  "Molino Pero": ["Monzuno", "BO", 44.2768, 11.2714, "Via Molino del Pero 323", "40036"],
+  "Moncalieri": ["Moncalieri", "TO", 45.0009, 7.6852, "Strada Vallere 20", "10024"],
+  "Monferrato": ["Casale Monferrato", "AL", 45.135, 8.4526, "Strada Vialarda 3/F - Regione Torcello", "15033"],
+  "Montebelluna": ["Montebelluna", "TV", 45.7761, 12.0451, "Via Carpen 24", "31044"],
+  "Montecatini Terme": ["Monsummano Terme", "PT", 43.8716, 10.8144, "Via dei Brogi 1652 - Loc. Pievaccia", "51015"],
+  "Montegiove": ["Fano", "PU", 43.8434, 13.0197, "Strada Comunale di Montegiove snc", "61032"],
+  "Montelupo": ["Montelupo Fiorentino", "FI", 43.7295, 11.0208, "Via Fibbiana 4", "50056"],
+  "Monteveglio": ["Valsamoggia", "BO", 44.5031, 11.0804, "Via Barlete 52", "40053"],
+  "Mora Bianca": ["Assemini", "CA", 39.2896, 9.0062, "S.P. 2 km 1,500", "09032"],
+  "Mulino Cerrione": ["Cerrione", "BI", 45.4809, 8.074, "Via Libertà 37", "13882"],
+  "Musella": ["San Martino Buon Albergo", "VR", 45.4221, 11.0931, "Via Verdi - Loc. Musella", "37036"],
+  "Nazionale": ["Sutri", "VT", 42.242, 12.2248, "Via Cassia km 44,500", "01015"],
+  "Nogherazza": ["Belluno", "BL", 46.1384, 12.217, "Via Gresane 78", "32100"],
+  "Noghere": ["Santa Lucia di Piave", "TV", 45.8492, 12.2843, "Via Valentini 5", "31025"],
+  "Oasi di Magliano-Fiordalisi": ["Forlì", "FC", 44.2227, 12.0407, "Via Maglianella 11/B", "47121"],
+  "Olgiata Golf Club": ["Roma", "RM", 41.8928, 12.4837, "Largo Olgiata 15", "00123"],
+  "Orti Golf Club": ["Reggio di Calabria", "RC", 38.1092, 15.6435, "Via Municipio 32 - Loc. Ortì", "89126"],
+  "Padova": ["Galzignano Terme", "PD", 45.3086, 11.7283, "Via Noiera 57 - Valsanzibio", "35030"],
+  "Palermo": ["Palermo", "PA", 38.1157, 13.3624, "Piazza Leoni 9", "90143"],
+  "Panorama Golf": ["Varese", "VA", 45.817, 8.8229, "Via Belmonte 169", "21100"],
+  "Paolillo Golf Players": ["Santorso", "VI", 45.7377, 11.3887, "Via Garziere 61", "36014"],
+  "Paradiso": ["Peschiera del Garda", "VR", 45.4391, 10.6919, "Via Coppo 2/B", "37014"],
+  "Parco Firenze": ["Firenze", "FI", 43.7692, 11.2559, "Via dell'Isolotto 10", "50142"],
+  "Parco de' Medici Golf Club": ["Roma", "RM", 41.8928, 12.4837, "Viale Salvatore Rebecchini 37", "00148"],
+  "Parco di Roma": ["Roma", "RM", 41.8928, 12.4837, "Via dei Due Ponti 110", "00189"],
+  "Passiria Merano": ["San Leonardo in Passiria", "BZ", 46.8117, 11.2433, "Via Kellerlahne 3", "39015"],
+  "Passo Monte Croce": ["Sesto", "BZ", 46.7021, 12.3503, "Via S. Giuseppe 55", "39030"],
+  "Pavoniere": ["Prato", "PO", 43.8806, 11.097, "Via Traversa il Crocifisso 13/50", "59100"],
+  "Perugia": ["Perugia", "PG", 43.1068, 12.3882, "Loc. S. Sabina snc", "06132"],
+  "Pevero": ["Arzachena", "SS", 41.0794, 9.3885, "Via del Golf 20", "07021"],
+  "Pian Colle": ["Bardonecchia", "TO", 45.0782, 6.7038, "Loc. Pian del Colle", "10052"],
+  "Pinerolo - Pragelato": ["Pragelato", "TO", 45.0163, 6.9423, "Via Rohrbach 5 - Frazione Plan", "10060"],
+  "Poggio dei Medici": ["Scarperia e San Piero", "FI", 43.996, 11.356, "Via San Gavino 27", "50038"],
+  "Poiano Garda": ["Costermano sul Garda", "VR", 45.5866, 10.7385, "Via Fioria 7", "37010"],
+  "Poli Golf": ["Modena", "MO", 44.646, 10.9262, "Strada Morane 361", "41125"],
+  "Ponte Cervo": ["Biella", "BI", 45.5665, 8.0541, "Via Bora snc", "13900"],
+  "Prato Nevoso": ["Frabosa Sottana", "CN", 44.302, 7.7983, "Via Corona Boreale 1", "12083"],
+  "Primule": ["Mazzè", "TO", 45.2985, 7.937, "Strada Prov. 90 per Rondissone", "10035"],
+  "Puntaldia": ["San Teodoro", "SS", 40.7712, 9.6719, "Loc. Punta Sabbatino snc", "07052"],
+  "Pustertal": ["Brunico", "BZ", 46.7974, 11.9373, "Im Gelaende 15", "39031"],
+  "Quarrata": ["Quarrata", "PT", 43.8476, 10.9786, "Via O. Ceccarelli 375 - Loc. Barba", "51039"],
+  "Quellenhof": ["San Martino in Passiria", "BZ", 46.7826, 11.227, "Via Passiria 47", "39010"],
+  "Rendena": ["Bocenago", "TN", 46.1184, 10.7591, "Loc. Ischia 1", "38080"],
+  "Rieti": ["Rieti", "RI", 42.4049, 12.8621, "Via Tavola d'Argento snc", "02100"],
+  "Rimini Verucchio": ["Verucchio", "RN", 43.9837, 12.4214, "Via Molino Bianco 109", "47826"],
+  "Riva Toscana": ["Follonica", "GR", 42.9226, 10.7599, "SP 152 Aurelia Vecchia km 47", "58022"],
+  "Riviera Golf": ["San Giovanni in Marignano", "RN", 43.939, 12.7125, "Via Conca Nuova 1236", "47842"],
+  "Romita": ["Terni", "TR", 42.5607, 12.6467, "Via della Romita 11", "05100"],
+  "Roncegno": ["Roncegno Terme", "TN", 46.051, 11.4097, "Via Ferme snc", "38050"],
+  "Rovereto": ["Rovereto", "TN", 45.8865, 11.0452, "Viale Caproni 44", "38068"],
+  "Rovigo": ["Rovigo", "RO", 45.0711, 11.7901, "Via Cappello 12", "45100"],
+  "Royal Golf La Bagnaia": ["Murlo", "SI", 43.1685, 11.3911, "SS 223 Siena-Grosseto km 56 - Loc. Bagnaia", "53016"],
+  "Royal Park I Roveri": ["Fiano", "TO", 45.2181, 7.5198, "Rotta Cerbiatta 24", "10070"],
+  "Royal Park Roveri": ["Fiano", "TO", 45.2181, 7.5198, "Rotta Cerbiatta 24", "10070"],
+  "Rudis": ["Melissano", "LE", 39.9735, 18.1236, "Contr. Trifana - Vecchia Casarano-Taviano", "73040"],
+  "Salice Terme Golf e Country": ["Rivanazzano Terme", "PV", 44.9305, 9.0164, "Via Diviani 8", "27055"],
+  "Salici 2.0": ["Treviso", "TV", 45.6675, 12.2451, "Strada del Nascimben 1/B", "31100"],
+  "Salsomaggiore Terme": ["Salsomaggiore Terme", "PR", 44.8157, 9.9781, "Località Case Carancini 105/A", "43039"],
+  "Saluzzo": ["Saluzzo", "CN", 44.647, 7.4908, "Via Morra 12-14", "12037"],
+  "San Domenico - Egnazia": ["Fasano", "BR", 40.8344, 17.359, "Frazione Savelletri - Strada Comunale Egnazia", "72015"],
+  "San Donato Golf": ["L'Aquila", "AQ", 42.3512, 13.3984, "P.zza della Chiesa snc - Loc. Santi", "67100"],
+  "San Giovanni": ["Torre Canavese", "TO", 45.3918, 7.7605, "Strada Piane 4", "10010"],
+  "San Marino": ["Rimini", "RN", 44.0609, 12.5656, "Str. Quinta Gualdaria - Loc. Ca' Montanaro", "47893"],
+  "San Martino": ["Ponsacco", "PI", 43.6202, 10.6336, "Via Poggino 15 - Loc. San Martino", "56038"],
+  "San Michele Golf Club": ["Cetraro", "CS", 39.5162, 15.943, "Località Bosco 8/9", "87022"],
+  "San Valentino": ["Castellarano", "RE", 44.5096, 10.7306, "Via Telarolo 12", "42014"],
+  "Santa Maria Maggiore": ["Santa Maria Maggiore", "VB", 46.1351, 8.4669, "Via Pineta", "28857"],
+  "Santo Stefano Golf": ["Campagnola Emilia", "RE", 44.8413, 10.7592, "Via Vettigano 26", "42012"],
+  "Sassari": ["Sassari", "SS", 40.7267, 8.5597, "Via Rockefeller 59", "07100"],
+  "Saturnia": ["Manciano", "GR", 42.5873, 11.5155, "S.P. della Follonata - Fraz. Saturnia", "58014"],
+  "Savigliano": ["Savigliano", "CN", 44.648, 7.6575, "Via Solerette 11", "12038"],
+  "Serra": ["Valenza", "AL", 45.0145, 8.6462, "Strada Astigliano 42", "15048"],
+  "Sestrieres": ["Sestriere", "TO", 44.9576, 6.8766, "Piazza Agnelli 4", "10058"],
+  "Settimo": ["Settimo Torinese", "TO", 45.137, 7.7712, "Strada Cebrosa 166", "10036"],
+  "Sibilla": ["Petriolo", "MC", 43.221, 13.4656, "Via San Marco 30", "62014"],
+  "Sicilia's Picciolo": ["Castiglione di Sicilia", "CT", 37.8827, 15.1224, "SS 120 km 200", "95012"],
+  "Siepelunga": ["Bologna", "BO", 44.4944, 11.3417, "Via Siepelunga 56/4", "40141"],
+  "Sinis": ["Oristano", "OR", 39.9038, 8.5912, "Viale Repubblica snc", "09170"],
+  "Sodole": ["Pontedera", "PI", 43.6639, 10.636, "Via delle Sodole 1", "56025"],
+  "St. Vigil Seis": ["Castelrotto", "BZ", 46.5678, 11.5595, "San Vigilio 20 - Fraz. Siusi", "39040"],
+  "Stupinigi": ["Torino", "TO", 45.0733, 7.6807, "C.so Unione Sovietica 506/A", "10135"],
+  "Tanka Villasimius": ["Villasimius", "CA", 39.1424, 9.5204, "Via degli Oleandri 4", "09049"],
+  "Tauriana Golf Club": ["Palmi", "RC", 38.3574, 15.8498, "Contrada Fracà", "89015"],
+  "Tenuta Castello": ["Cerrione", "BI", 45.4809, 8.074, "Via Libertà 34", "13882"],
+  "Termoli": ["Termoli", "CB", 42.0027, 14.9955, "Contrada Pozzo Pisano 1", "86039"],
+  "Terni": ["San Gemini", "TR", 42.6134, 12.5462, "Strada di Vallantica", "05029"],
+  "Terre dei Consoli": ["Monterosi", "VT", 42.1956, 12.3099, "Via Terre dei Consoli 1", "01030"],
+  "Tesino": ["Pieve Tesino", "TN", 46.069, 11.6106, "Località Coldanè", "38050"],
+  "Tevere Tirrenia": ["Roma", "RM", 41.8928, 12.4837, "Via del Baiardo 390", "00189"],
+  "Tiber 23": ["Roma", "RM", 41.8928, 12.4837, "Via del Mare 1050", "00127"],
+  "Ticino Golf Club": ["Pavia", "PV", 45.1851, 9.1602, "Via Sora 20", "27100"],
+  "Tirrenia": ["Pisa", "PI", 43.7155, 10.4013, "Via San Guido snc", "56128"],
+  "Torino": ["Fiano", "TO", 45.2181, 7.5198, "Via Agnelli 40", "10070"],
+  "Torre Ronchi": ["Cuneo", "CN", 44.3933, 7.5512, "Via Pollino 42 - Fraz. Ronchi", "12100"],
+  "Torrenova": ["Potenza Picena", "MC", 43.3663, 13.6203, "Contrada Torrenova 30", "62018"],
+  "Toscana": ["Gavorrano", "GR", 42.9252, 10.9057, "Loc. Il Pelagone", "58023"],
+  "Trieste Golf Club": ["Trieste", "TS", 45.6494, 13.7681, "Località Padriciano 80", "34149"],
+  "Udine Golf Club": ["Fagagna", "UD", 46.1133, 13.0839, "Via dei Faggi 1", "33034"],
+  "Val Fassa": ["Canazei", "TN", 46.4768, 11.7713, "Via Dolomiti 33", "38032"],
+  "Val Venosta": ["Prato allo Stelvio", "BZ", 46.6176, 10.5896, "Via Nuova 1", "39026"],
+  "Val d'Ayas": ["Ayas", "AO", 45.814, 7.6882, "Loc. Villy - Fraz. Champoluc", "11020"],
+  "Valdichiana": ["Sinalunga", "SI", 43.2124, 11.7361, "Loc. Esse Secco", "53048"],
+  "Valle Umbra": ["Spello", "PG", 42.9925, 12.6713, "Località Ponte Custode", "06038"],
+  "Valle d'Aosta": ["Quart", "AO", 45.7407, 7.4156, "Loc. Teppe - Villaggio Clou 29", "11020"],
+  "Valle d'Oro": ["Orbetello", "GR", 42.4374, 11.2094, "Strada Vicinale del Prataccione 11 - Loc. Giardino", "58015"],
+  "Valpescara Golf Club": ["Chieti", "CH", 42.351, 14.1675, "Via Treste snc - Loc. Brecciarola", "66100"],
+  "Valtellina Golf Club": ["Caiolo", "SO", 46.1523, 9.8171, "Via Valeriana 29/A", "23010"],
+  "Varvarusa": ["Filignano", "IS", 41.5451, 14.0563, "Frazione Valle - Loc. Varvarusa", "86074"],
+  "Verdura": ["Sciacca", "AG", 37.5078, 13.0829, "Strada Statale 115 km 131", "92019"],
+  "Vicenza": ["Creazzo", "VI", 45.5319, 11.4789, "Via Carpaneda 5/B", "36051"],
+  "Vigne": ["Villafranca di Verona", "VR", 45.3508, 10.8467, "Via Casella 34 - Loc. Pozzomoretto", "37069"],
+  "Villa Condulmer Golf Club": ["Mogliano Veneto", "TV", 45.5616, 12.2365, "Via della Croce 3", "31021"],
+  "Villa Giusti": ["Sona", "VR", 45.434, 10.8327, "Loc. Guastalla Nuova 10", "37060"],
+  "Village": ["Porto Recanati", "MC", 43.4298, 13.6649, "Viale Scarfiotti 12", "62017"],
+  "Vipiteno": ["Vipiteno", "BZ", 46.898, 11.4318, "Piazza Città 3", "39049"],
+  "Virginia Country Golf Club": ["Appiano Gentile", "CO", 45.735, 8.9795, "Via A. De Gasperi 20/B", "22070"],
+  "Viterbo": ["Viterbo", "VT", 42.4174, 12.1047, "Strada Valore snc", "01100"],
+  "Z'Makana": ["Macugnaga", "VB", 45.9686, 7.9678, "Via Chiesa Vecchia 7", "28876"],
+};
 const REGCENTRO = {
   "Abruzzo": [42.19, 13.73], "Basilicata": [40.50, 16.10], "Calabria": [39.05, 16.50],
   "Campania": [40.90, 14.70], "Emilia-Romagna": [44.60, 11.10], "Friuli-Venezia Giulia": [46.15, 13.10],
@@ -1030,8 +1356,15 @@ function vociElenco() {
   Object.keys(SOLONOMI).forEach(reg => {
     const [clat, clon] = REGCENTRO[reg] || [42.5, 12.5];
     SOLONOMI[reg].forEach((nome, i) => {
-      /* i segnaposto senza posizione nota si aprono a ventaglio attorno al centro
-         della regione, altrimenti finirebbero uno sopra l'altro e non si toccano */
+      const ind = INDIRIZZI[nome];
+      if (ind) {   // indirizzo ufficiale noto: il segnaposto nasce sul comune
+        out.push({ buche: null, nome, luogo: ind[0] + ' (' + ind[1] + ')', reg, prov: ind[1],
+          lat: ind[2], lon: ind[3], sulComune: true,
+          via: ind[4] || null, cap: ind[5] || null });
+        return;
+      }
+      /* senza indirizzo: a ventaglio attorno al centro della regione,
+         altrimenti finirebbero uno sopra l'altro e non si toccano */
       const ang = i * 2.399963, ray = .06 + .022 * Math.sqrt(i);
       out.push({ buche: null, nome, luogo: '', reg, prov: null,
         lat: +(clat + ray * Math.cos(ang)).toFixed(4),
@@ -1058,6 +1391,7 @@ function importaElenco() {
       if (v.buche) hit.buche = v.buche;
       if (!hit.r || v.prov || !hit.r.includes('/')) hit.r = reg;
       if (!hit.l && v.luogo) hit.l = v.luogo;
+      if (v.via && !hit.via) { hit.via = v.via; hit.cap = v.cap; }
       if (v.chiuso) hit.chiuso = v.chiuso;
       hit.fig = true;
       aggiornati++;
@@ -1065,13 +1399,102 @@ function importaElenco() {
     }
     addClub({ n: v.nome, l: v.luogo, r: reg, p: paese, buche: v.buche || null,
       par: v.buche >= 18 ? 72 : null, lat: v.lat, lon: v.lon, daPosizionare: true, fig: true,
+      via: v.via || null, cap: v.cap || null,
       chiuso: v.chiuso || null, tipo: v.buche === 0 ? 'pratica' : null });
     nuovi++;
     perRegione[v.reg] = (perRegione[v.reg] || 0) + 1;
   });
+  /* passata finale: l'indirizzo ufficiale arriva a tutti i circoli che hanno lo stesso nome,
+     compresi quelli che erano già in elenco prima dell'import */
+  CLUBS.forEach(c => {
+    const ind = INDIRIZZI[c.n];
+    if (!ind || c.via) return;
+    c.via = ind[4] || null; c.cap = ind[5] || null;
+    if (!c.l || !c.l.trim()) c.l = ind[0] + ' (' + ind[1] + ')';
+  });
   paint(); renderSide(); renderCircoli(); aggiornaContatori(); salvaTutto();
   return { nuovi, aggiornati, saltati, perRegione };
 }
+
+/* --- ricerca delle posizioni dagli indirizzi (Nominatim, OpenStreetMap).
+   Gira una volta sola: ogni circolo trovato viene marcato e non si richiede più.
+   Se chiudi a metà, riprende da dove era rimasto. Un colpo al secondo, come chiede
+   il servizio, che è pubblico e gratuito. --- */
+const GEOVERSIONE = 1;
+let GEOINCORSO = false, GEOFERMA = false;
+const attesa = ms => new Promise(r => setTimeout(r, ms));
+function daTrovare() {
+  return CLUBS.filter(c => c.via && c.daPosizionare && !c.geo && !c.geoVuoto);
+}
+async function unIndirizzo(c) {
+  const comune = (c.l || '').replace(/\s*\([A-Z]{2}\)\s*$/, '').trim();
+  const p = new URLSearchParams({ format: 'json', limit: '1', countrycodes: 'it',
+    street: c.via, city: comune, postalcode: c.cap || '' });
+  const r = await fetch(NOMINATIM + '?' + p, { headers: { 'Accept': 'application/json' } });
+  if (!r.ok) throw new Error('risposta ' + r.status);
+  const j = await r.json();
+  if (!j.length) return null;
+  const lat = +j[0].lat, lon = +j[0].lon;
+  if (!isFinite(lat) || !isFinite(lon)) return null;
+  // sanità: se il risultato è lontano dal comune non è il posto giusto
+  if (km(c.lat, c.lon, lat, lon) > 25) return null;
+  return [lat, lon];
+}
+const BLOCCO = 40;
+function aggiornaGeoBar() {
+  const bar = document.getElementById('geobar'); if (!bar) return;
+  const restano = daTrovare().length;
+  if (!restano || GEOINCORSO) { if (!GEOINCORSO) bar.hidden = true; return; }
+  bar.hidden = false;
+  document.getElementById('geo-title').textContent =
+    `${restano} circoli senza posizione esatta`;
+  document.getElementById('geo-sub').textContent =
+    `Li cerco dall'indirizzo, ${Math.min(BLOCCO, restano)} alla volta, un secondo l'uno. Circa ${Math.ceil(Math.min(BLOCCO, restano) * 1.2 / 60)} minut${Math.ceil(Math.min(BLOCCO, restano) * 1.2 / 60) === 1 ? 'o' : 'i'}.`;
+  document.getElementById('geo-go').textContent =
+    restano > BLOCCO ? `Cerca ${BLOCCO} indirizzi` : `Cerca gli ultimi ${restano}`;
+}
+async function trovaPosizioni() {
+  if (GEOINCORSO) return;
+  const lista = daTrovare().slice(0, BLOCCO);
+  if (!lista.length) { ARCHIVIO.geo = GEOVERSIONE; salvaLocale(); aggiornaGeoBar(); return; }
+  GEOINCORSO = true; GEOFERMA = false;
+  const t = document.getElementById('geo-title'), sub = document.getElementById('geo-sub');
+  const go = document.getElementById('geo-go'), stop = document.getElementById('geo-stop');
+  if (go) go.disabled = true;
+  if (stop) { stop.hidden = false; stop.onclick = () => { GEOFERMA = true; }; }
+  let fatti = 0, vuoti = 0, errori = 0;
+  for (const c of lista) {
+    if (GEOFERMA) break;
+    try {
+      const pos = await unIndirizzo(c);
+      if (pos) { c.lat = pos[0]; c.lon = pos[1]; c.geo = 'indirizzo'; delete c.daPosizionare; fatti++; }
+      else { c.geoVuoto = true; vuoti++; }
+      errori = 0;
+    } catch (e) {
+      errori++;
+      if (errori >= 4) break;          // il servizio non risponde: si riprova un altro giorno
+      await attesa(3000);
+      continue;
+    }
+    if (t) t.textContent = `Cerco gli indirizzi — ${fatti + vuoti} di ${lista.length}`;
+    if (sub) sub.textContent = `${fatti} posizionati, ${vuoti} non trovati.`;
+    if ((fatti + vuoti) % 10 === 0) { salvaLocale(); paint(); renderSide(); }
+    await attesa(1200);
+  }
+  GEOINCORSO = false;
+  if (!daTrovare().length) ARCHIVIO.geo = GEOVERSIONE;
+  salvaLocale(); paint(); renderSide(); renderCircoli();
+  if (TOKEN) salvaArchivio();
+  if (go) go.disabled = false;
+  if (stop) stop.hidden = true;
+  aggiornaGeoBar();
+  const bar = document.getElementById('geobar');
+  if (bar && bar.hidden) {
+    const o = document.getElementById('osm-sub');
+    if (o) o.textContent = 'Tutti gli indirizzi sono stati cercati. Premi Importa per buche e tracciato.';
+  }
+}
+const NOMINATIM = 'https://nominatim.openstreetmap.org/search';
 
 /* --- import da OpenStreetMap --- */
 const SPECCHI = [
@@ -1307,7 +1730,7 @@ function renderSide() {
         </div>
         ${s.note ? `<p style="font-size:12.5px;color:var(--ink-2);margin:0 0 12px">${s.note}</p>` : ''}
         ${s.chiuso ? `<p class="hint" style="margin:0 0 8px">Risulta chiuso: ${s.chiuso}.</p>` : ''}
-        ${s.daPosizionare ? '<p class="hint" style="margin:0 0 8px">Posizione ancora provvisoria. Prova a importare da OpenStreetMap, oppure premi ⌖ e tocca la club house sulla mappa.</p>' : ''}
+        ${s.daPosizionare ? `<p class="hint" style="margin:0 0 8px">${s.l ? 'Segnaposto sul centro del comune, non sulla club house.' : 'Posizione ancora sconosciuta.'} Importa da OpenStreetMap per la posizione esatta, oppure premi ⌖ e tocca la club house sulla mappa.</p>` : ''}
         <div style="display:flex;gap:8px">
           <button class="btn" style="flex:1;justify-content:center" data-open="${s.id}">Apri scheda</button>
           <button class="btn ghost" onclick="segnaGiocato(${s.id})" title="${s.wish ? 'Segna come giocato' : 'Togli la spunta'}">✓</button>
@@ -1451,6 +1874,7 @@ document.getElementById('cir-elenco').onclick = () => {
     + (r.saltati ? `, ${r.saltati} campi pratica senza percorso lasciati fuori.` : '.')
     + (r.nuovi ? ' I nuovi nascono con un segnaposto provvisorio marcato "?": premi IMPORTA sulla mappa e OpenStreetMap li sposta sulla club house vera, con comune e buche. Quelli che restano "?" vanno messi a mano col mirino ⌖.' : '');
 };
+document.getElementById('geo-go').onclick = () => trovaPosizioni().catch(() => {});
 document.getElementById('cir-percorsi').onclick = function () {
   SOLOPERCORSI = !SOLOPERCORSI;
   this.setAttribute('aria-pressed', SOLOPERCORSI);
@@ -1525,7 +1949,16 @@ function openCampo(id) {
   const best = lordi.length ? Math.min(...lordi) : null;
   const media = lordi.length ? (lordi.reduce((a, b) => a + b, 0) / lordi.length).toFixed(1) : null;
   document.getElementById('campo-nome').textContent = c.n;
-  document.getElementById('campo-luogo').textContent = [c.l, c.r && c.r.split('/')[0], c.p].filter(Boolean).join(' · ');
+  const luo = document.getElementById('campo-luogo');
+  luo.textContent = [c.l, c.r && c.r.split('/')[0], c.p].filter(Boolean).join(' · ');
+  if (c.via) {
+    /* indirizzo completo e collegamento alle mappe: il pezzo che serve per andarci davvero */
+    const testo = [c.via, c.cap ? c.cap + ' ' + (c.l || '') : c.l].filter(Boolean).join(' — ');
+    const cerca = encodeURIComponent([c.n, c.via, c.cap, c.l].filter(Boolean).join(', '));
+    luo.insertAdjacentHTML('afterend',
+      `<div class="sub" style="margin-top:3px">${testo} · <a href="https://www.google.com/maps/search/?api=1&query=${cerca}"
+        target="_blank" rel="noopener" style="color:var(--fair)">apri nelle mappe ↗</a></div>`);
+  }
   document.getElementById('campo-body').innerHTML = `
   <div style="display:flex;gap:9px;flex-wrap:wrap;margin-bottom:16px">
     <button class="btn ${c.wish ? '' : 'ghost'}" onclick="segnaGiocato(${id})">
@@ -2255,7 +2688,7 @@ const NOME_FILE = 'golfp.json', NOME_CARTELLA = 'GolfP';
 
 let TOKEN = null, tokenClient = null, FILE_ID = null, CARTELLA_ID = null,
     ULTIMA_SYNC = null, STATO_DRIVE = 'scollegato', ERRORE_DRIVE = null;
-const ARCHIVIO = { versione: 1, aggiornato: null, elenco: null, giocatore: {}, giri: [], bozze: [], circoli: [], sacca: [] };
+const ARCHIVIO = { versione: 1, aggiornato: null, elenco: null, geo: null, giocatore: {}, giri: [], bozze: [], circoli: [], sacca: [] };
 
 async function driveInit() {
   if (tokenClient) return true;
@@ -2332,7 +2765,7 @@ const CACHE = 'golfp-v1';
 function salvaLocale() {
   try {
     localStorage.setItem(CACHE, JSON.stringify({
-      v: 1, elenco: ARCHIVIO.elenco, giocatore: ARCHIVIO.giocatore, giri: ARCHIVIO.giri, bozze: ARCHIVIO.bozze,
+      v: 1, elenco: ARCHIVIO.elenco, geo: ARCHIVIO.geo, giocatore: ARCHIVIO.giocatore, giri: ARCHIVIO.giri, bozze: ARCHIVIO.bozze,
       circoli: CLUBS, sacca: SACCA, tema: document.body.dataset.tema || 'chiaro'
     }));
   } catch (e) {}
@@ -2346,6 +2779,7 @@ function caricaLocale() {
     ARCHIVIO.giri = j.giri || [];
     ARCHIVIO.bozze = j.bozze || [];
     ARCHIVIO.elenco = j.elenco || null;
+    ARCHIVIO.geo = j.geo || null;
     CLUBS.length = 0; j.circoli.forEach(c => CLUBS.push(c));
     SACCA.length = 0; (j.sacca || []).forEach(s => SACCA.push(s));
     return true;
@@ -2736,7 +3170,9 @@ function renderProfilo() {
 
   <h3 style="font-size:16px;margin:26px 0 10px">Dati</h3>
   <div class="card" style="padding:4px 14px">
-    ${[['csv', 'Esporta i giri in CSV', gs.length ? `${gs.length} giri, per il foglio di calcolo` : 'nessun giro da esportare'],
+    ${[['circoli', 'Salva l\'elenco circoli su Drive', `${CLUBS.length} circoli con indirizzo e posizione, come foglio di calcolo`],
+       ['circoli-csv', 'Scarica l\'elenco circoli in CSV', 'lo stesso file, ma sul telefono'],
+       ['csv', 'Esporta i giri in CSV', gs.length ? `${gs.length} giri, per il foglio di calcolo` : 'nessun giro da esportare'],
        ['json', "Scarica una copia dell'archivio", 'circoli, giri, sacca e correzioni'],
        ['circolo', 'Aggiungi un circolo a mano', 'se non è in elenco né su OpenStreetMap'],
        ['svuota', 'Cancella tutti i giri', "l'elenco dei circoli resta"]].map(r => `
@@ -2769,8 +3205,52 @@ function scarica(nome, testo, tipo) {
   a.download = nome; a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 }
+/* l'elenco dei circoli in forma di tabella: una riga per circolo */
+function circoliCSV() {
+  const col = ['nome', 'comune', 'regione', 'paese', 'buche', 'par', 'via', 'cap',
+    'latitudine', 'longitudine', 'posizione', 'stato', 'giocato'];
+  const q = v => `"${(v ?? '').toString().replace(/"/g, '""')}"`;
+  const righe = CLUBS.map(c => [c.n, c.l, (c.r || '').split('/')[0], c.p, c.buche, c.par, c.via, c.cap,
+    c.lat, c.lon,
+    c.geo ? 'indirizzo' : c.osm ? 'OpenStreetMap' : c.daPosizionare ? 'provvisoria' : 'verificata',
+    c.chiuso ? 'chiuso: ' + c.chiuso : 'attivo',
+    c.wish ? 'no' : 'sì'].map(q).join(';'));
+  return [col.join(';'), ...righe].join('\n');
+}
+async function salvaCircoliSuDrive(msg) {
+  if (!TOKEN) { msg.textContent = 'Prima collega il Drive, qui sopra.'; return; }
+  msg.textContent = 'Salvo su Drive…';
+  try {
+    if (!CARTELLA_ID) CARTELLA_ID = await trovaOCrea(NOME_CARTELLA, true);
+    const nome = 'GolfP — circoli';
+    // se esiste già lo riscrivo, così non si moltiplicano le copie
+    const cerca = await api(`https://www.googleapis.com/drive/v3/files?q=${
+      encodeURIComponent(`name='${nome}' and trashed=false`)}&spaces=drive&fields=files(id)`);
+    const gia = (await cerca.json()).files;
+    const csv = circoliCSV();
+    let id = gia && gia.length ? gia[0].id : null;
+    if (!id) {
+      const c = await api('https://www.googleapis.com/drive/v3/files?fields=id', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: nome, parents: [CARTELLA_ID],
+          mimeType: 'application/vnd.google-apps.spreadsheet' }) });
+      id = (await c.json()).id;
+    }
+    await api(`https://www.googleapis.com/upload/drive/v3/files/${id}?uploadType=media`, {
+      method: 'PATCH', headers: { 'Content-Type': 'text/csv' }, body: csv });
+    msg.textContent = `${CLUBS.length} circoli salvati nella cartella GolfP del tuo Drive, come foglio di calcolo.`;
+  } catch (e) {
+    msg.textContent = 'Non ha funzionato: ' + e.message;
+  }
+}
 function azione(k) {
   const msg = document.getElementById('prof-msg');
+  if (k === 'circoli') { salvaCircoliSuDrive(msg); return; }
+  if (k === 'circoli-csv') {
+    scarica('golfp-circoli.csv', circoliCSV(), 'text/csv');
+    msg.textContent = `${CLUBS.length} circoli esportati.`;
+    return;
+  }
   if (k === 'csv') {
     const gs = giriValidi();
     if (!gs.length) return msg.textContent = 'Non c\'è ancora nessun giro da esportare.';
@@ -2810,6 +3290,7 @@ function elencoAutomatico() {
 /* ---------------- avvio ---------------- */
 caricaLocale();
 elencoAutomatico();
+aggiornaGeoBar();
 aggiornaContatori(); renderSide(); aggiornaRail();
 renderCircoli(); renderGiro(); renderSacca(); renderStats(); renderProfilo();
 document.getElementById('osm-title').textContent = CLUBS.length + ' circoli in elenco';
