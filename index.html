@@ -661,9 +661,9 @@ h1,h2,h3{font-family:var(--disp);font-weight:800;letter-spacing:-.03em;text-tran
    Va alzato SEMPRE, anche per una modifica di una riga. Se resta uguale,
    la cache del service worker e il numero non litigano e non si capisce piu niente.
    ========================================================================== */
-const RELEASE = 17;
+const RELEASE = 18;
 const RELEASE_DATA = '2026-08-12';
-const RELEASE_NOTE = 'r16 + la spunta Giocato si vede e si toglie senza cambiare schermata';
+const RELEASE_NOTE = 'r17 + il segnaposto cambia davvero quando cambia lo stato del circolo';
 const W = 10000, VW = 1000, VH = 560;
 const merc = (lon, lat) => {
   lat = Math.max(Math.min(lat, 84), -84);
@@ -875,10 +875,17 @@ function paint() {
     if (vecchio) {
       const el = vecchio.getElement();
       const scelto = sel === id;
-      if (el.classList.contains('sel') !== scelto) { vecchio.remove(); SEGNI.delete(id); }
+      /* Il segnaposto va rifatto anche quando cambia CHE COSA rappresenta, non solo
+         quando cambia la selezione: togliendo la spunta "giocato" il conteggio
+         scendeva ma sulla mappa restava piantata la bandiera, perche il disegno
+         vecchio veniva riusato. Il timbro tiene dentro tutto cio che cambia il
+         disegno, cosi non serve ricordarsi di aggiungere i casi uno a uno. */
+      const timbro = (c.wish ? 'w' : 'p') + (c.chiuso ? 'c' : '') + (scelto ? 's' : '');
+      if (el.dataset.stato !== timbro) { vecchio.remove(); SEGNI.delete(id); }
       else { vecchio.setLngLat([c.lon, c.lat]); return; }
     }
     const el = bandierina(c, sel === id);
+    el.dataset.stato = (c.wish ? 'w' : 'p') + (c.chiuso ? 'c' : '') + (sel === id ? 's' : '');
     el.style.animationDelay = Math.min(i++ * 10, 500) + 'ms';
     SEGNI.set(id, new maplibregl.Marker({ element: el, anchor: 'bottom' }).setLngLat([c.lon, c.lat]).addTo(MAP));
   });
