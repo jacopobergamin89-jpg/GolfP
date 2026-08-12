@@ -661,9 +661,9 @@ h1,h2,h3{font-family:var(--disp);font-weight:800;letter-spacing:-.03em;text-tran
    Va alzato SEMPRE, anche per una modifica di una riga. Se resta uguale,
    la cache del service worker e il numero non litigano e non si capisce piu niente.
    ========================================================================== */
-const RELEASE = 16;
+const RELEASE = 17;
 const RELEASE_DATA = '2026-08-12';
-const RELEASE_NOTE = 'r15 + una barra sola sulla mappa, con verificati/approssimati/da fare contati in un posto solo';
+const RELEASE_NOTE = 'r16 + la spunta Giocato si vede e si toglie senza cambiare schermata';
 const W = 10000, VW = 1000, VH = 560;
 const merc = (lon, lat) => {
   lat = Math.max(Math.min(lat, 84), -84);
@@ -2240,7 +2240,8 @@ function renderSide() {
         ${s.daPosizionare ? `<p class="hint" style="margin:0 0 8px">${s.l ? 'Segnaposto sul centro del comune, non sulla club house.' : 'Posizione ancora sconosciuta.'} Importa da OpenStreetMap per la posizione esatta, oppure premi ⌖ e tocca la club house sulla mappa.</p>` : ''}
         <div style="display:flex;gap:8px">
           <button class="btn" style="flex:1;justify-content:center" data-open="${s.id}">Apri scheda</button>
-          <button class="btn ghost" onclick="segnaGiocato(${s.id})" title="${s.wish ? 'Segna come giocato' : 'Togli la spunta'}">✓</button>
+          <button class="btn ${s.wish ? 'ghost' : ''}" onclick="segnaGiocato(${s.id})" aria-pressed="${!s.wish}"
+            title="${s.wish ? 'Segna come giocato' : 'Togli la spunta: torna fra quelli da giocare'}">${s.wish ? '✓' : '✓ Giocato'}</button>
           <button class="btn ghost" onclick="miraPosizione(${s.id})" title="Sposta il segnaposto">⌖</button>
         </div>
       </div>` : '')
@@ -2611,7 +2612,12 @@ function segnaGiocato(id) {
   c.segnatoAMano = !c.wish && !giri;
   paint(); renderSide(); renderCircoli(); aggiornaContatori(); renderStats();
   salvaTutto();
-  openCampo(id);
+  /* Segnando dalla mappa si veniva sbalzati nella scheda del campo: sembrava che
+     il comando non fosse un interruttore ma un passaggio senza ritorno, e per
+     togliere la spunta bisognava ritrovare la strada indietro. Ora si resta dove
+     si e, e il pulsante cambia aspetto per dire in che stato sei. */
+  if (SCHERMO === 'campo') openCampo(id);
+  else select(id);
 }
 function salvaCampo(id, k, v) {
   const c = CLUBS[id];
