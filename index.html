@@ -528,9 +528,8 @@ h1,h2,h3{font-family:var(--disp);font-weight:800;letter-spacing:-.03em;text-tran
           <button class="chip red" id="f-played" aria-pressed="true">Giocati</button>
           <button class="chip ochre" id="f-wish" aria-pressed="true">Da giocare</button>
         </div>
-        <div class="segs" id="m-style">
-          <button data-s="mappa" aria-pressed="true">Chiaro</button>
-          <button data-s="sat" aria-pressed="false">Satellite</button>
+        <div class="segs" id="m-style" hidden>
+          <button data-s="sat" aria-pressed="true">Satellite</button>
         </div>
         <div class="counts">
           <div><b class="num" id="c-clubs">—</b><span class="lbl">Giocati</span></div>
@@ -770,7 +769,7 @@ const MESI = ["gen","feb","mar","apr","mag","giu","lug","set","ott","nov"];
 
 /* ---------------- mappa ---------------- */
 const ITALY = [[6.6, 35.4], [18.6, 47.2]];
-let MAP = null, MAPKEY = 'Tiu8reC8rEPSUngtOWWh', STYLE = 'mappa', sel = null, filt = { played: true, wish: true },
+let MAP = null, MAPKEY = 'Tiu8reC8rEPSUngtOWWh', STYLE = 'sat', sel = null, filt = { played: true, wish: true },
     CAMPOMAP = null, popup = null;
 
 function loadAsset(tag, urls, attr) {
@@ -793,9 +792,9 @@ const MLCSS = ["https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibr
 /* --- stili --- */
 const RASTER = (tiles, attr) => ({ version: 8, sources: { r: { type: 'raster', tiles: [tiles], tileSize: 256, attribution: attr } },
   layers: [{ id: 'r', type: 'raster', source: 'r' }] });
-const STILI = { mappa: 'bright', sat: 'hybrid' };   // solo due viste: chiaro e satellite
+const STILI = { sat: 'hybrid' };   // unica vista: satellite
 function styleFor(kind) {
-  if (MAPKEY) return `https://api.maptiler.com/maps/${STILI[kind] || STILI.mappa}/style.json?key=${MAPKEY}`;
+  if (MAPKEY) return `https://api.maptiler.com/maps/${STILI.sat}/style.json?key=${MAPKEY}`;
   return kind === 'sat'
     ? RASTER('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', 'Esri, Maxar, Earthstar Geographics')
     : RASTER('https://tile.openstreetmap.org/{z}/{x}/{y}.png', '© OpenStreetMap');
@@ -873,8 +872,8 @@ async function initMap() {
   MAP.on('error', e => {
     const m = String(e && e.error && e.error.message || '');
     if (!m.includes('style') && !m.includes('403') && !m.includes('404')) return;
-    if (STYLE === 'mappa') return;
-    STYLE = 'mappa'; setStyle('mappa');
+    if (STYLE === 'sat') return;
+    STYLE = 'sat'; setStyle('sat');
   });
 }
 function setStyle(kind) {
