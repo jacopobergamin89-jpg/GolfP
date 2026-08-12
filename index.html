@@ -102,11 +102,21 @@ main{flex:1;min-width:0;position:relative;overflow:hidden}
 #geobar{bottom:88px}
 .osmbar[hidden]{display:none}
 .osmbar{position:absolute;left:12px;right:12px;bottom:12px;z-index:3;display:flex;align-items:center;gap:14px;
+  flex-wrap:wrap;
   background:rgba(12,21,18,.9);border:1px solid rgba(232,228,214,.18);border-radius:10px;padding:11px 13px;
   color:#E5E1D2;backdrop-filter:blur(8px)}
 .osmbar b{font-family:var(--disp);text-transform:uppercase;font-size:15px;display:block;letter-spacing:.02em}
 .osmbar span{font-size:11.5px;color:#9EA89F;display:block;margin-top:2px}
-.osmbar .btn{margin-left:auto;flex:none}
+/* Il blocco di testo deve poter restringersi ma non sparire: senza min-width:0 e senza
+   una base larga, con piu di due pulsanti finiva incolonnato su dieci caratteri. */
+.osmbar .testo{flex:1 1 260px;min-width:0}
+/* I pulsanti stanno in un gruppo unico: prima ognuno aveva margin-left:auto e quindi
+   ognuno spingeva via il testo per conto suo. */
+.osmbar .azioni{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.osmbar .btn{flex:none}
+/* .btn e inline-flex, che vince su [hidden]: senza questa riga i pulsanti nascosti
+   restavano visibili. */
+.osmbar .btn[hidden]{display:none}
 .osmbar.off{display:none}
 .keybox{position:absolute;inset:0;z-index:4;display:grid;place-items:center;padding:20px;background:rgba(12,21,18,.82);backdrop-filter:blur(3px)}
 .keybox .card{max-width:400px;padding:18px}
@@ -545,13 +555,14 @@ h1,h2,h3{font-family:var(--disp);font-weight:800;letter-spacing:-.03em;text-tran
             <button class="btn ghost" id="osm-stop" hidden>Ferma</button>
           </div>
           <div class="osmbar" id="geobar" hidden>
-            <div><b id="geo-title"></b><span id="geo-sub"></span></div>
-            <button class="btn red" id="geo-places">Cerca su Google Maps</button>
-            <button class="btn ghost" id="geo-google">Cerca per indirizzo</button>
-            <button class="btn ghost" id="geo-osm">Buche e tracciato</button>
-            <button class="btn ghost" id="geo-rifai" hidden>Rifai da capo</button>
-            <button class="btn ghost" id="geo-go" hidden>Legacy</button>
-            <button class="btn ghost" id="geo-stop" hidden>Ferma</button>
+            <div class="testo"><b id="geo-title"></b><span id="geo-sub"></span></div>
+            <div class="azioni">
+              <button class="btn red" id="geo-places">Cerca su Google Maps</button>
+              <button class="btn ghost" id="geo-google" hidden>Cerca per indirizzo</button>
+              <button class="btn ghost" id="geo-osm">Buche e tracciato</button>
+              <button class="btn ghost" id="geo-rifai">Rifai da capo</button>
+              <button class="btn ghost" id="geo-stop" hidden>Ferma</button>
+            </div>
           </div>
         </div>
         <aside class="side" id="side"></aside>
@@ -664,9 +675,9 @@ h1,h2,h3{font-family:var(--disp);font-weight:800;letter-spacing:-.03em;text-tran
    Va alzato SEMPRE, anche per una modifica di una riga. Se resta uguale,
    la cache del service worker e il numero non litigano e non si capisce piu niente.
    ========================================================================== */
-const RELEASE = 24;
+const RELEASE = 25;
 const RELEASE_DATA = '2026-08-12';
-const RELEASE_NOTE = 'r23 + azzeramento generale delle posizioni e ricerca completa su Google Maps';
+const RELEASE_NOTE = 'r24 + la barra della mappa non strizza piu il testo; via il pulsante morto';
 const W = 10000, VW = 1000, VH = 560;
 const merc = (lon, lat) => {
   lat = Math.max(Math.min(lat, 84), -84);
@@ -1836,16 +1847,16 @@ function aggiornaGeoBar() {
      le zone in errore la barra affermava lo stesso che quei circoli non erano su
      OpenStreetMap, che e falso e manda fuori strada. */
   document.getElementById('geo-sub').textContent =
-    `${t.verificato} con posizione verificata · ${t.approssimato} approssimata · ${t.dafare} da mettere a mano.`
-    + ` Cerco ogni circolo su Google Maps per nome: e il modo piu affidabile, perche un campo da golf`
-    + ` e un luogo e non un indirizzo. Puoi fermarti quando vuoi.`;
+    `${t.verificato} verificati · ${t.approssimato} approssimati · ${t.dafare} da fare a mano`;
   const g = document.getElementById('geo-google');
   if (g) { g.textContent = `Cerca per indirizzo (${restano})`; g.hidden = !restano; }
   const pl = document.getElementById('geo-places');
   if (pl) pl.textContent = `Cerca su Google Maps (${perNome})`;
+  /* Prima compariva solo a coda vuota, ma e proprio mentre i risultati sono sbagliati
+     che serve poter ricominciare: nasconderlo lo rendeva introvabile nel momento del
+     bisogno. Sta sempre li, e chiede conferma prima di cancellare. */
   const rif = document.getElementById('geo-rifai');
-  if (rif) rif.hidden = perNome > 0;   // serve solo quando non resta piu niente in coda
-  document.getElementById('geo-go').textContent = 'Legacy disattivato';
+  if (rif) rif.hidden = false;
 }
 async function trovaPosizioni() {
   if (GEOINCORSO) return;
@@ -1861,7 +1872,7 @@ async function trovaPosizioni() {
   if (!lista.length) { ARCHIVIO.geo = GEOVERSIONE; salvaLocale(); aggiornaGeoBar(); return; }
   GEOINCORSO = true; GEOFERMA = false;
   const t = document.getElementById('geo-title'), sub = document.getElementById('geo-sub');
-  const go = document.getElementById('geo-go'), stop = document.getElementById('geo-stop');
+  const stop = document.getElementById('geo-stop');
   if (go) go.disabled = true;
   if (stop) { stop.hidden = false; stop.onclick = () => { GEOFERMA = true; }; }
   let fatti = 0, vuoti = 0, errori = 0, da = null;
@@ -2719,7 +2730,6 @@ document.getElementById('cir-elenco').onclick = () => {
     + (r.saltati ? `, ${r.saltati} campi pratica senza percorso lasciati fuori.` : '.')
     + (r.nuovi ? ' I nuovi nascono con un segnaposto provvisorio marcato "?": premi IMPORTA sulla mappa e OpenStreetMap li sposta sulla club house vera, con comune e buche. Quelli che restano "?" vanno messi a mano col mirino ⌖.' : '');
 };
-document.getElementById('geo-go').onclick = () => {};
 document.getElementById('geo-google').onclick = () => risolviConGoogle().catch(() => {});
 { const b = document.getElementById('geo-places');
   if (b) b.onclick = () => risolviConPlaces().catch(() => {}); }
