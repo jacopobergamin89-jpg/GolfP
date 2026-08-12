@@ -428,6 +428,8 @@ h1,h2,h3{font-family:var(--disp);font-weight:800;letter-spacing:-.03em;text-tran
 .navbtn[aria-current="true"]{background:var(--lime);color:var(--deep)}
 .navbtn[aria-current="true"] i{filter:none}
 .railfoot{margin-top:auto;text-align:center;color:rgba(255,255,255,.5);font-size:9px;border:0;padding:10px 6px 0}
+.targa{display:block;margin-top:7px;font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;
+  color:rgba(255,255,255,.32)}
 .railfoot b{font-family:var(--disp);font-weight:800;font-size:22px;color:var(--lime);letter-spacing:-.04em}
 
 /* superfici */
@@ -658,6 +660,17 @@ h1,h2,h3{font-family:var(--disp);font-weight:800;letter-spacing:-.03em;text-tran
 </div>
 <nav class="tabbar" id="tabs"></nav>
 <script>
+/* =============================================================================
+   NUMERO DI VERSIONE — si alza di uno a ogni file consegnato.
+   Serve per sapere, senza dubbi, quale file sta davvero girando sul telefono
+   o sul sito: basta aprire la console e leggere la riga che compare da sola,
+   oppure scrivere  GolfP  e premere invio.
+   Va alzato SEMPRE, anche per una modifica di una riga. Se resta uguale,
+   la cache del service worker e il numero non litigano e non si capisce piu niente.
+   ========================================================================== */
+const RELEASE = 2;
+const RELEASE_DATA = '2026-08-12';
+const RELEASE_NOTE = 'r1 + riallineamento automatico quando l\'elenco in memoria e rimasto indietro';
 const W = 10000, VW = 1000, VH = 560;
 const merc = (lon, lat) => {
   lat = Math.max(Math.min(lat, 84), -84);
@@ -3659,6 +3672,11 @@ function aggiornaRail() {
   if (!b) return;
   b.textContent = ARCHIVIO.giocatore.index || '—';
   p.lastChild.textContent = ARCHIVIO.giocatore.index ? ' aggiornato a mano' : ' da inserire nel profilo';
+  /* la targa si vede anche dal telefono, dove la console non c'è */
+  let t = p.querySelector('.targa');
+  if (!t) { t = document.createElement('span'); t.className = 'targa'; p.appendChild(t); }
+  t.textContent = `r${RELEASE}`;
+  t.title = `GolfP r${RELEASE} · ${RELEASE_DATA} · ${RELEASE_NOTE}`;
 }
 function renderProfilo() {
   const g = ARCHIVIO.giocatore;
@@ -3933,7 +3951,19 @@ function applicaIndirizzi() {
   return n;
 }
 function elencoAutomatico() {
-  if (ARCHIVIO.elenco === ELENCO_VERSIONE) return null;
+  /* La marca da sola non basta: se un browser ha in memoria un elenco vecchio con
+     la stessa marca, l'app crede di aver gia importato e resta indietro per sempre.
+     E successo davvero: lo stesso file mostrava 358 circoli su un indirizzo nuovo
+     e 88 su golf-p.vercel.app, perche li c'era un archivio vecchio in memoria.
+     Quindi oltre alla marca si guarda anche il numero: se in memoria ce n'e molto
+     meno di quanti ne sa il codice, si riallinea comunque. Costa una passata sola
+     all'avvio e toglie di mezzo un'intera categoria di guai. */
+  const atteso = vociElenco().filter(v => v.buche !== 0).length;
+  const inMemoria = CLUBS.filter(c => c.fig).length;
+  const scarso = atteso > 20 && inMemoria < atteso * 0.8;
+  if (ARCHIVIO.elenco === ELENCO_VERSIONE && !scarso) return null;
+  if (scarso && ARCHIVIO.elenco === ELENCO_VERSIONE)
+    console.warn(`GolfP: in memoria ${inMemoria} circoli su ${atteso} attesi. Riallineo l'elenco.`);
   const r = importaElenco();
   ARCHIVIO.elenco = ELENCO_VERSIONE;
   salvaLocale();
@@ -3987,6 +4017,41 @@ const gin = document.getElementById('k-gemini');
 if (gin) gin.onchange = () => GKEY = gin.value.trim();
 go('mappa');
 initMap();
+
+/* --- la targa, in console e a portata di comando --------------------------- */
+(function targa() {
+  const riga = `GolfP r${RELEASE}  ·  ${RELEASE_DATA}  ·  ${CLUBS.length} circoli`;
+  console.log('%c' + riga, 'background:#062A1D;color:#D6FF3F;font:600 13px ui-monospace,monospace;padding:6px 12px;border-radius:6px');
+  console.log('%cScrivi  GolfP  e invio per i dettagli.', 'color:#8AA598;font:12px ui-monospace,monospace');
+
+  /* Scrivendo GolfP in console si vede tutto quello che serve per capire
+     quale file gira e in che stato è l'archivio. */
+  Object.defineProperty(window, 'GolfP', { get() {
+    return {
+      release: RELEASE,
+      data: RELEASE_DATA,
+      note: RELEASE_NOTE,
+      elencoVersione: ELENCO_VERSIONE,
+      posizioniVersione: POSIZIONI_VERSIONE,
+      circoli: CLUBS.length,
+      giocati: CLUBS.filter(c => !c.wish).length,
+      senzaPosizioneEsatta: daTrovare().length,
+      conVia: CLUBS.filter(c => c.via).length,
+      giri: ARCHIVIO.giri.length,
+      drive: TOKEN ? 'collegato' : 'non collegato',
+      /* azzera tutto quello che sta in questo browser e ricarica: serve quando
+         l'archivio locale è rimasto indietro rispetto al file pubblicato */
+      azzera() {
+        if (!confirm('Cancello l\'archivio locale di questo browser e ricarico?\n\nI giri sul Drive non si toccano.')) return;
+        localStorage.removeItem(CACHE);
+        if (navigator.serviceWorker) navigator.serviceWorker.getRegistrations()
+          .then(r => Promise.all(r.map(x => x.unregister()))).catch(() => {});
+        if (window.caches) caches.keys().then(k => k.forEach(x => caches.delete(x))).catch(() => {});
+        setTimeout(() => location.reload(true), 400);
+      }
+    };
+  }, configurable: true });
+})();
 </script>
 
 </body>
