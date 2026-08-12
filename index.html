@@ -547,7 +547,8 @@ h1,h2,h3{font-family:var(--disp);font-weight:800;letter-spacing:-.03em;text-tran
           </div>
           <div class="osmbar" id="geobar" hidden>
             <div><b id="geo-title"></b><span id="geo-sub"></span></div>
-            <button class="btn red" id="geo-go">Cerca 40 indirizzi</button>
+            <button class="btn red" id="geo-google">Risolvi con Google</button>
+            <button class="btn ghost" id="geo-go">Prova con Photon</button>
             <button class="btn ghost" id="geo-stop" hidden>Ferma</button>
           </div>
         </div>
@@ -660,9 +661,9 @@ h1,h2,h3{font-family:var(--disp);font-weight:800;letter-spacing:-.03em;text-tran
    Va alzato SEMPRE, anche per una modifica di una riga. Se resta uguale,
    la cache del service worker e il numero non litigano e non si capisce piu niente.
    ========================================================================== */
-const RELEASE = 10;
+const RELEASE = 11;
 const RELEASE_DATA = '2026-08-12';
-const RELEASE_NOTE = 'r9 + tre stati del segnaposto, filtro Non trovati con riprova/posiziona/elimina, mirino evidente, salvataggio a ogni circolo';
+const RELEASE_NOTE = 'r10 + Drive che resta collegato dopo il ricaricamento, e ricerca indirizzi con Google Geocoding';
 const W = 10000, VW = 1000, VH = 560;
 const merc = (lon, lat) => {
   lat = Math.max(Math.min(lat, 84), -84);
@@ -2310,6 +2311,73 @@ document.addEventListener('click', e => {
    sbagliato una volta, rifarglielo fare darebbe lo stesso risultato. */
 /* Rimette in coda un solo circolo, non tutti: dopo aver corretto un difetto della
    ricerca ha senso riprovare quello che interessa senza rifare trecento chiamate. */
+/* --- ricerca degli indirizzi con Google -----------------------------------
+   Photon e Nominatim sono gratuiti e si comportano di conseguenza: rispondono a vuoto
+   sui nomi dei circoli, rifiutano parametri, si saturano. Google gli indirizzi italiani
+   li conosce, e qui gli indirizzi ci sono gia tutti - via, CAP e comune, dagli elenchi
+   Federgolf incrociati con l'anagrafica ISTAT. La chiave sta su Vercel, mai nel file. */
+let GOOGLEINCORSO = false;
+async function risolviConGoogle() {
+  if (GOOGLEINCORSO || GEOINCORSO) return;
+  const t = document.getElementById('geo-title'), sub = document.getElementById('geo-sub');
+  const go = document.getElementById('geo-google'), stop = document.getElementById('geo-stop');
+  const lista = daTrovare();
+  if (!lista.length) return;
+  GOOGLEINCORSO = true; GEOFERMA = false;
+  if (go) go.disabled = true;
+  if (stop) { stop.hidden = false; stop.onclick = () => { GEOFERMA = true; }; }
+
+  let fatti = 0, vuoti = 0, scartati = 0, imprecisi = 0;
+  for (let i = 0; i < lista.length && !GEOFERMA; i += 40) {
+    const blocco = lista.slice(i, i + 40);
+    if (t) t.textContent = `Risolvo con Google - ${i} di ${lista.length}`;
+    if (sub) sub.textContent = `${fatti} posizionati, ${vuoti} non trovati, ${scartati} scartati.`;
+
+    const indirizzi = blocco.map(c => ({
+      id: c.id,
+      q: c.via ? [c.via, c.cap, comuneNudo(c), 'Italia'].filter(Boolean).join(', ')
+               : [c.n, comuneNudo(c), 'Italia'].filter(Boolean).join(', ')
+    }));
+
+    let dati = null;
+    try {
+      const r = await fetch('/api/geocodifica', { method: 'POST',
+        headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ indirizzi }) });
+      dati = await r.json();
+      if (!r.ok) throw new Error((dati && dati.errore) || ('risposta ' + r.status));
+    } catch (e) {
+      if (t) t.textContent = `${lista.length} circoli senza posizione esatta`;
+      if (sub) sub.textContent = 'Google non ha risposto: ' + (e.message || 'errore')
+        + '. Controlla che GOOGLE_MAPS_KEY sia su Vercel e Geocoding API attiva.';
+      GOOGLEINCORSO = false; if (go) go.disabled = false; if (stop) stop.hidden = true;
+      return;
+    }
+
+    (dati.risultati || []).forEach(r => {
+      const c = CLUBS[r.id]; if (!c) return;
+      if (r.vuoto) { vuoti++; c.geoVuoto = true; return; }
+      /* APPROXIMATE con partial_match vuol dire "da qualche parte in paese": e
+         esattamente il punto da cui stiamo cercando di uscire. */
+      if (r.precisione === 'APPROXIMATE' && r.parziale) { imprecisi++; c.geoVuoto = true; return; }
+      const d = km(c.lat, c.lon, r.lat, r.lon);
+      if (d > (c.via ? 25 : 90)) { scartati++; c.geoVuoto = true; return; }
+      c.geoPrima = c.geoPrima || [c.lat, c.lon];
+      c.lat = +r.lat.toFixed(6); c.lon = +r.lon.toFixed(6);
+      c.geo = 'google';
+      delete c.daPosizionare; delete c.geoVuoto;
+      fatti++;
+    });
+    salvaTutto(); paint(); renderSide(); renderCircoli(); aggiornaContatori();
+  }
+
+  GOOGLEINCORSO = false; if (go) go.disabled = false; if (stop) stop.hidden = true;
+  console.log(`GolfP - Google: ${fatti} posizionati, ${vuoti} non trovati, `
+    + `${scartati} scartati per distanza, ${imprecisi} troppo imprecisi.`);
+  aggiornaGeoBar();
+  if (t && !daTrovare().length) t.textContent = 'Tutti i circoli hanno una posizione esatta';
+}
+const comuneNudo = c => (c.l || '').replace(/\s*\([A-Z]{2}\)\s*$/, '').trim();
+
 function riprovaUno(id) {
   const c = CLUBS[id]; if (!c) return;
   delete c.geoVuoto; delete c.rifiutato;
@@ -2446,6 +2514,7 @@ document.getElementById('cir-elenco').onclick = () => {
     + (r.nuovi ? ' I nuovi nascono con un segnaposto provvisorio marcato "?": premi IMPORTA sulla mappa e OpenStreetMap li sposta sulla club house vera, con comune e buche. Quelli che restano "?" vanno messi a mano col mirino ⌖.' : '');
 };
 document.getElementById('geo-go').onclick = () => trovaPosizioni().catch(() => {});
+document.getElementById('geo-google').onclick = () => risolviConGoogle().catch(() => {});
 document.getElementById('cir-percorsi').onclick = function () {
   SOLOPERCORSI = !SOLOPERCORSI;
   this.setAttribute('aria-pressed', SOLOPERCORSI);
@@ -3309,6 +3378,29 @@ let TOKEN = null, tokenClient = null, FILE_ID = null, CARTELLA_ID = null,
     ULTIMA_SYNC = null, STATO_DRIVE = 'scollegato', ERRORE_DRIVE = null;
 const ARCHIVIO = { versione: 1, aggiornato: null, elenco: null, geo: null, geoLogica: null, posizioni: null, cancellati: [], giocatore: {}, giri: [], bozze: [], circoli: [], sacca: [] };
 
+/* --- la sessione del Drive deve sopravvivere al ricaricamento ---------------
+   Prima TOKEN viveva solo in memoria e non veniva mai scritto da nessuna parte:
+   ricaricare la pagina significava ritrovarsi scollegati, ogni volta, senza
+   eccezioni. Ed era peggio di una scomodita, perche tutto quello che l'app
+   salva sul Drive lo fa solo `if (TOKEN)`: senza sessione, giri e posizioni
+   restavano nella memoria di quel browser e sparivano al primo svuotamento.
+
+   Il token e a scadenza breve (un'ora) e vale solo per i file creati da questa
+   app (`drive.file`). Tenerlo in memoria locale e il compromesso ragionevole per
+   un'app senza server proprio: alla scadenza si rinnova da solo, in silenzio,
+   perche il consenso l'hai gia dato una volta. */
+const CHIAVE_SESSIONE = 'golfp-drive';
+function salvaSessione() {
+  try {
+    if (TOKEN && SCADENZA) localStorage.setItem(CHIAVE_SESSIONE, JSON.stringify({ t: TOKEN, s: SCADENZA, a: ACCOUNT }));
+    else localStorage.removeItem(CHIAVE_SESSIONE);
+  } catch (e) {}
+}
+function leggiSessione() {
+  try { return JSON.parse(localStorage.getItem(CHIAVE_SESSIONE)) || null; } catch (e) { return null; }
+}
+let SCADENZA = 0;
+
 async function driveInit() {
   if (tokenClient) return true;
   try {
@@ -3316,12 +3408,45 @@ async function driveInit() {
     tokenClient = google.accounts.oauth2.initTokenClient({
       client_id: CLIENT_ID, scope: SCOPE,
       callback: r => {
-        if (r.error) { STATO_DRIVE = 'errore'; ERRORE_DRIVE = r.error; return renderDrive(); }
-        TOKEN = r.access_token; chiEsono().then(primaSincronizzazione);
+        if (r.error) {
+          /* Un rinnovo silenzioso che fallisce non e un errore da mostrare: vuol dire
+             solo che serve un tocco. Si torna a "scollegato" senza allarmi. */
+          if (SILENZIOSO) { SILENZIOSO = false; STATO_DRIVE = 'scollegato'; return renderDrive(); }
+          STATO_DRIVE = 'errore'; ERRORE_DRIVE = r.error; return renderDrive();
+        }
+        SILENZIOSO = false;
+        TOKEN = r.access_token;
+        SCADENZA = Date.now() + ((+r.expires_in || 3600) - 120) * 1000;   // due minuti di margine
+        salvaSessione();
+        chiEsono().then(() => { salvaSessione(); primaSincronizzazione(); });
       }
     });
     return true;
   } catch (e) { STATO_DRIVE = 'errore'; ERRORE_DRIVE = 'libreria Google non caricata'; renderDrive(); return false; }
+}
+let SILENZIOSO = false;
+/* Rinnovo senza finestre: funziona quando il consenso e gia stato dato.
+   E il pezzo che mancava del tutto. */
+async function rinnovaSessione() {
+  if (!(await driveInit())) return false;
+  SILENZIOSO = true;
+  try { tokenClient.requestAccessToken({ prompt: '' }); return true; }
+  catch (e) { SILENZIOSO = false; return false; }
+}
+/* Al caricamento della pagina: se la sessione salvata e ancora valida si riprende
+   da li, altrimenti si tenta il rinnovo silenzioso. In nessuno dei due casi
+   compare una finestra. */
+async function riprendiDrive() {
+  const v = leggiSessione();
+  if (!v) return;
+  ACCOUNT = v.a || null;
+  if (v.t && v.s && v.s > Date.now()) {
+    TOKEN = v.t; SCADENZA = v.s;
+    STATO_DRIVE = 'in corso'; renderDrive();
+    try { await primaSincronizzazione(); return; }
+    catch (e) { TOKEN = null; }
+  }
+  await rinnovaSessione();
 }
 let ACCOUNT = null;
 async function chiEsono() {
@@ -3333,16 +3458,30 @@ async function chiEsono() {
 async function driveCollega() {
   STATO_DRIVE = 'in corso'; ERRORE_DRIVE = null; renderDrive();
   if (!(await driveInit())) return;
-  tokenClient.requestAccessToken({ prompt: 'select_account' });
+  /* La scelta dell'account si chiede solo la prima volta. Dopo, se Google puo
+     riagganciarti, lo fa senza finestre. */
+  tokenClient.requestAccessToken(leggiSessione() ? { prompt: '' } : { prompt: 'select_account' });
 }
 function driveScollega() {
   if (TOKEN && window.google) google.accounts.oauth2.revoke(TOKEN, () => {});
-  TOKEN = null; FILE_ID = null; STATO_DRIVE = 'scollegato'; renderDrive();
+  TOKEN = null; SCADENZA = 0; FILE_ID = null; ACCOUNT = null;
+  salvaSessione();                       // e va tolta anche da qui, altrimenti torna al ricaricamento
+  STATO_DRIVE = 'scollegato'; renderDrive();
 }
-async function api(url, opts = {}) {
+async function api(url, opts = {}, giaRiprovato) {
   const r = await fetch(url, Object.assign({}, opts, {
     headers: Object.assign({ Authorization: 'Bearer ' + TOKEN }, opts.headers || {}) }));
-  if (r.status === 401) { TOKEN = null; STATO_DRIVE = 'scaduto'; renderDrive(); throw new Error('sessione scaduta'); }
+  /* Un 401 vuol dire che il token e scaduto, non che tu sia stato buttato fuori.
+     Prima bastava per dichiarare "sessione scaduta" e chiudere tutto. Ora si prova
+     una volta a rinnovare in silenzio e si rifa la stessa chiamata. */
+  if (r.status === 401) {
+    if (!giaRiprovato && await rinnovaSessione()) {
+      await new Promise(ok => setTimeout(ok, 1200));
+      if (TOKEN) return api(url, opts, true);
+    }
+    TOKEN = null; SCADENZA = 0; salvaSessione();
+    STATO_DRIVE = 'scaduto'; renderDrive(); throw new Error('sessione scaduta');
+  }
   if (!r.ok) throw new Error('Drive ' + r.status);
   return r;
 }
@@ -4371,6 +4510,7 @@ const gin = document.getElementById('k-gemini');
 if (gin) gin.onchange = () => GKEY = gin.value.trim();
 go('mappa');
 initMap();
+riprendiDrive();      // riaggancia la sessione salvata, senza finestre
 
 /* --- la targa, in console e a portata di comando --------------------------- */
 (function targa() {

@@ -1,6 +1,6 @@
 # GolfP — mappa del progetto e istruzioni di caricamento
 
-**Pacchetto unico r10** — contiene tutto quello che è passato da r1 a r10. Le versioni
+**Pacchetto unico r11** — contiene tutto quello che è passato da r1 a r11. Le versioni
 intermedie non sono mai andate online: **non devi caricare niente prima, questo basta.**
 
 Contiene **solo i file cambiati** rispetto al repository di partenza. Tutto il resto
@@ -26,7 +26,8 @@ GolfP/                              ← la radice del repository
 ├── icon-512.png                    ← invariato, lasciare com'è
 │
 ├── api/
-│   └── leggi.js                    ← ⬆ SOSTITUIRE (funzione Vercel, proxy Gemini)
+│   ├── leggi.js                    ← ⬆ SOSTITUIRE (funzione Vercel, proxy Gemini)
+│   └── geocodifica.js              ← ⬆ NUOVO (funzione Vercel, proxy Google Geocoding)
 │
 ├── scripts/
 │   ├── posizioni-osm.mjs           ← ⬆ NUOVO (si lancia a mano dal computer)
@@ -37,7 +38,7 @@ GolfP/                              ← la radice del repository
     └── README.md                   ← invariato
 ```
 
-**In sintesi: 4 file sostituiti, 2 nuovi, nessuna cartella nuova da creare.**
+**In sintesi: 4 file sostituiti, 3 nuovi, nessuna cartella nuova da creare.**
 `api/` e `scripts/` esistono già.
 
 ---
@@ -55,6 +56,7 @@ GolfP/                              ← la radice del repository
 | **r7** | **Photon** come secondo archivio per gli indirizzi, accanto a Nominatim. La ricerca va fino in fondo invece di fermarsi ogni 40. `GolfP.diagnosi()` per capire dove sono fermi i circoli. |
 | **r8** | Tolti quattro specchi Overpass irraggiungibili dal browser (li avevo aggiunti io in r3 senza provarli). La ricerca indirizzi diventa l'azione principale. Conteggi visibili su cosa risponde e cosa viene scartato. |
 | **r9** | **165 posizioni verificate cotte dentro il file**, e tolto `lang=it` che faceva rispondere 400 a ogni chiamata a Photon. |
+| **r11** | **Drive che resta collegato** dopo il ricaricamento (prima il token non veniva mai salvato: eri fuori a ogni ricarica). Ricerca indirizzi con **Google Geocoding**. |
 | **r10** | Tre stati distinti del segnaposto. Filtro **«❓ Non trovati»** con *Riprova / Posiziona / Elimina*. Mirino con modalità evidente e conferma. Salvataggio a ogni circolo. |
 
 Il dettaglio di ogni correzione, con i confronti prima/dopo, è in `CORREZIONI.md`.
@@ -98,13 +100,13 @@ in cache e senza il ricaricamento forzato vedresti ancora la versione vecchia.
 Apri la console (Cmd+Alt+J) e la prima riga te lo dice da sola:
 
 ```
-GolfP r10  ·  2026-08-12  ·  353 circoli
+GolfP r11  ·  2026-08-12  ·  353 circoli
 ```
 
 Per i dettagli, scrivi `GolfP` e invio:
 
 ```
-release             10
+release             11
 data                2026-08-12
 elencoVersione      2026-08-12-mirabell
 posizioniVersione   2026-08-12-photon-165
@@ -117,7 +119,7 @@ azzera()            cancella l'archivio locale di questo browser e ricarica
 ```
 
 Sul telefono, dove la console non c'è, il numero è in fondo alla colonna di sinistra,
-sotto l'handicap index: **r10**.
+sotto l'handicap index: **r11**.
 
 **Se non vedi nessuna riga `GolfP r…` in console, stai girando la versione vecchia.**
 
@@ -129,10 +131,10 @@ circolo mostra la **mappa satellitare col tracciato del percorso**.
 
 `RELEASE` sta in due punti e devono restare uguali:
 
-- `index.html`, in cima allo script: `const RELEASE = 10;`
-- `sw.js`, in cima: `const RELEASE = 10;`
+- `index.html`, in cima allo script: `const RELEASE = 11;`
+- `sw.js`, in cima: `const RELEASE = 11;`
 
-In `sw.js` il numero dà il nome alla cache (`golfp-r10`): alzandolo, la copia vecchia viene
+In `sw.js` il numero dà il nome alla cache (`golfp-r11`): alzandolo, la copia vecchia viene
 buttata da sola all'attivazione e non serve più il Cmd+Shift+R a mano.
 
 ### Leggere la mappa a colpo d'occhio
@@ -255,6 +257,23 @@ Provato simulando server occupati:
 
 Resta vero che Overpass è gratuito e nelle ore di punta è saturo: **di sera tardi o di
 prima mattina passa quasi sempre al primo colpo.**
+
+**4-quinquies. Attiva Google Geocoding.** Serve una volta sola, cinque minuti.
+
+1. Console Google Cloud → progetto **"My First Project"** (`balmy-parser-505210-e7`)
+2. **API e servizi → Libreria** → cerca **Geocoding API** → **Attiva**
+3. **API e servizi → Credenziali → Crea credenziali → Chiave API**. Copiala.
+4. Sulla chiave, **Limitazioni API → Limita chiave → Geocoding API**. Salvala.
+5. Vercel → progetto `golf-p` → **Settings → Environment Variables**:
+   nome `GOOGLE_MAPS_KEY`, valore la chiave, spuntando **Production** e **Preview**
+6. Vercel → **Deployments** → sull'ultimo, menù `···` → **Redeploy** (le variabili entrano
+   solo al deployment successivo)
+
+Poi sulla mappa premi **«Risolvi con Google»**. Sono circa 350 richieste, ampiamente dentro
+il credito gratuito mensile di Google.
+
+⚠️ La chiave sta **solo** su Vercel, mai dentro `index.html`. La funzione `api/geocodifica.js`
+accetta chiamate solo dal sito.
 
 **5. Sostituisci la chiave Gemini** su Vercel (variabile `GEMINI_API_KEY`, Production +
 Preview): quella attuale è passata in chat e in uno screenshot.

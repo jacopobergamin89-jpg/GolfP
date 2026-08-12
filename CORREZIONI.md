@@ -1,4 +1,4 @@
-# GolfP r10 — pacchetto unico, 12 agosto 2026
+# GolfP r11 — pacchetto unico, 12 agosto 2026
 
 Questo documento copre tutto quello che è passato **da r1 a r6**. Le versioni intermedie non
 sono mai state pubblicate: il file `index.html` di questo pacchetto le contiene tutte.
@@ -15,6 +15,7 @@ sono mai state pubblicate: il file `index.html` di questo pacchetto le contiene 
 | r8 | specchi Overpass provati e sfoltiti, ricerca indirizzi come strada principale |
 | r9 | posizioni cotte nel file, `lang=it` rimosso |
 | r10 | tre stati del segnaposto, gestione dei non trovati, mirino evidente |
+| r11 | Drive che resta collegato, indirizzi risolti con Google |
 
 
 Tutte le modifiche sono state fatte con ancore testuali, mai tagliando per posizione,
@@ -414,6 +415,52 @@ salvataggio              a ogni circolo                         OK
 
 La riga che conta è la penultima: **dopo aver ricaricato la pagina il segnaposto resta dove
 l'hai messo**, e non torna "?".
+
+## r11 — il Drive e Google
+
+### Il Drive non restava collegato. Mai.
+
+`TOKEN` viveva **solo in memoria** e non veniva scritto da nessuna parte. Ricaricare la
+pagina significava ritrovarsi scollegati, ogni volta, senza eccezioni.
+
+Ed era peggio di una scomodità: tutto quello che l'app manda al Drive lo fa dentro
+`if (TOKEN)`. Senza sessione, giri e posizioni restavano nella memoria di quel browser e
+sparivano al primo svuotamento. Il che vuol dire che dieci minuti di ricerca indirizzi
+potevano evaporare senza che nessuno se ne accorgesse.
+
+Tre difetti sovrapposti, tutti corretti:
+
+| | prima | ora |
+|---|---|---|
+| sessione salvata | mai | in memoria locale, con scadenza |
+| ripresa all'avvio | assente | silenziosa, senza finestre |
+| `prompt` | `select_account` sempre | solo al primo collegamento |
+| un 401 | «sessione scaduta», fuori | rinnovo silenzioso e ritenta |
+
+Provato: token salvato → ricarico → **ancora collegato**, con l'account giusto. Scollego →
+ricarico → **fuori**, come deve essere.
+
+### Gli indirizzi con Google
+
+Photon e Nominatim sono gratuiti e si comportano di conseguenza: rispondono a vuoto sui nomi
+dei circoli, rifiutano parametri, si saturano. Gli indirizzi però ci sono già tutti nell'app —
+via, CAP e comune, dagli elenchi Federgolf incrociati con l'anagrafica ISTAT — e Google gli
+indirizzi italiani li conosce.
+
+`api/geocodifica.js` è un proxy sullo stesso modello di quello Gemini: la chiave sta su
+Vercel e non lascia mai il server, e accetta chiamate solo dal sito. Si va a blocchi di 40
+per non fare trecento avvii a freddo della funzione.
+
+Due controlli sulla risposta, perché una posizione sbagliata è peggio di una mancante:
+
+- **`APPROXIMATE` con `partial_match`** viene rifiutata: vuol dire «da qualche parte in
+  paese», che è esattamente il punto da cui stiamo cercando di uscire
+- la **distanza dal comune** oltre il limite viene scartata
+
+Provato con risposte realistiche su 121 circoli: **102 posizionati, 19 rifiutati perché
+imprecisi, 0 fuori posto, 4 chiamate al proxy**. E con la chiave mancante: messaggio chiaro e
+**0 circoli marcati per sbaglio come introvabili** — un guasto di configurazione non deve
+lasciare verdetti definitivi.
 
 ## Rimane da fare
 
