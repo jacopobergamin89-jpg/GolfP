@@ -2,8 +2,8 @@
 /**
  * posizioni-osm.mjs
  *
- * Risolve una volta sola, sul computer, la posizione esatta e la via di tutti i
- * circoli in elenco, e riscrive il blocco POSIZIONI dentro index.html.
+ * Cerca i golf course su OpenStreetMap e confronta le coordinate con quelle
+ * ottenute dagli indirizzi FIG/Google. Produce un audit e NON riscrive index.html.
  *
  * Perche esiste
  * -------------
@@ -12,15 +12,14 @@
  * far partire a mano in blocchi da quaranta. E ogni telefono nuovo ricomincia da
  * capo, perche il risultato vive nella memoria del browser.
  *
- * Overpass invece risponde in blocco: cinque richieste, una quindicina di secondi,
- * e torna indietro TUTTO — coordinate, addr:street, addr:housenumber, addr:postcode,
- * numero di buche, telefono, sito. Fatto qui una volta, finisce nel file e non lo
- * rifa piu nessuno.
+ * Overpass risponde in blocco e restituisce coordinate e dati OSM del campo. Questi
+ * dati servono come controllo indipendente e per arricchire la scheda, non per
+ * sostituire automaticamente le coordinate FIG/Google.
  *
  * Uso
  * ---
- *   node scripts/posizioni-osm.mjs              # scrive dentro index.html
- *   node scripts/posizioni-osm.mjs --prova      # stampa e basta, non tocca niente
+ *   node script/posizioni-osm.mjs              # crea data/audit_osm.csv
+ *   node script/posizioni-osm.mjs --prova      # esegue la ricerca ma non scrive il report
  *
  * Non tocca i circoli su cui hai usato il mirino o il "Non e qui": quelli restano
  * decisi da te, l'app li protegge quando applica questa tabella.
@@ -244,28 +243,47 @@ async function main() {
 
   if (PROVA) { console.log('\n--prova: il file non e stato toccato.'); return; }
 
-  /* --- riscrittura del blocco dentro index.html --------------------------
-     Ancore testuali precise, mai posizioni di riga. */
-  const marca = new Date().toISOString().slice(0, 10);
-  const righe = Object.keys(tabella).sort().map(n => {
-    const [la, lo, via, cap, b] = tabella[n];
-    const j = x => x == null ? 'null' : JSON.stringify(x);
-    return `  ${JSON.stringify(n)}: [${la}, ${lo}, ${j(via)}, ${j(cap)}, ${b ?? 'null'}]`;
-  });
-
-  const A = 'const POSIZIONI_VERSIONE =';
-  const B = '/* POSIZIONI-FINE >>> */';
-  const inizio = html.indexOf(A), fine = html.indexOf(B, inizio);
-  if (inizio < 0 || fine < 0) {
-    console.error('Segnalibri POSIZIONI non trovati in index.html: non tocco niente.');
-    process.exit(3);
+  /* OSM è soltanto un controllo indipendente: non riscrive più index.html. */
+  const GEO = path.join(path.dirname(FILE), 'data', 'coordinate_fig.json');
+  const AUDIT = path.join(path.dirname(FILE), 'data', 'audit_osm.csv');
+  if (!fs.existsSync(GEO)) {
+    console.error(`Manca ${GEO}. Prima esegui: GOOGLE_MAPS_KEY=... node script/geocodifica-fig.mjs`);
+    process.exit(4);
   }
-  const nuovo = `const POSIZIONI_VERSIONE = '${marca}';\nconst POSIZIONI = {\n${righe.join(',\n')}\n};\n`;
-  const out = html.slice(0, inizio) + nuovo + html.slice(fine);
-
-  fs.writeFileSync(FILE, out, 'utf8');
-  console.log(`\nScritto dentro index.html — marca ${marca}.`);
-  console.log('Ricorda: se cambi il contenuto della tabella cambia anche la marca, altrimenti l\'app crede di averla gia applicata.');
+  const gj = JSON.parse(fs.readFileSync(GEO, 'utf8'));
+  const google = new Map((gj.risultati || []).filter(x => x && x.nome).map(x => [x.nome, x]));
+  const rows = [];
+  for (const nome of nomi) {
+    const g = google.get(nome);
+    const k = nocciolo(nome);
+    let hit = k.length > 3 ? perNocciolo.get(k) : null;
+    let metodo = hit ? 'nome identico' : '';
+    if (!hit) {
+      const cand = campi.filter(c => stessoNome(c.nome, nome));
+      if (cand.length === 1) { hit = cand[0]; metodo = 'parole'; }
+      else if (cand.length > 1) { rows.push({ nome, stato: 'OSM_AMBIGUO', metodo: '', distanza_km: '', google_stato: g?.stato || '' }); continue; }
+    }
+    if (!hit) { rows.push({ nome, stato: 'OSM_NON_TROVATO', metodo: '', distanza_km: '', google_stato: g?.stato || '' }); continue; }
+    const distanza = g?.lat != null && g?.lon != null ? km(g.lat, g.lon, hit.lat, hit.lon) : null;
+    let stato = 'DA_VERIFICARE';
+    if (g?.lat == null || g?.lon == null) stato = 'GOOGLE_NON_DISPONIBILE';
+    else if (g.stato === 'AUTO_OK' && distanza <= 0.5) stato = 'OK';
+    else if (distanza <= 1.5) stato = 'CONTROLLO';
+    else stato = 'SOSPETTO';
+    rows.push({
+      nome, stato, metodo, distanza_km: distanza == null ? '' : distanza.toFixed(3),
+      google_stato: g?.stato || '', google_precisione: g?.precisione || '',
+      google_lat: g?.lat ?? '', google_lon: g?.lon ?? '',
+      osm_lat: hit.lat, osm_lon: hit.lon, osm_via: hit.via || '', osm_cap: hit.cap || ''
+    });
+  }
+  const headers = ['nome','stato','metodo','distanza_km','google_stato','google_precisione','google_lat','google_lon','osm_lat','osm_lon','osm_via','osm_cap'];
+  const esc = v => '"' + String(v ?? '').replaceAll('"','""') + '"';
+  fs.writeFileSync(AUDIT, headers.join(',') + '\n' + rows.map(r => headers.map(h => esc(r[h])).join(',')).join('\n') + '\n');
+  const counts = rows.reduce((a,r) => { a[r.stato]=(a[r.stato]||0)+1; return a; }, {});
+  console.log('\nAudit OSM completato:', counts);
+  console.log(`Creato ${AUDIT}`);
+  console.log('IMPORTANTE: index.html non viene modificato.');
 }
 
 main().catch(e => { console.error('Interrotto:', e.message); process.exit(1); });
