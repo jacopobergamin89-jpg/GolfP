@@ -467,16 +467,15 @@ h1,h2,h3{font-family:var(--disp);font-weight:800;letter-spacing:-.03em;text-tran
 .azioni-vuoto{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 2px}
 .btn.mini{padding:5px 10px;font-size:12px;border-radius:100px}
 .btn.mini.danger{color:var(--flag)}
-.mk.vago{opacity:.55}
-.mk.auto::before{content:"~";position:absolute;top:-5px;right:-5px;width:14px;height:14px;border-radius:50%;
-  background:var(--sand);color:#fff;font-size:11px;font-weight:700;display:grid;place-items:center;line-height:1;z-index:2}
-.mk.certo::before{content:"";position:absolute;top:-4px;right:-4px;width:9px;height:9px;border-radius:50%;
-  background:var(--fair);border:2px solid #fff;z-index:2}
+/* La mappa mostra i circoli, non il loro stato di lavorazione. Tre badge diversi
+   su trecentocinquanta segnaposti — "?", "~" e il pallino verde — riempivano lo
+   schermo di puntini e rendevano illeggibile la cosa che conta, cioe dove sono i
+   campi. Lo stato della posizione sta dove serve davvero: nell'elenco Circoli
+   (filtro ⌖ Da posizionare) e nel pannello del circolo scelto. Resta segnato solo
+   il chiuso, che sono sei e cambia se ci puoi andare o no. */
 .mk.chiuso{opacity:.45;filter:grayscale(1)}
 .mk.chiuso::before{content:"×";position:absolute;top:-5px;right:-5px;width:14px;height:14px;border-radius:50%;
   background:var(--ink-3);color:#fff;font-size:11px;font-weight:700;display:grid;place-items:center;line-height:1;z-index:2}
-.mk.vago::before{content:"?";position:absolute;top:-5px;right:-5px;width:14px;height:14px;border-radius:50%;
-  background:var(--sand);color:#fff;font-size:10px;font-weight:700;display:grid;place-items:center;line-height:1;z-index:2}
 @keyframes cade{from{opacity:0;transform:translateY(-24px) scale(.3)}to{opacity:1;transform:none}}
 @keyframes onda{from{transform:translateX(-50%) scale(1);opacity:.6}to{transform:translateX(-50%) scale(3);opacity:0}}
 
@@ -540,14 +539,15 @@ h1,h2,h3{font-family:var(--disp);font-weight:800;letter-spacing:-.03em;text-tran
           <div class="osmbar" id="osmbar">
             <div>
               <b id="osm-title">Elenco parziale</b>
-              <span id="osm-sub">Aggiunge buche, tracciato e dati del campo. OpenStreetMap controlla la posizione ma non la sostituisce: la posizione esatta viene da FIG/Google o dal mirino.</span>
+              <span id="osm-sub">Scarica da OpenStreetMap il numero di buche e il tracciato. Non sposta i segnaposti: la posizione viene da Google/FIG o dal mirino ⌖.</span>
             </div>
-            <button class="btn red" id="osm-go">Importa</button>
+            <button class="btn red" id="osm-go">Buche e tracciato</button>
             <button class="btn ghost" id="osm-stop" hidden>Ferma</button>
           </div>
           <div class="osmbar" id="geobar" hidden>
             <div><b id="geo-title"></b><span id="geo-sub"></span></div>
             <button class="btn red" id="geo-google">Risolvi con Google</button>
+            <button class="btn ghost" id="geo-osm">Buche e tracciato</button>
             <button class="btn ghost" id="geo-go" hidden>Legacy</button>
             <button class="btn ghost" id="geo-stop" hidden>Ferma</button>
           </div>
@@ -661,9 +661,9 @@ h1,h2,h3{font-family:var(--disp);font-weight:800;letter-spacing:-.03em;text-tran
    Va alzato SEMPRE, anche per una modifica di una riga. Se resta uguale,
    la cache del service worker e il numero non litigano e non si capisce piu niente.
    ========================================================================== */
-const RELEASE = 13;
+const RELEASE = 16;
 const RELEASE_DATA = '2026-08-12';
-const RELEASE_NOTE = 'r12 + le 165 posizioni di elenco tornano come punto provvisorio invece di sparire';
+const RELEASE_NOTE = 'r15 + una barra sola sulla mappa, con verificati/approssimati/da fare contati in un posto solo';
 const W = 10000, VW = 1000, VH = 560;
 const merc = (lon, lat) => {
   lat = Math.max(Math.min(lat, 84), -84);
@@ -819,13 +819,10 @@ function geo() {
 }
 function bandierina(c, scelto) {
   const el = document.createElement('div');
-  /* "?" rosso = sta sul comune - "~" giallo = trovata in automatico, non confermata
-     - pallino verde = confermata da te col mirino, oppure presa da OpenStreetMap */
+  /* Un segnaposto uguale per tutti: giocato o da giocare, e nient'altro.
+     Lo stato della posizione si legge nell'elenco e nel pannello, non qui. */
   el.className = 'mk ' + (c.wish ? 'wish' : 'play') + (scelto ? ' sel' : '')
-    + (c.chiuso ? ' chiuso'
-       : c.daPosizionare ? ' vago'
-       : (c.posizioneCorretta || c.osm) ? ' certo'
-       : c.geo ? ' auto' : '');
+    + (c.chiuso ? ' chiuso' : '');
   el.title = c.n;
   el.innerHTML = c.wish
     ? `<svg viewBox="0 0 26 30" width="22" height="26">
@@ -1788,19 +1785,41 @@ function unificaDoppioni() {
 const BLOCCO = 40;
 let OSMFATTO = false;      // l'import da OpenStreetMap e stato lanciato in questa sessione
 let OSMRESA = false;       // ...e ha davvero riportato qualcosa
+/* Tre stati, uno solo per circolo, contati in un posto solo cosi la barra, l'elenco
+   e il pannello non possono piu dire tre cose diverse.
+     verificato  = confermato da te, o preso da Google/FIG, o da OpenStreetMap
+     approssimato = c'e un punto plausibile ma nessuno l'ha confermato
+     da fare      = e fermo sul comune, o Google non l'ha trovato */
+function statoPos(c) {
+  if (!c.daPosizionare) return 'verificato';
+  if (c.geoVuoto || !c.via) return 'dafare';
+  return 'approssimato';
+}
+function contaPos() {
+  const t = { verificato: 0, approssimato: 0, dafare: 0 };
+  CLUBS.forEach(c => t[statoPos(c)]++);
+  return t;
+}
 function aggiornaGeoBar() {
   const bar = document.getElementById('geobar'); if (!bar) return;
+  const osmbar = document.getElementById('osmbar');
   const restano = daTrovare().length;
+  const t = contaPos();
+  /* Due barre sovrapposte in fondo alla mappa dicevano due cose diverse sugli
+     stessi circoli. Ne resta una: mostra i numeri e l'azione che serve adesso. */
+  if (osmbar) osmbar.hidden = (restano > 0 || GEOINCORSO) && !OSMINCORSO;
   if (!restano || GEOINCORSO) { if (!GEOINCORSO) bar.hidden = true; return; }
   bar.hidden = false;
-  document.getElementById('geo-title').textContent =
-    `${restano} circoli senza posizione esatta`;
+  document.getElementById('geo-title').textContent = `${CLUBS.length} circoli sulla mappa`;
   const min = Math.max(1, Math.round(restano * 1.6 / 60));
   /* OSMFATTO diceva solo "l'import e partito", non "l'import ha funzionato": con tutte
      le zone in errore la barra affermava lo stesso che quei circoli non erano su
      OpenStreetMap, che e falso e manda fuori strada. */
   document.getElementById('geo-sub').textContent =
-    `Li verifico con Google usando l'indirizzo FIG. Circa ${min} minut${min === 1 ? 'o' : 'i'} — puoi fermarti quando vuoi e riprendere dopo.`;
+    `${t.verificato} con posizione verificata · ${t.approssimato} approssimata · ${t.dafare} da mettere a mano.`
+    + ` Google li verifica sull'indirizzo FIG in circa ${min} minut${min === 1 ? 'o' : 'i'}, puoi fermarti quando vuoi.`;
+  const g = document.getElementById('geo-google');
+  if (g) g.textContent = `Risolvi con Google (${restano})`;
   document.getElementById('geo-go').textContent = 'Legacy disattivato';
 }
 async function trovaPosizioni() {
@@ -2480,7 +2499,9 @@ document.getElementById('nav').innerHTML = NAV.map(n => `<button class="navbtn" 
 document.getElementById('tabs').innerHTML = NAV.map(n => `<button data-nav="${n.id}"><span style="font-size:17px">${n.i}</span>${n.t}</button>`).join('');
 document.querySelectorAll('[data-nav]').forEach(b => b.onclick = () => go(b.dataset.nav));
 document.querySelectorAll('.tbar').forEach(t => {
-  if (t.querySelector('.back')) return;
+  /* Chi ha gia il suo pulsante scritto a mano (la scheda campo) non ne vuole un
+     secondo generico: ne uscivano due affiancati che facevano la stessa cosa. */
+  if (t.querySelector('.back') || t.querySelector('#campo-back')) return;
   const b = document.createElement('button');
   b.className = 'back'; b.innerHTML = '‹ Indietro'; b.style.visibility = 'hidden';
   b.onclick = indietro;
@@ -2526,6 +2547,10 @@ document.getElementById('cir-elenco').onclick = () => {
 };
 document.getElementById('geo-go').onclick = () => {};
 document.getElementById('geo-google').onclick = () => risolviConGoogle().catch(() => {});
+/* Lo stesso comando dell'altra barra: OpenStreetMap non tocca la posizione, porta
+   buche e tracciato. Il nome del pulsante adesso lo dice. */
+{ const b = document.getElementById('geo-osm');
+  if (b) b.onclick = () => document.getElementById('osm-go').click(); }
 document.getElementById('cir-percorsi').onclick = function () {
   SOLOPERCORSI = !SOLOPERCORSI;
   this.setAttribute('aria-pressed', SOLOPERCORSI);
@@ -3537,8 +3562,16 @@ async function primaSincronizzazione() {
     const r = await api(`https://www.googleapis.com/drive/v3/files/${FILE_ID}?alt=media`);
     let dati = null;
     try { dati = await r.json(); } catch (e) { dati = null; }
-    if (dati && dati.versione) {
+    /* Vince il piu recente. Prima il Drive vinceva sempre, e una copia vecchia
+       riportata giu cancellava in silenzio il lavoro fatto senza rete o fatto
+       prima che l'invio riuscisse: geocodifica, giri segnati, tutto. */
+    const quiT = Date.parse(ARCHIVIO.modificato || '') || 0;
+    const laT  = dati ? (Date.parse(dati.modificato || dati.aggiornato || '') || 0) : 0;
+    if (dati && dati.versione && laT >= quiT) {
       applicaArchivio(dati);
+    } else if (dati && dati.versione) {
+      console.log(`GolfP - Drive: copia locale piu recente (${ARCHIVIO.modificato} contro ${dati.modificato || dati.aggiornato || 'senza data'}), la mando su invece di sovrascriverla.`);
+      await salvaArchivio();
     } else {
       await salvaArchivio();
     }
@@ -3549,9 +3582,14 @@ const CACHE = 'golfp-v1';
 function salvaLocale() {
   DAINVIARE = true;
   programmaInvio();
+  /* Timbro di ogni modifica, anche quando il Drive non c'e o non risponde.
+     Senza questo non si puo sapere se la copia sul Drive e piu vecchia di quella
+     qui: e la ricerca Google finiva sovrascritta al ricaricamento successivo. */
+  ARCHIVIO.modificato = new Date().toISOString();
   try {
     localStorage.setItem(CACHE, JSON.stringify({
       v: 1, elenco: ARCHIVIO.elenco, geo: ARCHIVIO.geo, geoLogica: ARCHIVIO.geoLogica, posizioni: ARCHIVIO.posizioni, cancellati: ARCHIVIO.cancellati, giocatore: ARCHIVIO.giocatore, giri: ARCHIVIO.giri, bozze: ARCHIVIO.bozze,
+      modificato: ARCHIVIO.modificato,
       circoli: CLUBS, sacca: SACCA
     }));
   } catch (e) {}
@@ -3569,6 +3607,7 @@ function caricaLocale() {
     ARCHIVIO.geoLogica = j.geoLogica || null;
     ARCHIVIO.posizioni = j.posizioni || null;
     ARCHIVIO.cancellati = j.cancellati || [];
+    ARCHIVIO.modificato = j.modificato || null;
     CLUBS.length = 0; j.circoli.forEach(c => CLUBS.push(c));
     SACCA.length = 0; (j.sacca || []).forEach(s => SACCA.push(s));
     return true;
@@ -3587,6 +3626,7 @@ function programmaInvio(ritardo) {
 async function salvaArchivio() {
   if (!TOKEN || !FILE_ID) return false;
   ARCHIVIO.aggiornato = new Date().toISOString();
+  ARCHIVIO.modificato = ARCHIVIO.modificato || ARCHIVIO.aggiornato;
   ARCHIVIO.circoli = CLUBS; ARCHIVIO.sacca = SACCA;
   try {
     await api(`https://www.googleapis.com/upload/drive/v3/files/${FILE_ID}?uploadType=media`, {
