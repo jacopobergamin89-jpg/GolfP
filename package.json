@@ -3,5 +3,9 @@
   "private": true,
   "version": "1.0.0",
   "description": "Atlante dei circoli di golf giocati",
-  "type": "module"
+  "type": "module",
+  "scripts": {
+    "geocode:fig": "node script/geocodifica-fig.mjs",
+    "audit:osm": "node script/posizioni-osm.mjs"
+  }
 }

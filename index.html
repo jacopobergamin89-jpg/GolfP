@@ -540,7 +540,7 @@ h1,h2,h3{font-family:var(--disp);font-weight:800;letter-spacing:-.03em;text-tran
           <div class="osmbar" id="osmbar">
             <div>
               <b id="osm-title">Elenco parziale</b>
-              <span id="osm-sub">Aggiunge numero di buche e tracciato del percorso. I server OpenStreetMap sono spesso irraggiungibili dal browser: se non risponde, usa la ricerca indirizzi qui sotto.</span>
+              <span id="osm-sub">Aggiunge buche, tracciato e dati del campo. OpenStreetMap controlla la posizione ma non la sostituisce: la posizione esatta viene da FIG/Google o dal mirino.</span>
             </div>
             <button class="btn red" id="osm-go">Importa</button>
             <button class="btn ghost" id="osm-stop" hidden>Ferma</button>
@@ -548,7 +548,7 @@ h1,h2,h3{font-family:var(--disp);font-weight:800;letter-spacing:-.03em;text-tran
           <div class="osmbar" id="geobar" hidden>
             <div><b id="geo-title"></b><span id="geo-sub"></span></div>
             <button class="btn red" id="geo-google">Risolvi con Google</button>
-            <button class="btn ghost" id="geo-go">Prova con Photon</button>
+            <button class="btn ghost" id="geo-go" hidden>Legacy</button>
             <button class="btn ghost" id="geo-stop" hidden>Ferma</button>
           </div>
         </div>
@@ -661,9 +661,9 @@ h1,h2,h3{font-family:var(--disp);font-weight:800;letter-spacing:-.03em;text-tran
    Va alzato SEMPRE, anche per una modifica di una riga. Se resta uguale,
    la cache del service worker e il numero non litigano e non si capisce piu niente.
    ========================================================================== */
-const RELEASE = 11;
+const RELEASE = 13;
 const RELEASE_DATA = '2026-08-12';
-const RELEASE_NOTE = 'r10 + Drive che resta collegato dopo il ricaricamento, e ricerca indirizzi con Google Geocoding';
+const RELEASE_NOTE = 'r12 + le 165 posizioni di elenco tornano come punto provvisorio invece di sparire';
 const W = 10000, VW = 1000, VH = 560;
 const merc = (lon, lat) => {
   lat = Math.max(Math.min(lat, 84), -84);
@@ -1800,8 +1800,8 @@ function aggiornaGeoBar() {
      le zone in errore la barra affermava lo stesso che quei circoli non erano su
      OpenStreetMap, che e falso e manda fuori strada. */
   document.getElementById('geo-sub').textContent =
-    `Li cerco su Photon e Nominatim, uno a uno, fino in fondo. Circa ${min} minut${min === 1 ? 'o' : 'i'} — puoi fermarti quando vuoi e riprendere dopo.`;
-  document.getElementById('geo-go').textContent = `Cerca ${restano} indirizzi`;
+    `Li verifico con Google usando l'indirizzo FIG. Circa ${min} minut${min === 1 ? 'o' : 'i'} — puoi fermarti quando vuoi e riprendere dopo.`;
+  document.getElementById('geo-go').textContent = 'Legacy disattivato';
 }
 async function trovaPosizioni() {
   if (GEOINCORSO) return;
@@ -2001,12 +2001,18 @@ async function importaOSM() {
       const esistente = trovaEsistente(nomeC, lat, lon);
       if (esistente) {
         if (esistente.rifiutato) return;      // gli hai già detto che non è lì
-        if (!esistente.posizioneCorretta) {
-          if (km(esistente.lat, esistente.lon, lat, lon) > 0.25) corretti++;
-          esistente.lat = lat; esistente.lon = lon;
+        /* OSM è una fonte di controllo/metadata, non l'autorità della posizione.
+           Se Google/FIG o il mirino non hanno ancora confermato il punto, non lo
+           spostiamo e non lo marchiamo come esatto. */
+        if (esistente.posizioneCorretta) {
+          /* punto già confermato dall'utente: non si tocca */
         }
         esistente.osm = chiave;
-        if (esistente.daPosizionare) { delete esistente.daPosizionare; corretti++; }
+        if (!esistente.posizioneCorretta && !esistente.geo) {
+          esistente.geoAudit = esistente.geoAudit || {};
+          esistente.geoAudit.osmLat = lat; esistente.geoAudit.osmLon = lon;
+          esistente.geoAudit.osmDistanzaKm = km(esistente.lat, esistente.lon, lat, lon).toFixed(3);
+        }
         if (buche) esistente.buche = buche;
         if (viaOsm && !esistente.via) { esistente.via = viaOsm; indirizzi++; }
         if (capOsm && !esistente.cap) esistente.cap = capOsm;
@@ -2017,7 +2023,8 @@ async function importaOSM() {
       }
       /* Un campo pratica non ha 18 buche e par 72: se OSM non lo dice, non lo inventiamo. */
       addClub({ n: titolo(nomeC), l: cittaOsm || '', r: '', buche: buche || null,
-        par: buche >= 18 ? 72 : null, lat, lon, osm: chiave, posizioneCorretta: true,
+        par: buche >= 18 ? 72 : null, lat, lon, osm: chiave, daPosizionare: true,
+        geoAudit: { fonte: 'OpenStreetMap', stato: 'DA_VERIFICARE', osmLat: lat, osmLon: lon },
         sito: tg.website || null, tel: tg.phone || null, via: viaOsm, cap: capOsm });
       n++;
       if (viaOsm) indirizzi++;
@@ -2356,9 +2363,13 @@ async function risolviConGoogle() {
     (dati.risultati || []).forEach(r => {
       const c = CLUBS[r.id]; if (!c) return;
       if (r.vuoto) { vuoti++; c.geoVuoto = true; return; }
-      /* APPROXIMATE con partial_match vuol dire "da qualche parte in paese": e
-         esattamente il punto da cui stiamo cercando di uscire. */
-      if (r.precisione === 'APPROXIMATE' && r.parziale) { imprecisi++; c.geoVuoto = true; return; }
+      /* Solo ROOFTOP senza partial_match è abbastanza preciso per diventare
+         automaticamente la club house. RANGE_INTERPOLATED, GEOMETRIC_CENTER,
+         APPROXIMATE o qualsiasi partial_match restano da verificare. */
+      c.geoAudit = { stato: (r.precisione === 'ROOFTOP' && !r.parziale) ? 'AUTO_OK' : 'DA_VERIFICARE',
+        precisione: r.precisione || null, parziale: !!r.parziale,
+        indirizzoGoogle: r.indirizzo || null, fonte: 'FIG address + Google Geocoding' };
+      if (r.precisione !== 'ROOFTOP' || r.parziale) { imprecisi++; c.geoVuoto = true; return; }
       const d = km(c.lat, c.lon, r.lat, r.lon);
       if (d > (c.via ? 25 : 90)) { scartati++; c.geoVuoto = true; return; }
       c.geoPrima = c.geoPrima || [c.lat, c.lon];
@@ -2513,7 +2524,7 @@ document.getElementById('cir-elenco').onclick = () => {
     + (r.saltati ? `, ${r.saltati} campi pratica senza percorso lasciati fuori.` : '.')
     + (r.nuovi ? ' I nuovi nascono con un segnaposto provvisorio marcato "?": premi IMPORTA sulla mappa e OpenStreetMap li sposta sulla club house vera, con comune e buche. Quelli che restano "?" vanno messi a mano col mirino ⌖.' : '');
 };
-document.getElementById('geo-go').onclick = () => trovaPosizioni().catch(() => {});
+document.getElementById('geo-go').onclick = () => {};
 document.getElementById('geo-google').onclick = () => risolviConGoogle().catch(() => {});
 document.getElementById('cir-percorsi').onclick = function () {
   SOLOPERCORSI = !SOLOPERCORSI;
@@ -4214,8 +4225,13 @@ function azione(k) {
    pubblici, niente ricerca da rifare su ogni dispositivo nuovo.
    Formato: "Nome circolo": [lat, lon, "via civico"|null, "cap"|null, buche|null]
    Autorita: il mirino ⌖ e il "Non e qui" restano sopra, e non vengono toccati. */
-/* <<< POSIZIONI-INIZIO --- da qui a POSIZIONI-FINE riscrive lo script: non modificare a mano */
-const POSIZIONI_VERSIONE = '2026-08-12-photon-165';
+/* <<< POSIZIONI-INIZIO --- da qui a POSIZIONI-FINE riscrive lo script: non modificare a mano
+   Queste 165 posizioni vengono da Photon/Nominatim. NON sono autorevoli: entrano solo
+   come punto di partenza provvisorio, marcato "?", e restano nella coda di chi va
+   posizionato. Google/FIG e il mirino le sostituiscono senza chiedere.
+   Cancellarle rimanderebbe 165 circoli sul centro del comune, che e' sbagliato
+   di sicuro: un'approssimazione dichiarata batte un errore certo. */
+const POSIZIONI_VERSIONE = '2026-08-12-photon-165-provvisorie';
 const POSIZIONI = {
   "Abano": [45.364414, 11.796149, null, null, null],   // photon-golf, 0.8 km dal comune
   "Abbadia": [43.424049, 11.142872, null, null, null],   // photon-golf, 2.0 km dal comune
@@ -4385,27 +4401,77 @@ const POSIZIONI = {
 };
 /* POSIZIONI-FINE >>> */
 
+/* Coordinate definitive: data/coordinate_fig.json, generato dagli indirizzi FIG
+   tramite Google Geocoding e controllato con OpenStreetMap. Nessuna coordinata
+   legacy viene più applicata automaticamente. */
+let COORDINATE_FIG = {};
+let COORDINATE_FIG_VERSIONE = null;
+async function caricaCoordinateFIG() {
+  try {
+    const r = await fetch('/data/coordinate_fig.json', { cache: 'no-store' });
+    if (!r.ok) return false;
+    const j = await r.json();
+    const risultati = Array.isArray(j.risultati) ? j.risultati : [];
+    const m = {};
+    risultati.forEach(x => { if (x && x.nome) m[x.nome] = x; });
+    COORDINATE_FIG = m;
+    COORDINATE_FIG_VERSIONE = j.versione || null;
+    return true;
+  } catch (_) { return false; }
+}
+
 function applicaPosizioni() {
-  if (!POSIZIONI_VERSIONE) return 0;
-  if (ARCHIVIO.posizioni === POSIZIONI_VERSIONE) return 0;
+  /* Due strati, in ordine di autorita' decrescente:
+       1. coordinate_fig.json  -> indirizzo FIG + Google, solo ROOFTOP entra come esatta
+       2. POSIZIONI            -> Photon/Nominatim, solo come punto provvisorio
+     Sopra a entrambi restano il mirino e "Non e' qui", che non si toccano mai. */
+  const version = (COORDINATE_FIG_VERSIONE || 'senza-fig') + '+' + POSIZIONI_VERSIONE;
+  if (ARCHIVIO.posizioni === version) return 0;
+  let prov = 0;
+  CLUBS.forEach(c => {
+    if (c.posizioneCorretta || c.rifiutato || c.geo) return;
+    const q = COORDINATE_FIG[c.n];
+    if (q && q.stato === 'AUTO_OK') return;          // ci pensa lo strato sopra
+    const p = POSIZIONI[c.n];
+    if (!p || !isFinite(p[0]) || !isFinite(p[1])) return;
+    c.geoPrima = c.geoPrima || [c.lat, c.lon];
+    c.lat = p[0]; c.lon = p[1];
+    /* daPosizionare resta acceso di proposito: il punto e' plausibile ma non
+       verificato, quindi il circolo continua a comparire in "Da posizionare" e
+       "Risolvi con Google" lo riprende. */
+    c.daPosizionare = true;
+    c.geoAudit = { stato: 'DA_VERIFICARE', fonte: 'Photon/Nominatim (provvisorio)' };
+    if (p[2] && !c.via) c.via = p[2];
+    if (p[3] && !c.cap) c.cap = p[3];
+    if (p[4] && !c.buche) c.buche = p[4];
+    prov++;
+  });
   let n = 0;
   CLUBS.forEach(c => {
-    const q = POSIZIONI[c.n];
+    const q = COORDINATE_FIG[c.n];
     if (!q) return;
-    if (c.posizioneCorretta || c.rifiutato) return;   // la tua parola vale di piu
-    if (isFinite(q[0]) && isFinite(q[1])) {
+    c.geoAudit = {
+      stato: q.stato || null,
+      precisione: q.precisione || null,
+      parziale: !!q.parziale,
+      indirizzoGoogle: q.indirizzo_google || null,
+      fonte: 'FIG address + Google Geocoding'
+    };
+    /* Solo ROOFTOP senza partial_match entra automaticamente come posizione esatta.
+       Tutto il resto resta da verificare: meglio un punto provvisorio che un falso esatto. */
+    if (q.stato !== 'AUTO_OK') return;
+    if (c.posizioneCorretta || c.rifiutato) return;
+    if (isFinite(q.lat) && isFinite(q.lon)) {
       c.geoPrima = c.geoPrima || [c.lat, c.lon];
-      c.lat = q[0]; c.lon = q[1];
+      c.lat = q.lat; c.lon = q.lon;
       delete c.daPosizionare; delete c.geoVuoto;
-      c.geo = 'elenco';
+      c.geo = 'Google/FIG';
       n++;
     }
-    if (q[2] && !c.via) c.via = q[2];
-    if (q[3] && !c.cap) c.cap = q[3];
-    if (q[4] && !c.buche) c.buche = q[4];
   });
-  ARCHIVIO.posizioni = POSIZIONI_VERSIONE;
-  if (n) salvaLocale();
+  ARCHIVIO.posizioni = version;
+  if (n || prov) salvaLocale();
+  console.log(`GolfP - posizioni: ${n} esatte da Google/FIG, ${prov} provvisorie da elenco.`);
   return n;
 }
 
@@ -4493,24 +4559,28 @@ if ('serviceWorker' in navigator) {
 }
 
 /* ---------------- avvio ---------------- */
-caricaLocale();
-elencoAutomatico();
-applicaIndirizzi();
-applicaPosizioni();
-unificaDoppioni();
-riapriScartati();
-aggiornaGeoBar();
-aggiornaContatori(); renderSide(); aggiornaRail();
-renderCircoli(); renderGiro(); renderSacca(); renderStats(); renderProfilo();
-mostraInstalla();
-document.getElementById('osm-title').textContent = CLUBS.length + ' circoli in elenco';
-const kin = document.getElementById('k-maptiler');
-if (kin) kin.onchange = () => setKey(kin.value);
-const gin = document.getElementById('k-gemini');
-if (gin) gin.onchange = () => GKEY = gin.value.trim();
-go('mappa');
-initMap();
-riprendiDrive();      // riaggancia la sessione salvata, senza finestre
+async function avviaGolfP() {
+  caricaLocale();
+  elencoAutomatico();
+  applicaIndirizzi();
+  await caricaCoordinateFIG();
+  applicaPosizioni();
+  unificaDoppioni();
+  riapriScartati();
+  aggiornaGeoBar();
+  aggiornaContatori(); renderSide(); aggiornaRail();
+  renderCircoli(); renderGiro(); renderSacca(); renderStats(); renderProfilo();
+  mostraInstalla();
+  document.getElementById('osm-title').textContent = CLUBS.length + ' circoli in elenco';
+  const kin = document.getElementById('k-maptiler');
+  if (kin) kin.onchange = () => setKey(kin.value);
+  const gin = document.getElementById('k-gemini');
+  if (gin) gin.onchange = () => GKEY = gin.value.trim();
+  go('mappa');
+  initMap();
+  riprendiDrive();
+}
+avviaGolfP();
 
 /* --- la targa, in console e a portata di comando --------------------------- */
 (function targa() {

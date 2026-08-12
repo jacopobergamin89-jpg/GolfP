@@ -473,3 +473,14 @@ lasciare verdetti definitivi.
 5. `applicaTestata()` aggancia ancora il circolo letto da una foto con il confronto per
    somiglianza, senza conferma. Lì non ci sono coordinate da confrontare, quindi va bene, ma
    se ti capita un giro finito sotto il circolo sbagliato è quello il punto da guardare.
+
+## r12 — coordinate FIG/Google come fonte primaria (12 agosto 2026)
+
+- Disattivate le vecchie coordinate Photon cotte in `POSIZIONI`: non sono più autorevoli.
+- Aggiunto `data/circoli_fig_italia.csv` con 329 indirizzi FIG strutturati.
+- Aggiunto `script/geocodifica-fig.mjs`: genera `data/coordinate_fig.json` e il relativo audit.
+- Solo risultati Google `ROOFTOP` senza `partial_match` vengono applicati automaticamente.
+- `script/posizioni-osm.mjs` ora è un audit indipendente e non modifica `index.html`.
+- L'import OSM nell'app non sposta più un circolo già presente e non lo marca come esatto.
+- Aggiunto `geoAudit` per conservare precisione, stato, indirizzo Google e confronto OSM.
+- Release aggiornata a r12 e service worker a `golfp-r12`.
