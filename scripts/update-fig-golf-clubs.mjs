@@ -160,23 +160,43 @@ function parseHtml(html) {
 }
 
 async function main() {
-  console.log(`Downloading FIG golf club list from ${FIG_URL} ...`);
+  /* Scorciatoia per il caso normale: la pagina si salva a mano da un browser
+     dove hai gia fatto il login, e si passa allo script. */
   let html;
-  try {
-    html = await fetchPage(FIG_URL);
-  } catch (err) {
-    console.error('Failed to download page:', err.message);
-    process.exit(1);
+  if (process.env.FIG_HTML) {
+    console.log(`Reading local copy: ${process.env.FIG_HTML}`);
+    html = fs.readFileSync(process.env.FIG_HTML, 'utf8');
+  } else {
+    console.log(`Downloading FIG golf club list from ${FIG_URL} ...`);
+    try {
+      html = await fetchPage(FIG_URL);
+    } catch (err) {
+      console.error('Failed to download page:', err.message);
+      console.error('Se la pagina richiede il login: FIG_HTML=percorso/file.html node scripts/update-fig-golf-clubs.mjs');
+      process.exit(1);
+    }
   }
 
   const clubs = parseHtml(html);
   console.log(`Parsed ${clubs.length} clubs.`);
 
-  if (clubs.length < 300) {
-    console.warn(`WARNING: parsed only ${clubs.length} clubs — fewer than expected. Check the page structure.`);
-  } else {
-    console.log(`Parsed ${clubs.length} clubs (FIG page typically lists ~341).`);
+  /* La pagina FIG sta dietro l'area riservata: senza credenziali il parser trova
+     zero righe. Prima lo script scriveva comunque il file e cancellava i record
+     gia raccolti. Un aggiornamento che non riesce non deve distruggere i dati. */
+  const esistenti = fs.existsSync(OUTPUT_FILE)
+    ? fs.readFileSync(OUTPUT_FILE, 'utf8').split('\n').filter(Boolean).length - 1
+    : 0;
+  if (clubs.length < 300 || clubs.length < esistenti * 0.9) {
+    console.error(
+      `Interrotto: letti solo ${clubs.length} circoli` +
+      (esistenti ? ` contro i ${esistenti} gia presenti` : '') +
+      '. Il file NON e stato toccato.\n' +
+      'Con ogni probabilita la pagina richiede il login: scarica l HTML a mano ' +
+      'da un browser autenticato e passalo con FIG_HTML=percorso/file.html'
+    );
+    process.exit(2);
   }
+  console.log(`Parsed ${clubs.length} clubs (FIG page typically lists ~341).`);
 
   const header = 'nome,indirizzo,CAP,comune,provincia,telefono,email,sito_web';
   const rows = clubs.map((c) =>
