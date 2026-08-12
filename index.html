@@ -661,9 +661,9 @@ h1,h2,h3{font-family:var(--disp);font-weight:800;letter-spacing:-.03em;text-tran
    Va alzato SEMPRE, anche per una modifica di una riga. Se resta uguale,
    la cache del service worker e il numero non litigano e non si capisce piu niente.
    ========================================================================== */
-const RELEASE = 18;
+const RELEASE = 19;
 const RELEASE_DATA = '2026-08-12';
-const RELEASE_NOTE = 'r17 + il segnaposto cambia davvero quando cambia lo stato del circolo';
+const RELEASE_NOTE = 'r18 + la ricerca posizioni si avvia dal Profilo; via il riquadro delle chiavi';
 const W = 10000, VW = 1000, VH = 560;
 const merc = (lon, lat) => {
   lat = Math.max(Math.min(lat, 84), -84);
@@ -4116,14 +4116,9 @@ function renderProfilo() {
   <h3 style="font-size:16px;margin:26px 0 10px">Archivio su Google Drive</h3>
   <div id="drive-box"></div>
 
-  <h3 style="font-size:16px;margin:26px 0 10px">Chiavi</h3>
-  <div class="card" style="padding:16px;margin-bottom:8px">
-    <div class="field"><span class="lbl">Chiave MapTiler</span>
-      <input id="k-maptiler" placeholder="lasciala vuota per usare quella già configurata"></div>
-    <div class="field" style="margin-bottom:4px"><span class="lbl">Chiave Google Gemini — solo per le prove</span>
-      <input id="k-gemini" placeholder="AIza…"></div>
-    <p class="hint">Pubblicata l'app, la chiave Gemini sta sul server e questo campo resta vuoto.</p>
-  </div>
+  <!-- Le chiavi stanno su Vercel e non si toccano da qui: due campi sempre vuoti
+       occupavano mezza schermata e chiedevano di incollare in chiaro roba che non
+       deve girare. Chi deve cambiarle lo fa fra le variabili del progetto. -->
 
   <div class="card" id="installa" style="padding:16px;margin-bottom:16px;display:none">
     <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
@@ -4144,6 +4139,10 @@ function renderProfilo() {
        ['json', "Scarica una copia dell'archivio", 'circoli, giri, sacca e correzioni'],
        ['ripristina', 'Ripristina da una copia', 'rimetti dentro un golfp.json salvato prima'],
        ['circolo', 'Aggiungi un circolo a mano', 'se non è in elenco né su OpenStreetMap'],
+       ['posizioni', 'Cerca le posizioni mancanti', (() => { const t = contaPos();
+          return t.approssimato + t.dafare
+            ? `${t.approssimato} approssimate e ${t.dafare} da mettere a mano — le verifico con Google`
+            : 'tutti i circoli hanno una posizione verificata'; })()],
        ['svuota', 'Cancella tutti i giri', "l'elenco dei circoli resta"]].map(r => `
       <div class="clubrow" data-azione="${r[0]}"><div><div class="nm">${r[1]}</div><div class="mt">${r[2]}</div></div>
       <div class="sc" style="color:var(--ink-3)">→</div></div>`).join('')}
@@ -4169,10 +4168,6 @@ function renderProfilo() {
     onScegli: id => { g.prossimo = id == null ? '' : String(id); salvaProfilo(); renderProfilo(); }
   });
   renderDrive();
-  const kin = document.getElementById('k-maptiler');
-  kin.onchange = () => { if (kin.value.trim()) setKey(kin.value); };
-  const gin = document.getElementById('k-gemini');
-  gin.onchange = () => GKEY = gin.value.trim();
   document.querySelectorAll('#prof-body [data-azione]').forEach(r => r.onclick = () => azione(r.dataset.azione));
 }
 function scarica(nome, testo, tipo) {
@@ -4236,6 +4231,15 @@ function azione(k) {
       .map(v => `"${(v ?? '').toString().replace(/"/g, '""')}"`).join(';'));
     scarica('golfp-giri.csv', [col.join(';'), ...righe].join('\n'), 'text/csv');
     msg.textContent = `${gs.length} giri esportati.`;
+  }
+  if (k === 'posizioni') {
+    /* La barra sulla mappa sparisce quando la coda si svuota, e allora non c'e piu
+       modo di far ripartire la ricerca: da qui si riapre sempre. */
+    if (!daTrovare().length) return msg.textContent =
+      'Non c\'e nessun circolo in coda. Per rimetterne dentro uno: Circoli, filtro ❓ Non trovati, poi ↻ Riprova.';
+    go('mappa');
+    setTimeout(() => risolviConGoogle().catch(() => {}), 300);
+    return;
   }
   if (k === 'json') {
     ARCHIVIO.circoli = CLUBS; ARCHIVIO.sacca = SACCA;
@@ -4625,10 +4629,6 @@ async function avviaGolfP() {
   renderCircoli(); renderGiro(); renderSacca(); renderStats(); renderProfilo();
   mostraInstalla();
   document.getElementById('osm-title').textContent = CLUBS.length + ' circoli in elenco';
-  const kin = document.getElementById('k-maptiler');
-  if (kin) kin.onchange = () => setKey(kin.value);
-  const gin = document.getElementById('k-gemini');
-  if (gin) gin.onchange = () => GKEY = gin.value.trim();
   go('mappa');
   initMap();
   riprendiDrive();
