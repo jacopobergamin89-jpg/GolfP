@@ -546,8 +546,10 @@ h1,h2,h3{font-family:var(--disp);font-weight:800;letter-spacing:-.03em;text-tran
           </div>
           <div class="osmbar" id="geobar" hidden>
             <div><b id="geo-title"></b><span id="geo-sub"></span></div>
-            <button class="btn red" id="geo-google">Risolvi con Google</button>
+            <button class="btn red" id="geo-places">Cerca su Google Maps</button>
+            <button class="btn ghost" id="geo-google">Cerca per indirizzo</button>
             <button class="btn ghost" id="geo-osm">Buche e tracciato</button>
+            <button class="btn ghost" id="geo-rifai" hidden>Rifai da capo</button>
             <button class="btn ghost" id="geo-go" hidden>Legacy</button>
             <button class="btn ghost" id="geo-stop" hidden>Ferma</button>
           </div>
@@ -566,6 +568,7 @@ h1,h2,h3{font-family:var(--disp);font-weight:800;letter-spacing:-.03em;text-tran
           <button class="chip" id="cir-percorsi" aria-pressed="false">⛳ Solo percorsi</button>
           <button class="chip" data-f="daposizionare" aria-pressed="false">⌖ Da posizionare</button>
           <button class="chip" data-f="nontrovati" aria-pressed="false">❓ Non trovati</button>
+          <button class="chip" data-f="sospetti" aria-pressed="false" id="cir-sospetti">⚠︎ Da controllare</button>
           <button class="chip" id="cir-import">↥ Importa elenco</button>
           <button class="chip" data-f="tutti" aria-pressed="true">Tutti</button>
           <button class="chip" data-f="giocati" aria-pressed="false">Giocati</button>
@@ -661,9 +664,9 @@ h1,h2,h3{font-family:var(--disp);font-weight:800;letter-spacing:-.03em;text-tran
    Va alzato SEMPRE, anche per una modifica di una riga. Se resta uguale,
    la cache del service worker e il numero non litigano e non si capisce piu niente.
    ========================================================================== */
-const RELEASE = 21;
+const RELEASE = 24;
 const RELEASE_DATA = '2026-08-12';
-const RELEASE_NOTE = 'r20 + si scende il meno possibile (fino a 3072, il tetto di Gemini) e si chiede la risoluzione alta';
+const RELEASE_NOTE = 'r23 + azzeramento generale delle posizioni e ricerca completa su Google Maps';
 const W = 10000, VW = 1000, VH = 560;
 const merc = (lon, lat) => {
   lat = Math.max(Math.min(lat, 84), -84);
@@ -1664,6 +1667,15 @@ const attesa = ms => new Promise(r => setTimeout(r, ms));
 function daTrovare() {
   return CLUBS.filter(c => (c.via || c.l) && c.daPosizionare && !c.geo && !c.geoVuoto);
 }
+/* La coda di Places e diversa da quella del Geocoding, e piu larga di proposito.
+   Il Geocoding cerca un indirizzo, quindi chi non ce l'ha o l'ha sbagliato esce dalla
+   coda e ci resta (geoVuoto). Places cerca il circolo per nome, che c'e sempre: quindi
+   riprende anche quelli che il Geocoding aveva dato per persi e quelli che aveva
+   posizionato in modo poco convincente. Fuori restano solo i confermati a mano. */
+function daCercarePerNome() {
+  return CLUBS.filter(c => !c.posizioneCorretta && !c.chiuso && !c.rifiutato
+    && c.n && (c.daPosizionare || c.geoVuoto || sospetto(c)));
+}
 /* Se il risultato e lontano dal punto di partenza non e il posto giusto. Ma chi non ha
    indirizzo parte dal centro della regione, non dal comune: li 25 km taglierebbero via
    anche le risposte corrette. */
@@ -1811,11 +1823,12 @@ function aggiornaGeoBar() {
   const bar = document.getElementById('geobar'); if (!bar) return;
   const osmbar = document.getElementById('osmbar');
   const restano = daTrovare().length;
+  const perNome = daCercarePerNome().length;
   const t = contaPos();
   /* Due barre sovrapposte in fondo alla mappa dicevano due cose diverse sugli
      stessi circoli. Ne resta una: mostra i numeri e l'azione che serve adesso. */
-  if (osmbar) osmbar.hidden = (restano > 0 || GEOINCORSO) && !OSMINCORSO;
-  if (!restano || GEOINCORSO) { if (!GEOINCORSO) bar.hidden = true; return; }
+  if (osmbar) osmbar.hidden = (perNome > 0 || GEOINCORSO) && !OSMINCORSO;
+  if (!perNome || GEOINCORSO || PLACESINCORSO) { if (!GEOINCORSO && !PLACESINCORSO) bar.hidden = true; return; }
   bar.hidden = false;
   document.getElementById('geo-title').textContent = `${CLUBS.length} circoli sulla mappa`;
   const min = Math.max(1, Math.round(restano * 1.6 / 60));
@@ -1824,9 +1837,14 @@ function aggiornaGeoBar() {
      OpenStreetMap, che e falso e manda fuori strada. */
   document.getElementById('geo-sub').textContent =
     `${t.verificato} con posizione verificata · ${t.approssimato} approssimata · ${t.dafare} da mettere a mano.`
-    + ` Google li verifica sull'indirizzo FIG in circa ${min} minut${min === 1 ? 'o' : 'i'}, puoi fermarti quando vuoi.`;
+    + ` Cerco ogni circolo su Google Maps per nome: e il modo piu affidabile, perche un campo da golf`
+    + ` e un luogo e non un indirizzo. Puoi fermarti quando vuoi.`;
   const g = document.getElementById('geo-google');
-  if (g) g.textContent = `Risolvi con Google (${restano})`;
+  if (g) { g.textContent = `Cerca per indirizzo (${restano})`; g.hidden = !restano; }
+  const pl = document.getElementById('geo-places');
+  if (pl) pl.textContent = `Cerca su Google Maps (${perNome})`;
+  const rif = document.getElementById('geo-rifai');
+  if (rif) rif.hidden = perNome > 0;   // serve solo quando non resta piu niente in coda
   document.getElementById('geo-go').textContent = 'Legacy disattivato';
 }
 async function trovaPosizioni() {
@@ -2211,7 +2229,10 @@ function clubRow(c) {
       c.daPosizionare ? (c.geoVuoto ? 'da posizionare a mano' : c.via ? 'posizione da rifinire' : 'senza indirizzo')
         : c.posizioneCorretta ? 'posizione confermata da te'
         : c.osm ? 'posizione da OpenStreetMap'
-        : c.geo ? 'posizione dal ' + (c.geo === 'nome' ? 'nome' : "l'indirizzo") : ''].filter(Boolean).join(' · ')}</div></div>
+        : c.geo ? (() => { const d = spostamentoKm(c);
+            return (c.geo === 'nome' ? 'posizione dal nome' : "posizione dall'indirizzo")
+              + (d != null ? ` · spostato di ${d < 1 ? Math.round(d * 1000) + ' m' : d.toFixed(1) + ' km'}` : '')
+              + (sospetto(c) ? ' ⚠︎' : ''); })() : ''].filter(Boolean).join(' · ')}</div></div>
     ${c.geoVuoto ? `<div class="azioni-vuoto">
       <button class="btn ghost mini" data-riprova="${c.id}" title="Rimettilo in coda">↻ Riprova</button>
       <button class="btn ghost mini" data-mira="${c.id}" title="Mettilo a mano sulla mappa">⌖ Posiziona</button>
@@ -2227,7 +2248,13 @@ function renderSide() {
   const s = sel != null ? CLUBS[sel] : null;
   document.getElementById('side').innerHTML =
     (s ? `<div class="card" style="padding:14px;margin-bottom:14px">
-        <div class="lbl" style="color:${s.wish ? 'var(--sand)' : 'var(--flag)'}">${s.wish ? 'Da giocare' : 'Giocato'}</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div class="lbl" style="flex:1;color:${s.wish ? 'var(--sand)' : 'var(--flag)'}">${s.wish ? 'Da giocare' : 'Giocato'}</div>
+          <!-- Si entrava in un circolo e non se ne usciva: niente X, niente Indietro,
+               e l'unico modo era scegliere un altro segnaposto. -->
+          <button class="lnk" id="side-chiudi" title="Chiudi (Esc)"
+            style="font-size:17px;line-height:1;padding:0 2px;color:var(--ink-3)">&#10005;</button>
+        </div>
         <h3 style="margin:5px 0 3px">${s.n}</h3>
         <div style="font-size:12px;color:var(--ink-3)">${[s.l, s.r ? s.r.split('/')[0] : '', s.p].filter(Boolean).join(' · ')}</div>
         <div style="display:flex;gap:18px;margin:12px 0 10px">
@@ -2257,7 +2284,13 @@ function renderSide() {
         <button class="iconbtn" style="width:26px;height:26px;font-size:13px" onclick="chiudiSide()" aria-label="Nascondi l'elenco">›</button></div>`
     + (v.length ? v.slice(0, 200).map(clubRow).join('')
       : '<p style="font-size:13px;color:var(--ink-3);padding:8px 4px">Nessun circolo qui. Sposta la mappa o riattiva un filtro.</p>');
+  const chiudi = document.getElementById('side-chiudi');
+  if (chiudi) chiudi.onclick = chiudiPannello;
 }
+function chiudiPannello() { sel = null; paint(); renderSide(); }
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && sel != null && SCHERMO === 'mappa') chiudiPannello();
+});
 function select(id) {
   sel = id; paint();
   const c = CLUBS[id];
@@ -2351,6 +2384,120 @@ document.addEventListener('click', e => {
    li conosce, e qui gli indirizzi ci sono gia tutti - via, CAP e comune, dagli elenchi
    Federgolf incrociati con l'anagrafica ISTAT. La chiave sta su Vercel, mai nel file. */
 let GOOGLEINCORSO = false;
+/* Ricerca del circolo come luogo, non come indirizzo. Il risultato che entra qui e
+   piu forte di quello del Geocoding: Google conferma che il posto e un campo da golf
+   e ne restituisce il nome ufficiale, cose che un indirizzo non puo fare. Percio chi
+   passa di qui diventa verificato, non "da rifinire". Sopra restano solo il mirino e
+   "Non e qui", che non si toccano mai. */
+let PLACESINCORSO = false;
+/* Azzeramento generale. I dati arrivati fin qui sono la sovrapposizione di tre
+   passate diverse — l'elenco provvisorio, il geocoding sull'indirizzo, l'import OSM —
+   e su un miscuglio del genere non si puo costruire: non e piu distinguibile quale
+   posizione venga da dove, ne quale sia stata verificata. Si riparte dal comune
+   dichiarato dalla FIG, che e il dato di cui conosciamo la provenienza, e si rifa
+   tutto con Places in una passata sola.
+
+   Quello che NON si azzera mai: le posizioni messe col mirino. Sono le uniche
+   verificate da una persona, e nessuna ricerca automatica vale piu di quelle. */
+function azzeraPosizioni() {
+  let rifatti = 0, tenuti = 0, senzaComune = 0;
+  CLUBS.forEach(c => {
+    if (c.posizioneCorretta) { tenuti++; return; }
+    const i = INDIRIZZI[c.n];
+    if (i && isFinite(i[2]) && isFinite(i[3])) { c.lat = i[2]; c.lon = i[3]; }
+    else if (c.geoPrima) { c.lat = c.geoPrima[0]; c.lon = c.geoPrima[1]; }
+    else senzaComune++;
+    delete c.geo; delete c.geoVuoto; delete c.geoAudit; delete c.geoPrima;
+    delete c.rifiutato; delete c.indirizzoPieno;
+    c.daPosizionare = true;
+    rifatti++;
+  });
+  salvaTutto(); paint(); renderSide(); renderCircoli(); aggiornaContatori(); aggiornaGeoBar();
+  console.log(`GolfP - azzerate ${rifatti} posizioni, tenute ${tenuti} messe col mirino`
+    + (senzaComune ? `, ${senzaComune} senza comune di riferimento sono rimaste dov'erano.` : '.'));
+  return { rifatti, tenuti, senzaComune };
+}
+
+async function risolviConPlaces() {
+  if (PLACESINCORSO || GOOGLEINCORSO || GEOINCORSO) return;
+  const t = document.getElementById('geo-title'), sub = document.getElementById('geo-sub');
+  const bar = document.getElementById('geobar');
+  const go = document.getElementById('geo-places'), stop = document.getElementById('geo-stop');
+  const lista = daCercarePerNome();
+  if (!lista.length) return;
+  if (bar) bar.hidden = false;
+  PLACESINCORSO = true; GEOFERMA = false;
+  if (go) go.disabled = true;
+  const gg = document.getElementById('geo-google'); if (gg) gg.disabled = true;
+  if (stop) { stop.hidden = false; stop.onclick = () => { GEOFERMA = true; }; }
+
+  let fatti = 0, vuoti = 0, scartati = 0, nonGolf = 0;
+  for (let i = 0; i < lista.length && !GEOFERMA; i += 40) {
+    const blocco = lista.slice(i, i + 40);
+    if (t) t.textContent = `Cerco i circoli su Google Maps - ${i} di ${lista.length}`;
+    if (sub) sub.textContent = `${fatti} posizionati, ${vuoti} non trovati, ${scartati} troppo lontani.`;
+
+    const luoghi = blocco.map(c => ({
+      id: c.id,
+      /* Nome piu comune: senza il comune, "Golf Club Milano" pesca il primo Milano del
+         mondo. Con il comune, Google sa gia dove guardare. */
+      q: [c.n, comuneNudo(c), 'Italia'].filter(Boolean).join(', '),
+      lat: c.lat, lon: c.lon
+    }));
+
+    let dati = null;
+    try {
+      const r = await fetch('/api/luoghi', { method: 'POST',
+        headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ luoghi }) });
+      dati = await r.json();
+      if (!r.ok) throw new Error((dati && dati.errore) || ('risposta ' + r.status));
+    } catch (e) {
+      if (t) t.textContent = `${lista.length} circoli da verificare`;
+      if (sub) sub.textContent = 'Google Places non ha risposto: ' + (e.message || 'errore')
+        + '. Controlla che Places API (New) sia attiva e che la chiave la comprenda fra le API consentite.';
+      PLACESINCORSO = false; if (go) go.disabled = false; if (gg) gg.disabled = false;
+      if (stop) stop.hidden = true;
+      return;
+    }
+
+    (dati.risultati || []).forEach(r => {
+      const c = CLUBS[r.id]; if (!c) return;
+      if (r.vuoto) { vuoti++; return; }
+      /* Google non ha riconosciuto un campo da golf: e un omonimo, un bar, un negozio.
+         Meglio lasciare il circolo dov'era che spostarlo su un posto sbagliato. */
+      if (!r.golf) { nonGolf++; return; }
+      /* Il confronto va fatto col comune dichiarato dalla FIG, non con la posizione
+         attuale: quella potrebbe gia essere sbagliata, e useremmo un errore come
+         metro per giudicarne un altro. */
+      const rif = INDIRIZZI[c.n];
+      const base = rif ? [rif[2], rif[3]] : (c.geoPrima || [c.lat, c.lon]);
+      const d = km(base[0], base[1], r.lat, r.lon);
+      if (d > 30) { scartati++;
+        c.geoAudit = { stato: 'SCARTATO', fonte: 'Google Places', distanzaKm: +d.toFixed(1),
+          nomeGoogle: r.nome || null, indirizzoGoogle: r.indirizzo || null };
+        return; }
+      c.geoPrima = c.geoPrima || [c.lat, c.lon];
+      c.lat = +r.lat.toFixed(6); c.lon = +r.lon.toFixed(6);
+      c.geo = 'places';
+      c.geoAudit = { stato: 'AUTO_OK', fonte: 'Google Places (luogo)', distanzaKm: +d.toFixed(1),
+        nomeGoogle: r.nome || null, indirizzoGoogle: r.indirizzo || null };
+      if (r.indirizzo && !c.via) c.indirizzoPieno = r.indirizzo;
+      delete c.daPosizionare; delete c.geoVuoto;
+      fatti++;
+    });
+    salvaTutto(); paint(); renderSide(); renderCircoli(); aggiornaContatori();
+  }
+
+  PLACESINCORSO = false; if (go) go.disabled = false; if (gg) gg.disabled = false;
+  if (stop) stop.hidden = true;
+  console.log(`GolfP - Places: ${fatti} posizionati, ${vuoti} non trovati, `
+    + `${scartati} scartati per distanza, ${nonGolf} non riconosciuti come golf.`);
+  if (t) t.textContent = `${CLUBS.length} circoli sulla mappa`;
+  if (sub) sub.textContent = `Google Maps ne ha posizionati ${fatti}. `
+    + `${vuoti} non trovati, ${scartati} troppo lontani, ${nonGolf} non risultano campi da golf.`;
+  aggiornaGeoBar();
+}
+
 async function risolviConGoogle() {
   if (GOOGLEINCORSO || GEOINCORSO) return;
   const t = document.getElementById('geo-title'), sub = document.getElementById('geo-sub');
@@ -2517,6 +2664,24 @@ document.querySelectorAll('.tbar').forEach(t => {
 });
 
 /* ---------------- circoli ---------------- */
+
+/* Quanto Google ha spostato il segnaposto rispetto a dove stava prima (il centro
+   del comune, oppure il punto approssimato). Si ricava da geoPrima, che c'era gia:
+   cosi il controllo funziona anche sui circoli risolti prima di questa versione,
+   senza dover rifare la ricerca. Un circolo spostato di 30 metri e quasi sempre
+   giusto; uno spostato di quindici chilometri va guardato. */
+function spostamentoKm(c) {
+  if (!c.geoPrima || !c.geo) return null;
+  const d = km(c.geoPrima[0], c.geoPrima[1], c.lat, c.lon);
+  return isFinite(d) ? d : null;
+}
+const SOGLIA_SOSPETTO = 6;   // km
+function sospetto(c) {
+  if (c.posizioneCorretta) return false;      // l'hai confermato tu, non si discute
+  if (c.geoAudit && c.geoAudit.parziale) return true;
+  const d = spostamentoKm(c);
+  return d != null && d > SOGLIA_SOSPETTO;
+}
 let cirF = 'tutti';
 function renderCircoli() {
   const q = (document.getElementById('cir-search').value || '').toLowerCase();
@@ -2526,6 +2691,7 @@ function renderCircoli() {
     /* I cercati a vuoto uscivano dalla coda e sparivano dalla gestione: restavano
        visibili solo mescolati agli altri, senza modo di riprovarli o toglierli. */
     if (cirF === 'nontrovati' && !c.geoVuoto) return false;
+    if (cirF === 'sospetti' && !sospetto(c)) return false;
     if (cirF === 'giocati' && c.wish) return false;
     if (cirF === 'lista' && !c.wish) return false;
     if (cirF === 'italia' && c.p !== 'Italia') return false;
@@ -2555,6 +2721,10 @@ document.getElementById('cir-elenco').onclick = () => {
 };
 document.getElementById('geo-go').onclick = () => {};
 document.getElementById('geo-google').onclick = () => risolviConGoogle().catch(() => {});
+{ const b = document.getElementById('geo-places');
+  if (b) b.onclick = () => risolviConPlaces().catch(() => {}); }
+{ const b = document.getElementById('geo-rifai');
+  if (b) b.onclick = () => azione('ripos'); }
 /* Lo stesso comando dell'altra barra: OpenStreetMap non tocca la posizione, porta
    buche e tracciato. Il nome del pulsante adesso lo dice. */
 { const b = document.getElementById('geo-osm');
@@ -4203,6 +4373,11 @@ function renderProfilo() {
        ['json', "Scarica una copia dell'archivio", 'circoli, giri, sacca e correzioni'],
        ['ripristina', 'Ripristina da una copia', 'rimetti dentro un golfp.json salvato prima'],
        ['circolo', 'Aggiungi un circolo a mano', 'se non è in elenco né su OpenStreetMap'],
+       ['ripos', 'Rifai tutte le posizioni da capo', (() => {
+          const tenuti = CLUBS.filter(c => c.posizioneCorretta).length;
+          return `azzera e ricerca tutto su Google Maps`
+            + (tenuti ? ` — le ${tenuti} messe col mirino restano come sono` : '');
+        })()],
        ['posizioni', 'Cerca le posizioni mancanti', (() => { const t = contaPos();
           return t.approssimato + t.dafare
             ? `${t.approssimato} approssimate e ${t.dafare} da mettere a mano — le verifico con Google`
@@ -4295,6 +4470,18 @@ function azione(k) {
       .map(v => `"${(v ?? '').toString().replace(/"/g, '""')}"`).join(';'));
     scarica('golfp-giri.csv', [col.join(';'), ...righe].join('\n'), 'text/csv');
     msg.textContent = `${gs.length} giri esportati.`;
+  }
+  if (k === 'ripos') {
+    const tenuti = CLUBS.filter(c => c.posizioneCorretta).length;
+    /* Cancella lavoro: va chiesto, e va detto cosa sopravvive. */
+    if (!confirm(`Azzero la posizione di ${CLUBS.length - tenuti} circoli e le ricerco tutte`
+      + ` su Google Maps.\n\n${tenuti ? `Le ${tenuti} che hai messo col mirino restano dove sono.\n\n` : ''}`
+      + `Ci vogliono pochi minuti e puoi fermarti quando vuoi. Procedo?`)) return;
+    const e = azzeraPosizioni();
+    msg.textContent = `Azzerati ${e.rifatti} circoli${e.tenuti ? `, tenuti ${e.tenuti} messi col mirino` : ''}. Cerco su Google Maps…`;
+    go('mappa');
+    setTimeout(() => risolviConPlaces().catch(() => {}), 300);
+    return;
   }
   if (k === 'posizioni') {
     /* La barra sulla mappa sparisce quando la coda si svuota, e allora non c'e piu
