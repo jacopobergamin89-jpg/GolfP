@@ -523,7 +523,7 @@ h1,h2,h3{font-family:var(--disp);font-weight:800;letter-spacing:-.03em;text-tran
           <div class="osmbar" id="osmbar">
             <div>
               <b id="osm-title">Elenco parziale</b>
-              <span id="osm-sub">Quindici secondi: posizione esatta, via, numero di buche e contatti di tutti i campi italiani.</span>
+              <span id="osm-sub">Aggiunge numero di buche e tracciato del percorso. I server OpenStreetMap sono spesso irraggiungibili dal browser: se non risponde, usa la ricerca indirizzi qui sotto.</span>
             </div>
             <button class="btn red" id="osm-go">Importa</button>
             <button class="btn ghost" id="osm-stop" hidden>Ferma</button>
@@ -642,9 +642,9 @@ h1,h2,h3{font-family:var(--disp);font-weight:800;letter-spacing:-.03em;text-tran
    Va alzato SEMPRE, anche per una modifica di una riga. Se resta uguale,
    la cache del service worker e il numero non litigano e non si capisce piu niente.
    ========================================================================== */
-const RELEASE = 7;
+const RELEASE = 8;
 const RELEASE_DATA = '2026-08-12';
-const RELEASE_NOTE = 'r6 + Photon come secondo archivio per gli indirizzi, ricerca fino in fondo, GolfP.diagnosi()';
+const RELEASE_NOTE = 'r7 + tolti gli specchi Overpass irraggiungibili dal browser, conteggi visibili sulla ricerca indirizzi';
 const W = 10000, VW = 1000, VH = 560;
 const merc = (lon, lat) => {
   lat = Math.max(Math.min(lat, 84), -84);
@@ -1639,9 +1639,19 @@ function daTrovare() {
 /* Se il risultato e lontano dal punto di partenza non e il posto giusto. Ma chi non ha
    indirizzo parte dal centro della regione, non dal comune: li 25 km taglierebbero via
    anche le risposte corrette. */
+/* Contatore visibile: senza questo, un archivio che risponde benissimo ma i cui
+   risultati vengono tutti scartati per distanza sarebbe indistinguibile da un archivio
+   che non risponde affatto. Sono due guasti opposti e vanno curati in modo opposto. */
+const GEOCONTI = { risposte: 0, accettati: 0, scartatiLontani: 0, guasti: 0, perStrada: {} };
 function accetta(c, lat, lon) {
   if (!isFinite(lat) || !isFinite(lon)) return null;
-  if (km(c.lat, c.lon, lat, lon) > (c.via ? 25 : 90)) return null;
+  const d = km(c.lat, c.lon, lat, lon), limite = c.via ? 25 : 90;
+  if (d > limite) {
+    GEOCONTI.scartatiLontani++;
+    if (GEOCONTI.scartatiLontani <= 5)
+      console.warn(`GolfP: "${c.n}" trovato a ${d.toFixed(0)} km dal comune (limite ${limite}). Scartato.`);
+    return null;
+  }
   return [lat, lon];
 }
 async function chiedi(p, c) {
@@ -1699,9 +1709,13 @@ async function unIndirizzo(c) {
     provate++;
     try {
       const r = await st.fn();
-      rispostePulite++;                    // il servizio ha risposto: semplicemente non c'era
-      if (r) { r.da = st.da; return r; }
-    } catch (e) { ultimoGuasto = e; }
+      rispostePulite++; GEOCONTI.risposte++;   // il servizio ha risposto: semplicemente non c'era
+      if (r) {
+        r.da = st.da; GEOCONTI.accettati++;
+        GEOCONTI.perStrada[st.da] = (GEOCONTI.perStrada[st.da] || 0) + 1;
+        return r;
+      }
+    } catch (e) { ultimoGuasto = e; GEOCONTI.guasti++; }
     await attesa(st.pausa);
   }
   /* Distinzione che conta: "il servizio ha risposto e non c'e" e diverso da "il servizio
@@ -1758,9 +1772,8 @@ function aggiornaGeoBar() {
   /* OSMFATTO diceva solo "l'import e partito", non "l'import ha funzionato": con tutte
      le zone in errore la barra affermava lo stesso che quei circoli non erano su
      OpenStreetMap, che e falso e manda fuori strada. */
-  document.getElementById('geo-sub').textContent = OSMRESA
-    ? `Li cerco su Photon e Nominatim, uno a uno, fino in fondo. Circa ${min} minut${min === 1 ? 'o' : 'i'} — puoi fermarti quando vuoi.`
-    : `Prima prova Importa qui sopra: è molto più veloce. Se non risponde, questi li cerco a uno a uno in circa ${min} minut${min === 1 ? 'o' : 'i'}.`;
+  document.getElementById('geo-sub').textContent =
+    `Li cerco su Photon e Nominatim, uno a uno, fino in fondo. Circa ${min} minut${min === 1 ? 'o' : 'i'} — puoi fermarti quando vuoi e riprendere dopo.`;
   document.getElementById('geo-go').textContent = `Cerca ${restano} indirizzi`;
 }
 async function trovaPosizioni() {
@@ -1804,6 +1817,9 @@ async function trovaPosizioni() {
     if ((fatti + vuoti) % 10 === 0) { salvaLocale(); paint(); renderSide(); }
   }
   GEOINCORSO = false;
+  console.log(`GolfP — ricerca indirizzi: ${fatti} posizionati, ${vuoti} non trovati, `
+    + `${GEOCONTI.scartatiLontani} scartati perche troppo lontani, ${GEOCONTI.guasti} guasti di rete.`,
+    GEOCONTI.perStrada);
   if (!daTrovare().length) ARCHIVIO.geo = GEOVERSIONE;
   salvaLocale(); paint(); renderSide(); renderCircoli();
   if (TOKEN) salvaArchivio();
@@ -1824,14 +1840,17 @@ const NOMINATIM = 'https://nominatim.openstreetmap.org/search';
 const PHOTON = 'https://photon.komoot.io/api/';
 
 /* --- import da OpenStreetMap --- */
+/* Provati uno per uno dal browser il 12 agosto. Tenuti solo quelli che rispondono:
+     overpass-api.de              406 e poi bloccato da CORS
+     overpass.openstreetmap.fr    403 e poi bloccato da CORS
+     overpass.osm.jp              il dominio non esiste piu
+     maps.mail.ru                 nessuna risposta
+   Averne aggiunti sette senza controllarli non ha aumentato le probabilita: ha solo
+   allungato il giro a vuoto prima di arrivare a quelli buoni. */
 const SPECCHI = [
-  "https://overpass.kumi.systems/api/interpreter",     // di solito il meno affollato
-  "https://overpass-api.de/api/interpreter",
+  "https://overpass.kumi.systems/api/interpreter",
   "https://overpass.private.coffee/api/interpreter",
-  "https://overpass.osm.ch/api/interpreter",
-  "https://overpass.osm.jp/api/interpreter",
-  "https://overpass.openstreetmap.fr/api/interpreter",
-  "https://maps.mail.ru/osm/tools/overpass/api/interpreter"
+  "https://overpass.osm.ch/api/interpreter"
 ];
 const OVERPASS = SPECCHI[0];
 // l'Italia divisa in riquadri: richieste piccole, meno rifiuti
@@ -4163,6 +4182,7 @@ initMap();
           'di cui senza indirizzo': conta(c => c.daPosizionare && !c.via),
           conVia: conta(c => c.via),
           origineDellePosizioni: da,
+        ricercaIndirizzi: GEOCONTI,
           /* rimette in coda quelli dati per persi: utile dopo aver aggiunto un archivio nuovo */
           riprova() { let n = 0; CLUBS.forEach(c => { if (c.geoVuoto) { delete c.geoVuoto; n++; } });
             ARCHIVIO.geo = null; salvaLocale(); aggiornaGeoBar();

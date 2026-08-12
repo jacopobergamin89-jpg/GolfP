@@ -1,4 +1,4 @@
-# GolfP r7 — pacchetto unico, 12 agosto 2026
+# GolfP r8 — pacchetto unico, 12 agosto 2026
 
 Questo documento copre tutto quello che è passato **da r1 a r6**. Le versioni intermedie non
 sono mai state pubblicate: il file `index.html` di questo pacchetto le contiene tutte.
@@ -12,6 +12,7 @@ sono mai state pubblicate: il file `index.html` di questo pacchetto le contiene 
 | r5 | solo vista satellite |
 | r6 | una sola veste chiara |
 | r7 | secondo archivio per gli indirizzi, ricerca fino in fondo, diagnosi |
+| r8 | specchi Overpass provati e sfoltiti, ricerca indirizzi come strada principale |
 
 
 Tutte le modifiche sono state fatte con ancore testuali, mai tagliando per posizione,
@@ -290,6 +291,38 @@ inutile aggiungere un archivio nuovo e non far riprovare chi era stato dato per 
 su `OSMFATTO`, che significa solo «l'import è partito», non «l'import ha funzionato». Con
 tutte e nove le zone in errore affermava lo stesso quella frase, che è falsa e manda fuori
 strada. Ora c'è `OSMRESA`, vera solo se le zone sono arrivate davvero.
+
+## r8 — quello che ho provato invece di supporre
+
+Il 12 agosto ho interrogato i sette server Overpass **dal browser**, uno per uno:
+
+| | esito |
+|---|---|
+| `overpass.osm.ch` | 200, ma 1 campo dove ce ne sono 5-6 — archivio parziale |
+| `overpass-api.de` | 406, poi bloccato da CORS |
+| `overpass.openstreetmap.fr` | 403, poi bloccato da CORS |
+| `overpass.osm.jp` | il dominio non esiste più |
+| `maps.mail.ru` | nessuna risposta |
+| **`photon.komoot.io`** | **200, risultati: 1** |
+| **`nominatim.openstreetmap.org`** | **200, risultati: 1** |
+
+Quattro di quei sette li avevo aggiunti io in r3 **senza provarli**. Non hanno aumentato le
+probabilità di successo: hanno solo allungato il giro a vuoto. Tolti.
+
+Ho anche verificato l'altra ipotesi che avevo — che l'ordine dei parametri `out center tags`
+fosse sbagliato. Non lo era: le due forme danno lo stesso risultato. Ipotesi eliminata in
+trenta secondi invece che con un'altra release.
+
+**Conseguenza**: l'import da Overpass non può essere la strada principale. Photon e
+Nominatim rispondono, quindi la ricerca indirizzi diventa l'azione principale e l'import
+resta per buche e tracciato del percorso.
+
+**Un guasto che sarebbe rimasto invisibile.** Se un archivio risponde benissimo ma i suoi
+risultati vengono tutti scartati dal controllo di distanza, dall'esterno è
+indistinguibile da un archivio che non risponde — eppure sono due guasti opposti che si
+curano in modo opposto. Ora c'è un contatore: `GolfP.diagnosi().ricercaIndirizzi` dice
+quante risposte sono arrivate, quante accettate, quante scartate perché troppo lontane e
+quanti guasti di rete. E alla fine della ricerca compare un resoconto in console.
 
 ## Rimane da fare
 
