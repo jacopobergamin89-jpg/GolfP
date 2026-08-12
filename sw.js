@@ -3,7 +3,10 @@
    solo per quando la rete manca. Il contrario (cache prima) farebbe vedere una
    versione vecchia dopo ogni aggiornamento, ed è esattamente quello che non serve
    a un'app che cambia spesso. */
-const CACHE = 'golfp-1';
+/* La cache porta il numero di versione: cambiando release la vecchia copia viene
+   buttata da sola in `activate`, e non serve piu il ricaricamento forzato a mano. */
+const RELEASE = 6;
+const CACHE = 'golfp-r' + RELEASE;
 const BASE = ['/', '/index.html', '/icon-192.png', '/icon-512.png', '/manifest.webmanifest'];
 
 self.addEventListener('install', e => {
