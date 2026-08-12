@@ -661,9 +661,9 @@ h1,h2,h3{font-family:var(--disp);font-weight:800;letter-spacing:-.03em;text-tran
    Va alzato SEMPRE, anche per una modifica di una riga. Se resta uguale,
    la cache del service worker e il numero non litigano e non si capisce piu niente.
    ========================================================================== */
-const RELEASE = 19;
+const RELEASE = 21;
 const RELEASE_DATA = '2026-08-12';
-const RELEASE_NOTE = 'r18 + la ricerca posizioni si avvia dal Profilo; via il riquadro delle chiavi';
+const RELEASE_NOTE = 'r20 + si scende il meno possibile (fino a 3072, il tetto di Gemini) e si chiede la risoluzione alta';
 const W = 10000, VW = 1000, VH = 560;
 const merc = (lon, lat) => {
   lat = Math.max(Math.min(lat, 84), -84);
@@ -3283,6 +3283,53 @@ const MODELLI = ['gemini-3.6-flash', 'gemini-3.5-flash'];
 const toB64 = f => new Promise((res, rej) => {
   const r = new FileReader(); r.onload = () => res(r.result.split(',')[1]); r.onerror = rej; r.readAsDataURL(f);
 });
+
+/* Una foto di scorecard fatta col telefono pesa 15-25 MB. In base64 cresce di un
+   terzo, quindi arrivava sulla funzione di Vercel a ~27 MB contro un tetto di 4,5:
+   413 secco, sempre, per ogni scatto vero. Con gli screenshot non si vedeva perche
+   stanno sotto il mega. Qui la foto viene rimpicciolita prima di partire.
+   1600 px sul lato lungo bastano: una scorecard e fatta di numeri grossi, e oltre
+   quella soglia si mandano dettagli che nessuno legge. */
+/* 3072 e il tetto di Gemini: le immagini piu grandi le riduce lui a quella misura,
+   quindi mandare di piu e banda buttata. Sotto, invece, si butta dettaglio vero, e
+   su una scorecard scritta a penna il dettaglio e tutto. Percio non si scende a una
+   soglia fissa: si parte dal massimo utile e si cala di uno scalino alla volta solo
+   finche serve a stare sotto il tetto di Vercel. Una foto di scorecard a 3072 px in
+   JPEG sta intorno al mega, quindi quasi sempre il primo tentativo basta. */
+const SCALINI = [3072, 2560, 2048, 1600, 1280];
+const QUALITA = [0.85, 0.75];
+const TETTO = 3.4 * 1024 * 1024;
+async function rimpicciolisci(file) {
+  if (!/^image\//.test(file.type || '')) return file;   // PDF ed export restano com'erano
+  let bmp;
+  try { bmp = await createImageBitmap(file); }
+  catch (e) { return file; }  // formato che il browser non sa aprire (certi HEIC): passa intero
+  const lato = Math.max(bmp.width, bmp.height);
+  const tela = document.createElement('canvas');
+  let scelto = null;
+  for (const q of QUALITA) {
+    for (const max of SCALINI) {
+      if (scelto) break;
+      const scala = Math.min(1, max / lato);
+      const w = Math.round(bmp.width * scala), h = Math.round(bmp.height * scala);
+      tela.width = w; tela.height = h;
+      const ctx = tela.getContext('2d');
+      /* Senza questo il ridimensionamento del browser sgrana le cifre sottili. */
+      if ('imageSmoothingQuality' in ctx) { ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high'; }
+      ctx.drawImage(bmp, 0, 0, w, h);
+      const blob = await new Promise(r => tela.toBlob(r, 'image/jpeg', q));
+      if (blob && blob.size * 1.37 < TETTO) scelto = { blob, w, h, q };  // 1.37: la crescita del base64
+    }
+  }
+  if (bmp.close) bmp.close();
+  if (!scelto) return file;
+  /* Se il giro non serve a niente (immagine gia piccola, o PNG di testo che in JPEG
+     peggiora) si tiene l'originale invece di consegnare una copia sfocata. */
+  if (scelto.blob.size >= file.size) return file;
+  console.log(`GolfP - foto: ${(file.size / 1048576).toFixed(1)} MB -> ${(scelto.blob.size / 1048576).toFixed(2)} MB `
+    + `(${scelto.w}x${scelto.h}, qualita ${scelto.q})`);
+  return new File([scelto.blob], file.name.replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' });
+}
 const N = (t, extra) => Object.assign({ type: t, nullable: true }, extra || {});
 const SCHEMA_GIRO = { type: 'object', properties: {
   tipo: N('string'), circolo: N('string'), data: N('string'), ora: N('string'),
@@ -3312,17 +3359,34 @@ async function visione(file, istruzioni, schema) {
     const txt = (await leggiTesto(file)).slice(0, 200000);
     parte = { text: `Contenuto del file "${file.name}":\n\n${txt}` };
   } else {
-    const b64 = await toB64(file);
-    parte = { inline_data: { mime_type: ePdf(file) ? 'application/pdf' : (file.type || 'image/jpeg'), data: b64 } };
+    const f = await rimpicciolisci(file);
+    const b64 = await toB64(f);
+    /* Meglio dire cosa non va che lasciare arrivare un 413 spoglio: chi legge
+       "il server ha risposto 413" non sa che deve rifare la foto piu piccola. */
+    if (b64.length > TETTO) throw new Error(
+      `questo file pesa ${(f.size / 1048576).toFixed(1)} MB, troppo per essere spedito (il tetto e circa 3 MB). `
+      + (ePdf(f) ? 'Prova a mandare solo la pagina che serve.' : 'Rifai la foto a risoluzione piu bassa.'));
+    parte = { inline_data: { mime_type: ePdf(f) ? 'application/pdf' : (f.type || 'image/jpeg'), data: b64 } };
   }
   const body = {
     contents: [{ role: 'user', parts: [parte, { text: istruzioni }] }],
     generationConfig: { responseMimeType: 'application/json', responseSchema: schema, temperature: 0 }
   };
+  /* Sui modelli Gemini 3 questo alza i token spesi per l'immagine e con essi la
+     capacita di leggere cifre piccole: e esattamente il nostro caso. Se il modello
+     che risponde non lo conosce la richiesta torna 400, e allora si riprova senza. */
+  if (!eTesto(file)) body.generationConfig.mediaResolution = 'MEDIA_RESOLUTION_HIGH';
+  const senzaRisoluzione = () => {
+    delete body.generationConfig.mediaResolution;
+    return JSON.stringify(body);
+  };
   // 1) in produzione: funzione serverless su Vercel, la chiave resta sul server
   let guastoServer = null;
   try {
-    const r = await fetch('/api/leggi', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    let r = await fetch('/api/leggi', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    if (!r.ok && r.status === 400 && body.generationConfig.mediaResolution) {
+      r = await fetch('/api/leggi', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: senzaRisoluzione() });
+    }
     if (r.ok) return estrai(await r.json());
     /* Il server ha risposto male: il motivo va tenuto, altrimenti più avanti si finisce
        per dire "nessuna chiave" mentre il problema vero è un altro (429, 413, chiave
