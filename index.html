@@ -549,7 +549,7 @@ h1,h2,h3{font-family:var(--disp);font-weight:800;letter-spacing:-.03em;text-tran
           <div class="osmbar" id="osmbar">
             <div>
               <b id="osm-title">Elenco parziale</b>
-              <span id="osm-sub">Scarico tutti i campi italiani da OpenStreetMap: posizione esatta e numero di buche.</span>
+              <span id="osm-sub">Quindici secondi: posizione esatta, via, numero di buche e contatti di tutti i campi italiani.</span>
             </div>
             <button class="btn red" id="osm-go">Importa</button>
           </div>
@@ -761,11 +761,11 @@ const CLUBS = IT.map(r => ({ n: r[0], l: r[1], r: r[2], p: "Italia", buche: r[3]
   .concat(ES.map(r => ({ n: r[0], l: r[1], r: "", p: r[2], buche: r[3], par: r[4], lat: r[5], lon: r[6],
     g: r[7], b: r[8], wish: !r[7], m: 6100, a: "—", y: 0, note: NOTE[r[0]] })));
 
-CLUBS.forEach((c, i) => { c.id = i; const p = merc(c.lon, c.lat); c.x = p[0]; c.y = p[1]; c.wish = !!c.wish; });
+CLUBS.forEach((c, i) => { c.id = i; c.wish = !!c.wish; });
 
 /* generatore deterministico di giri per la scheda campo */
 const TEES = [{k:"Gialle", c:"#E4C33A"}, {k:"Bianche", c:"#F3F1E8"}, {k:"Rosse", c:"#CF3A2A"}, {k:"Azzurre", c:"#5B8FB3"}];
-const MESI = ["gen","feb","mar","apr","mag","giu","lug","set","ott","nov"];
+const MESI = ["gen","feb","mar","apr","mag","giu","lug","ago","set","ott","nov","dic"];
 
 /* ---------------- mappa ---------------- */
 const ITALY = [[6.6, 35.4], [18.6, 47.2]];
@@ -816,12 +816,14 @@ function bandierina(c, scelto) {
     ? `<svg viewBox="0 0 26 30" width="22" height="26">
         <circle cx="13" cy="15" r="8" fill="none" stroke="var(--flag)" stroke-width="3.4"/>
         <circle cx="13" cy="15" r="2.6" fill="var(--flag)"/></svg>`
+    /* La bandiera sventola solo su quella scelta: trecentocinquanta animazioni SMIL
+       contemporanee erano il motivo per cui la mappa scattava sul telefono. */
     : `<svg viewBox="0 0 26 30" width="26" height="30" style="overflow:visible">
         <ellipse cx="9" cy="27" rx="6" ry="2" fill="rgba(0,0,0,.3)"/>
         <line x1="9" y1="27" x2="9" y2="6" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
-        <path fill="var(--fair)" d="M9 6 L23 10 L9 15 Z">
+        <path fill="var(--fair)" d="M9 6 L23 10 L9 15 Z">${scelto ? `
           <animate attributeName="d" dur="1.7s" repeatCount="indefinite"
-            values="M9 6 L23 10 L9 15 Z;M9 6 L21 8.5 L9 15 Z;M9 6 L23.5 12 L9 15 Z;M9 6 L23 10 L9 15 Z"/></path>
+            values="M9 6 L23 10 L9 15 Z;M9 6 L21 8.5 L9 15 Z;M9 6 L23.5 12 L9 15 Z;M9 6 L23 10 L9 15 Z"/>` : ''}</path>
         <circle cx="9" cy="27" r="2.4" fill="#fff"/></svg>`;
   el.onclick = e => { e.stopPropagation(); select(c.id); };
   return el;
@@ -835,20 +837,42 @@ function visibili() {
   return CLUBS.filter(c => (c.wish ? filt.wish : filt.played)
     && isFinite(c.lat) && isFinite(c.lon) && passaFiltri(c));
 }
-let SEGNI = [];
+let SEGNI = new Map();
+/* Prima ogni ridisegno buttava via tutti i segnaposto e ne ricostruiva trecento,
+   e un `.slice(0, 400)` faceva sparire in silenzio quelli oltre il quattrocentesimo.
+   Ora si tengono quelli che restano, si aggiungono solo i nuovi, e si disegna
+   soltanto ciò che sta nella parte di mappa che stai guardando. */
+function riquadroVista() {
+  if (!MAP) return null;
+  try {
+    const b = MAP.getBounds();
+    const dw = (b.getEast() - b.getWest()) * .25, dh = (b.getNorth() - b.getSouth()) * .25;
+    return { w: b.getWest() - dw, e: b.getEast() + dw, s: b.getSouth() - dh, n: b.getNorth() + dh };
+  } catch (e) { return null; }
+}
 function paint() {
   if (!MAP) return;
-  SEGNI.forEach(m => m.remove());
-  SEGNI = [];
-  const v = visibili();
-  v.slice(0, 400).forEach((c, i) => {
-    const el = bandierina(c, sel === c.id);
-    el.style.animationDelay = Math.min(i * 12, 700) + 'ms';
-    SEGNI.push(new maplibregl.Marker({ element: el, anchor: 'bottom' }).setLngLat([c.lon, c.lat]).addTo(MAP));
+  const box = riquadroVista();
+  const dentro = c => !box || (c.lon >= box.w && c.lon <= box.e && c.lat >= box.s && c.lat <= box.n);
+  const vogliamo = new Map();
+  visibili().forEach(c => { if (dentro(c)) vogliamo.set(c.id, c); });
+  SEGNI.forEach((m, id) => { if (!vogliamo.has(id)) { m.remove(); SEGNI.delete(id); } });
+  let i = 0;
+  vogliamo.forEach((c, id) => {
+    const vecchio = SEGNI.get(id);
+    if (vecchio) {
+      const el = vecchio.getElement();
+      const scelto = sel === id;
+      if (el.classList.contains('sel') !== scelto) { vecchio.remove(); SEGNI.delete(id); }
+      else { vecchio.setLngLat([c.lon, c.lat]); return; }
+    }
+    const el = bandierina(c, sel === id);
+    el.style.animationDelay = Math.min(i++ * 10, 500) + 'ms';
+    SEGNI.set(id, new maplibregl.Marker({ element: el, anchor: 'bottom' }).setLngLat([c.lon, c.lat]).addTo(MAP));
   });
 }
 function addLayers() {
-  MAP.addSource('clubs', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+  /* la sorgente `clubs` c'era e non veniva usata da nessuno: tolta */
   paint();
 }
 function setStyle(kind) {
@@ -856,11 +880,11 @@ function setStyle(kind) {
   document.querySelectorAll('#m-style button').forEach(b => b.setAttribute('aria-pressed', b.dataset.s === kind));
   if (!MAP) return;
   MAP.setStyle(styleFor(kind));
-  MAP.once('styledata', () => { if (!MAP.getSource('clubs')) addLayers(); });
+  MAP.once('styledata', () => paint());
 }
 function setKey(k) {
   MAPKEY = (k || '').trim();
-  if (MAP) { MAP.setStyle(styleFor(STYLE)); MAP.once('styledata', () => { if (!MAP.getSource('clubs')) addLayers(); }); }
+  if (MAP) { MAP.setStyle(styleFor(STYLE)); MAP.once('styledata', () => paint()); }
 }
 
 async function initMap() {
@@ -868,24 +892,14 @@ async function initMap() {
   await loadAsset('script', MLJS.slice(), u => ({ src: u }));
   MAP = new maplibregl.Map({ container: 'map', style: styleFor(STYLE), bounds: ITALY, fitBoundsOptions: { padding: 40 },
     attributionControl: { compact: true } });
-  MAP.on('load', addLayers);
+  MAP.on('load', () => { addLayers(); collegaMirino(); });
+  MAP.on('moveend', paint);        // ridisegna solo quello che è entrato nella vista
   MAP.on('error', e => {
     const m = String(e && e.error && e.error.message || '');
     if (!m.includes('style') && !m.includes('403') && !m.includes('404')) return;
     if (STYLE === 'sat') return;
     STYLE = 'sat'; setStyle('sat');
   });
-}
-function setStyle(kind) {
-  STYLE = kind;
-  document.querySelectorAll('#m-style button').forEach(b => b.setAttribute('aria-pressed', b.dataset.s === kind));
-  if (!MAP) return;
-  MAP.setStyle(styleFor(kind));
-  MAP.once('styledata', () => { if (!MAP.getSource('clubs')) addLayers(); });
-}
-function setKey(k) {
-  MAPKEY = (k || '').trim();
-  if (MAP) { MAP.setStyle(styleFor(STYLE)); MAP.once('styledata', () => { if (!MAP.getSource('clubs')) addLayers(); }); }
 }
 
 /* --- elenco ufficiale dei circoli lombardi (fonte: Comitato Lombardia FIG) --- */
@@ -1562,7 +1576,20 @@ function importaElenco() {
     const reg = v.prov ? v.reg + '/' + v.prov : v.reg;
     const paese = 'Italia';
     const nc = nocciolo(v.nome);
-    const hit = CLUBS.find(c => nocciolo(c.n) === nc) || CLUBS.find(c => simile(nocciolo(c.n), nc));
+    /* Il nome quasi uguale non basta: "Mirabell" (Alto Adige) e "Mirabella Golf Club"
+       (Avellino) sono due circoli diversi, e così com'era il primo spariva dentro il
+       secondo. Ma la distanza da sola non basta come giudice: chi arriva da SOLONOMI
+       non ha un indirizzo e sta su un punto finto attorno al centro della sua regione,
+       quindi confrontare i chilometri direbbe "diversi" anche per "Fonti" e "Golf Club
+       Le Fonti", che sono lo stesso posto. Vale la regione, che per entrambi è buona;
+       la distanza decide solo quando tutte e due le posizioni sono vere. */
+    const stessaRegione = (c, v2) => {
+      const a = (c.r || '').split('/')[0].trim(), b = (v2.reg || '').trim();
+      return !!a && !!b && a === b;
+    };
+    const hit = CLUBS.find(c => nocciolo(c.n) === nc)
+      || CLUBS.find(c => simile(nocciolo(c.n), nc)
+           && (stessaRegione(c, v) || km(c.lat, c.lon, v.lat, v.lon) < 25));
     if (hit) {
       if (v.buche) hit.buche = v.buche;
       if (!hit.r || v.prov || !hit.r.includes('/')) hit.r = reg;
@@ -1623,8 +1650,10 @@ async function chiedi(p, c) {
   if (!j.length) return null;
   const lat = +j[0].lat, lon = +j[0].lon;
   if (!isFinite(lat) || !isFinite(lon)) return null;
-  // sanità: se il risultato è lontano dal comune non è il posto giusto
-  if (km(c.lat, c.lon, lat, lon) > 25) return null;
+  /* Se il risultato è lontano dal punto di partenza non è il posto giusto. Ma chi non
+     ha indirizzo parte dal centro della regione, non dal comune: lì 25 km taglierebbero
+     via anche le risposte corrette. */
+  if (km(c.lat, c.lon, lat, lon) > (c.via ? 25 : 90)) return null;
   return [lat, lon];
 }
 async function unIndirizzo(c) {
@@ -1680,6 +1709,7 @@ function unificaDoppioni() {
   return n;
 }
 const BLOCCO = 40;
+let OSMFATTO = false;      // l'import da OpenStreetMap è già stato lanciato in questa sessione
 function aggiornaGeoBar() {
   const bar = document.getElementById('geobar'); if (!bar) return;
   const restano = daTrovare().length;
@@ -1687,8 +1717,10 @@ function aggiornaGeoBar() {
   bar.hidden = false;
   document.getElementById('geo-title').textContent =
     `${restano} circoli senza posizione esatta`;
-  document.getElementById('geo-sub').textContent =
-    `Li cerco dall'indirizzo, ${Math.min(BLOCCO, restano)} alla volta, un secondo l'uno. Circa ${Math.ceil(Math.min(BLOCCO, restano) * 1.2 / 60)} minut${Math.ceil(Math.min(BLOCCO, restano) * 1.2 / 60) === 1 ? 'o' : 'i'}.`;
+  const min = Math.ceil(Math.min(BLOCCO, restano) * 1.2 / 60);
+  document.getElementById('geo-sub').textContent = OSMFATTO
+    ? `Questi non erano su OpenStreetMap: li cerco dall'indirizzo, ${Math.min(BLOCCO, restano)} alla volta. Circa ${min} minut${min === 1 ? 'o' : 'i'}.`
+    : `Prima premi Importa qui sopra: è molto più veloce e ne sistema la gran parte. Questi ${Math.min(BLOCCO, restano)} li cerco poi a uno a uno, in circa ${min} minut${min === 1 ? 'o' : 'i'}.`;
   document.getElementById('geo-go').textContent =
     restano > BLOCCO ? `Cerca ${BLOCCO} indirizzi` : `Cerca gli ultimi ${restano}`;
 }
@@ -1786,7 +1818,7 @@ async function importaOSM() {
   OSMINCORSO = true;
   go.disabled = true;
   const visti = new Set();
-  let n = 0, corretti = 0, falliti = [];
+  let n = 0, corretti = 0, indirizzi = 0, falliti = [];
   for (let i = 0; i < RIQUADRI.length; i++) {
     const [nome, S, W, N, E] = RIQUADRI[i];
     t.textContent = `Scarico da OpenStreetMap — ${i + 1} di ${RIQUADRI.length}`;
@@ -1808,8 +1840,16 @@ async function importaOSM() {
       const lat = e.lat ?? (e.center && e.center.lat), lon = e.lon ?? (e.center && e.center.lon);
       if (!isFinite(lat) || !isFinite(lon)) return;
       const buche = parseInt(tg.holes, 10);
+      /* L'indirizzo sta già dentro la stessa risposta: non costa una richiesta in più.
+         È la via che si vede sulla scheda del circolo. */
+      const viaOsm = tg['addr:street']
+        ? tg['addr:street'] + (tg['addr:housenumber'] ? ' ' + tg['addr:housenumber'] : '')
+        : null;
+      const capOsm = tg['addr:postcode'] || null;
+      const cittaOsm = tg['addr:city'] || tg['addr:town'] || tg['addr:village'] || null;
       const esistente = trovaEsistente(nomeC, lat, lon);
       if (esistente) {
+        if (esistente.rifiutato) return;      // gli hai già detto che non è lì
         if (!esistente.posizioneCorretta) {
           if (km(esistente.lat, esistente.lon, lat, lon) > 0.25) corretti++;
           esistente.lat = lat; esistente.lon = lon;
@@ -1817,17 +1857,24 @@ async function importaOSM() {
         esistente.osm = chiave;
         if (esistente.daPosizionare) { delete esistente.daPosizionare; corretti++; }
         if (buche) esistente.buche = buche;
-        if (!esistente.l && (tg['addr:city'] || tg['addr:town'])) esistente.l = tg['addr:city'] || tg['addr:town'];
+        if (viaOsm && !esistente.via) { esistente.via = viaOsm; indirizzi++; }
+        if (capOsm && !esistente.cap) esistente.cap = capOsm;
+        if (!esistente.l && cittaOsm) esistente.l = cittaOsm;
+        if (tg.website && !esistente.sito) esistente.sito = tg.website;
+        if (tg.phone && !esistente.tel) esistente.tel = tg.phone;
         return;
       }
-      addClub({ n: titolo(nomeC), l: tg['addr:city'] || tg['addr:town'] || '', r: '', buche: buche || 18,
-        par: 72, lat, lon, osm: chiave, sito: tg.website });
+      /* Un campo pratica non ha 18 buche e par 72: se OSM non lo dice, non lo inventiamo. */
+      addClub({ n: titolo(nomeC), l: cittaOsm || '', r: '', buche: buche || null,
+        par: buche >= 18 ? 72 : null, lat, lon, osm: chiave, posizioneCorretta: true,
+        sito: tg.website || null, tel: tg.phone || null, via: viaOsm, cap: capOsm });
       n++;
+      if (viaOsm) indirizzi++;
     });
     paint(); renderSide(); aggiornaContatori();
   }
   renderCircoli();
-  OSMINCORSO = false;
+  OSMINCORSO = false; OSMFATTO = true;
   go.disabled = false; go.textContent = 'Aggiorna';
   if (falliti.length === RIQUADRI.length) {
     t.textContent = 'Import non riuscito';
@@ -1836,8 +1883,10 @@ async function importaOSM() {
   }
   t.textContent = `${CLUBS.length} circoli in elenco`;
   s.textContent = `${n} aggiunti, ${corretti} segnapost${corretti === 1 ? 'o spostato' : 'i spostati'} sulla posizione esatta`
+    + (indirizzi ? `, ${indirizzi} indirizz${indirizzi === 1 ? 'o' : 'i'} letti` : '')
     + (falliti.length ? ` · zone non scaricate: ${falliti.join(', ')} — premi Aggiorna per riprovare` : '');
   salvaTutto();
+  aggiornaGeoBar();
 }
 const norm = x => (x || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 const nocciolo = x => (x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -1873,7 +1922,10 @@ function trovaEsistente(nome, lat, lon) {
   };
   for (const c of CLUBS) {
     const d = km(c.lat, c.lon, lat, lon);
-    if (d < 0.4) return c;                                                  // stesso punto: è lui
+    /* Due punti coincidenti valgono come identità solo se almeno uno è una posizione
+       vera. Otto circoli romani stanno tutti sul centro di Roma: senza questo
+       controllo il primo dell'elenco si prendeva ogni campo trovato in zona. */
+    if (d < 0.4 && !c.daPosizionare) return c;
     if (nc && nc.length > 3 && nocciolo(c.n) === nc && d < 25) proponi(c, 3, d);  // stesso nome, stessa zona
     if (!c.daPosizionare) continue;
     // segnaposto ancora provvisorio: sta al centro della sua regione, la distanza conta poco
@@ -2026,6 +2078,22 @@ function fineMira() {
   const n = document.querySelector('.mira-nota'); if (n) n.remove();
 }
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && MIRA != null) fineMira(); });
+/* Il tocco sulla mappa che chiude il mirino. Senza questo il pulsante ⌖ accendeva
+   la nota e non succedeva più niente: la posizione a mano non si poteva dare. */
+function collegaMirino() {
+  if (!MAP || MAP.__mirino) return;
+  MAP.__mirino = true;
+  MAP.on('click', e => {
+    if (MIRA == null) return;
+    const c = CLUBS[MIRA]; if (!c) return;
+    c.geoPrima = c.geoPrima || [c.lat, c.lon];
+    c.lat = +e.lngLat.lat.toFixed(6); c.lon = +e.lngLat.lng.toFixed(6);
+    c.posizioneCorretta = true;          // da qui in poi nessun import lo sposta
+    delete c.daPosizionare; delete c.geoVuoto;
+    fineMira();
+    salvaTutto(); paint(); renderSide(); renderCircoli(); aggiornaGeoBar();
+  });
+}
 function addClub(o) {
   const c = Object.assign({ p: "Italia", m: 6000, a: "—", y: 0, buche: 18, par: 72, wish: 1, g: 0, b: 0 }, o);
   c.id = CLUBS.length; c.wish = !!c.wish; CLUBS.push(c);
@@ -2063,8 +2131,8 @@ document.addEventListener('click', e => {
 function nonEQui(id) {
   const c = CLUBS[id]; if (!c) return;
   if (c.geoPrima) { c.lat = c.geoPrima[0]; c.lon = c.geoPrima[1]; }
-  delete c.geo; delete c.geoPrima; delete c.osm;
-  c.daPosizionare = true; c.geoVuoto = true;
+  delete c.geo; delete c.geoPrima; delete c.osm; delete c.posizioneCorretta;
+  c.daPosizionare = true; c.geoVuoto = true; c.rifiutato = true;
   salvaTutto(); paint(); renderSide(); renderCircoli(); aggiornaGeoBar();
 }
 /* Eliminare un circolo. Il nome finisce in un elenco di cancellati, altrimenti
@@ -2231,8 +2299,16 @@ function scorecard(par, hs) {
 }
 /* --- scheda del circolo --- */
 const TEE_ORD = ["Gialle", "Bianche", "Rosse", "Azzurre"];
-const giriDi = id => ARCHIVIO.giri.filter(g => g.circolo && g.circolo.id === id)
-  .sort((a, b) => (b.data || '').localeCompare(a.data || ''));
+/* L'id di un circolo è la sua posizione nell'array: basta una cancellazione o
+   un'unificazione perché gli id scorrano e un giro finisca sotto il circolo sbagliato.
+   Il nome, che il giro salva accanto all'id, è l'ancora vera. */
+const giriDi = id => {
+  const c = CLUBS[id]; if (!c) return [];
+  const nc = nocciolo(c.n);
+  return ARCHIVIO.giri
+    .filter(g => g.circolo && (g.circolo.nome ? nocciolo(g.circolo.nome) === nc : g.circolo.id === id))
+    .sort((a, b) => (b.data || '').localeCompare(a.data || ''));
+};
 
 function segnaGiocato(id) {
   const c = CLUBS[id], giri = giriDi(id).length;
@@ -2263,6 +2339,9 @@ function openCampo(id) {
   const best = lordi.length ? Math.min(...lordi) : null;
   const media = lordi.length ? (lordi.reduce((a, b) => a + b, 0) / lordi.length).toFixed(1) : null;
   document.getElementById('campo-nome').textContent = c.n;
+  /* Le righe di indirizzo e contatti si aggiungono dopo il titolo: vanno tolte prima,
+     altrimenti aprendo tre schede si vedono tre indirizzi impilati, di tre circoli diversi. */
+  document.querySelectorAll('#s-campo .sub-extra').forEach(x => x.remove());
   const luo = document.getElementById('campo-luogo');
   luo.textContent = [c.l, c.r && c.r.split('/')[0], c.p].filter(Boolean).join(' · ');
   if (c.via) {
@@ -2270,7 +2349,7 @@ function openCampo(id) {
     const testo = [c.via, c.cap ? c.cap + ' ' + (c.l || '') : c.l].filter(Boolean).join(' — ');
     const cerca = encodeURIComponent([c.n, c.via, c.cap, c.l].filter(Boolean).join(', '));
     luo.insertAdjacentHTML('afterend',
-      `<div class="sub" style="margin-top:3px">${testo} · <a href="https://www.google.com/maps/search/?api=1&query=${cerca}"
+      `<div class="sub sub-extra" style="margin-top:3px">${testo} · <a href="https://www.google.com/maps/search/?api=1&query=${cerca}"
         target="_blank" rel="noopener" style="color:var(--fair)">apri nelle mappe ↗</a></div>`);
   }
   if (c.tel || c.sito || c.mail) {
@@ -2279,10 +2358,12 @@ function openCampo(id) {
     if (c.sito) pezzi.push(`<a href="${/^https?:/.test(c.sito) ? c.sito : 'https://' + c.sito}"
       target="_blank" rel="noopener" style="color:var(--fair)">${c.sito.replace(/^https?:\/\//, '')} ↗</a>`);
     if (c.mail) pezzi.push(`<a href="mailto:${c.mail}" style="color:var(--fair)">${c.mail}</a>`);
-    (document.querySelector('#s-campo .sub:last-of-type') || luo)
-      .insertAdjacentHTML('afterend', `<div class="sub" style="margin-top:3px">${pezzi.join(' · ')}</div>`);
+    (document.querySelector('#s-campo .sub-extra:last-of-type') || luo)
+      .insertAdjacentHTML('afterend', `<div class="sub sub-extra" style="margin-top:3px">${pezzi.join(' · ')}</div>`);
   }
   document.getElementById('campo-body').innerHTML = `
+  <div id="campo-map"></div>
+  <div id="campo-osm" style="margin-bottom:16px;display:block"></div>
   <div style="display:flex;gap:9px;flex-wrap:wrap;margin-bottom:16px">
     <button class="btn ghost" onclick="eliminaCircolo(${id})" title="Togli dall'elenco"
       style="color:var(--flag)">🗑 Elimina</button>
@@ -2379,8 +2460,13 @@ function stableford() {
   }, 0);
 }
 function colpiRicevuti(b) {
-  const h = G.hcpGioco, n = Math.floor(h / 18), r = h % 18;
-  return n + (b.si <= r ? 1 : 0);
+  /* Su nove buche vale metà dell'handicap di gioco, come già fa netto(): prima
+     stableford usava l'handicap intero e i due numeri non tornavano fra loro. */
+  const h = hcpEffettivo(), su = attive().length === 9 ? 9 : 18;
+  const n = Math.floor(h / su), r = h % su;
+  const ordine = attive().map(x => x.si).sort((a, b) => a - b);
+  const rango = ordine.indexOf(b.si) + 1;       // 1 = la buca più difficile fra quelle giocate
+  return n + (rango > 0 && rango <= r ? 1 : 0);
 }
 function hcpEffettivo() { return attive().length === 9 ? Math.round(G.hcpGioco / 2) : G.hcpGioco; }
 function netto() { return fatte() === attive().length && fatte() ? tot('colpi') - hcpEffettivo() : null; }
@@ -2527,13 +2613,19 @@ function step0(c) {
   f0.onchange = async () => {
     const files = [...f0.files]; if (!files.length) return;
     l0.innerHTML = '<div class="card" style="padding:12px 14px;max-width:560px;margin-bottom:14px"><b>Leggo…</b></div>';
-    await leggiFoto(files, demo => {
+    await leggiFoto(files, guasto => {
       const piene = attive().filter(b => b.colpi).length;
       renderGiro();
       const box = document.getElementById('letto0');
+      if (guasto) {
+        box.innerHTML = `<div class="card" style="padding:12px 14px;max-width:560px;margin-bottom:14px">
+          <b>Non sono riuscito a leggere la foto.</b>
+          <p class="hint" style="margin:8px 0 0">Motivo: ${guasto}. Non ho scritto niente: compila a mano, oppure riprova con una foto più leggibile.</p></div>`;
+        return;
+      }
       box.innerHTML = `<div class="card" style="padding:12px 14px;max-width:560px;margin-bottom:14px">
         <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
-          <b>${demo ? 'Lettura di esempio' : 'Letto dalla foto'}</b>
+          <b>Letto dalla foto</b>
           <span class="lbl">${piene}/18 buche compilate</span>
           <button class="btn ghost" style="margin-left:auto;padding:6px 12px" onclick="G.step=2;renderGiro()">Vai al punteggio</button>
         </div>
@@ -2778,15 +2870,23 @@ function vistaFoto() {
     ocr.innerHTML = `<div class="card" style="padding:14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
       ${files.map(mini).join('')}
       <div><b>Lettura in corso…</b><div class="lbl" style="margin-top:4px">${files.length} immagine${files.length > 1 ? 'i' : ''} da leggere</div></div></div>`;
-    let demo = false;
-    await leggiFoto(files, d => demo = d);
+    let guasto = null;
+    await leggiFoto(files, g => guasto = g);
+    if (guasto) {
+      ocr.innerHTML = `<div class="card" style="padding:14px">
+        <b>Non sono riuscito a leggere la scorecard.</b>
+        <p class="hint" style="margin:8px 0 12px">Motivo: ${guasto}. Non ho compilato nessuna buca.</p>
+        <button class="btn ghost" onclick="vistaFoto()">Riprova</button>
+        <button class="btn" onclick="vistaBuca()">Compila a mano</button></div>`;
+      return;
+    }
     const buchePiene = attive().filter(b => b.colpi).length;
     const conDistanza = G.buche.reduce((a, b) => a + b.dett.filter(s => s.d).length, 0);
     ocr.innerHTML = `<div class="card" style="padding:14px">
       <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
         ${G.fotoFiles.map(mini).join('')}
-        <div><b>${demo ? 'Lettura di esempio' : 'Scorecard letta'}</b>
-          <div class="lbl" style="margin-top:4px">${buchePiene}/${attive().length} buche · ${conDistanza} colpi con distanza${demo ? ' — serve la chiave Google' : ''}</div>
+        <div><b>Scorecard letta</b>
+          <div class="lbl" style="margin-top:4px">${buchePiene}/${attive().length} buche · ${conDistanza} colpi con distanza</div>
           ${LETTI.length ? `<div class="lbl" style="margin-top:3px">${LETTI.join(' · ')}</div>` : ''}</div>
         <div style="margin-left:auto;display:flex;gap:8px">
           <button class="btn ghost" id="altra">Aggiungi un'altra foto</button>
@@ -2824,19 +2924,24 @@ function applicaTestata(data) {
   if (data.handicapIndex > 0 && data.handicapIndex < 55) { G.index = data.handicapIndex; segna('Index', G.index); }
   if (data.gara) { G.gara = data.gara; if (G.tipo === 'Amichevole') G.tipo = 'Gara singola'; segna('Gara', data.gara); }
 }
+/* Quando la lettura non riesce non si riempie niente. Prima entrava un giro intero
+   inventato — Barlassina, 9 agosto, CR 71.2, slope 133, colpi e putt di ogni buca —
+   pronto da salvare come se fosse tuo. */
 async function leggiFoto(files, dopo) {
   G.fotoFiles = (G.fotoFiles || []).concat(files);
   LETTI = [];
-  let demo = false, n = 0;
+  let guasto = null, lette = 0;
   for (const f of files) {
     let data = null;
-    try { data = await visione(f, PROMPT_GIRO, SCHEMA_GIRO); } catch (e) { data = null; }
-    if (!data) { demo = true; data = datiEsempio(n); }
+    try { data = await visione(f, PROMPT_GIRO, SCHEMA_GIRO); }
+    catch (e) { guasto = guasto || (e && e.message) || 'errore sconosciuto'; }
+    if (!data) continue;
     applicaTestata(data);
     applicaLettura(data);
-    n++;
+    lette++;
   }
-  if (dopo) dopo(demo);
+  if (!lette && !guasto) guasto = 'la foto non conteneva dati riconoscibili';
+  if (dopo) dopo(lette ? null : guasto);
 }
 function applicaLettura(data) {
   G.buche.forEach((b, i) => {
@@ -2853,24 +2958,7 @@ function applicaLettura(data) {
     for (let k = 0; k < b.dett.length; k++) if (!b.dett[k]) b.dett[k] = { m: 'Driver', d: null };
   });
 }
-function datiEsempio(n) {
-  const c = [5,4,4,6,4,5,3,5,6,4,4,5,7,5,4,4,5,6];
-  const p = [2,2,1,3,2,2,1,2,2,2,2,2,3,2,1,2,2,2];
-  const vuoto = new Array(18).fill(null);
-  const meta = (arr, seconda) => arr.map((v, i) => (seconda ? i >= 9 : i < 9) ? v : null);
-  return { tipo: 'scorecard', circolo: n === 0 ? 'Barlassina Country Club' : null,
-    data: n === 0 ? '2026-08-09' : null, ora: n === 0 ? '09:20' : null,
-    partenze: n === 0 ? 'gialle' : null, buche: 18,
-    courseRating: n === 0 ? 71.2 : null, slope: n === 0 ? 133 : null,
-    handicapGioco: n === 0 ? 17 : null, handicapIndex: n === 0 ? 14.2 : null,
-    par: P72, indici: SI18,
-    colpi: n === 0 ? meta(c, false) : meta(c, true),
-    putt: n === 0 ? meta(p, false) : meta(p, true),
-    fairway: vuoto, penalita: vuoto,
-    distanze: n === 0 ? [{ buca: 1, colpo: 1, mazza: 'Driver', metri: 209 },
-                          { buca: 1, colpo: 2, mazza: 'Ferro 7', metri: 137 },
-                          { buca: 4, colpo: 1, mazza: 'Driver', metri: 231 }] : [] };
-}
+/* datiEsempio() è stato tolto: era la sorgente dei punteggi finti. */
 function costruisciGiro() {
   const c = CLUBS[G.clubId], d = differenziale(), lordo = tot('colpi');
   return {
@@ -2976,12 +3064,19 @@ async function visione(file, istruzioni, schema) {
     generationConfig: { responseMimeType: 'application/json', responseSchema: schema, temperature: 0 }
   };
   // 1) in produzione: funzione serverless su Vercel, la chiave resta sul server
+  let guastoServer = null;
   try {
     const r = await fetch('/api/leggi', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     if (r.ok) return estrai(await r.json());
-  } catch (e) { /* in anteprima non esiste: si prosegue */ }
+    /* Il server ha risposto male: il motivo va tenuto, altrimenti più avanti si finisce
+       per dire "nessuna chiave" mentre il problema vero è un altro (429, 413, chiave
+       non impostata su Vercel…) e non si capisce mai cosa sistemare. */
+    const t = await r.text().catch(() => '');
+    let msg = ''; try { msg = JSON.parse(t).errore || ''; } catch (e) {}
+    guastoServer = `il server ha risposto ${r.status}${msg ? ' — ' + msg : ''}`;
+  } catch (e) { /* in anteprima la funzione non esiste: si prosegue */ }
   // 2) in prova: chiamata diretta con la chiave inserita nelle impostazioni
-  if (!GKEY) throw new Error('nessuna chiave');
+  if (!GKEY) throw new Error(guastoServer || 'nessuna chiave impostata');
   for (const m of MODELLI) {
     const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`, {
       method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GKEY }, body: JSON.stringify(body) });
@@ -3021,13 +3116,18 @@ function saccaImport() {
   f.onchange = async () => {
     const file = f.files[0]; if (!file) return;
     box.innerHTML = '<div class="card" style="padding:16px"><b>Leggo lo screenshot…</b></div>';
-    let d = null;
-    try { d = await visione(file, PROMPT_MAZZE(SACCA.map(s => s.t)), SCHEMA_MAZZE); } catch (e) { d = null; }
-    const demo = !d;
-    if (demo) d = { unita: 'm', mazze: [
-      { mazza: 'Driver', media: 211, max: 244, colpi: 96 }, { mazza: 'Legno 3', media: 189, max: 208, colpi: 41 },
-      { mazza: 'Ibrido 4', media: 172, max: 190, colpi: 33 }, { mazza: 'Ferro 7', media: 141, max: 153, colpi: 78 },
-      { mazza: 'Ferro 9', media: 118, max: 129, colpi: 64 }, { mazza: 'Sand wedge', media: 76, max: 88, colpi: 71 }] };
+    /* Se la lettura non riesce si dice perché e ci si ferma. Prima comparivano distanze
+       inventate con sotto il pulsante che le scriveva davvero nella sacca. */
+    let d = null, guasto = null;
+    try { d = await visione(file, PROMPT_MAZZE(SACCA.map(s => s.t)), SCHEMA_MAZZE); }
+    catch (e) { guasto = e && e.message || 'errore sconosciuto'; }
+    if (!d || !Array.isArray(d.mazze) || !d.mazze.length) {
+      box.innerHTML = `<div class="card" style="padding:16px">
+        <b>Non sono riuscito a leggere lo screenshot.</b>
+        <p class="hint" style="margin:8px 0 0">${guasto ? 'Motivo: ' + guasto + '. ' : ''}Le distanze restano quelle che ci sono: non ne invento.</p>
+        <div style="margin-top:12px"><button class="btn ghost" onclick="saccaImport()">Riprova</button></div></div>`;
+      return;
+    }
     const k = d.unita === 'yd' ? 0.9144 : 1;
     PROPOSTA = d.mazze.map(m => {
       const s = SACCA.find(x => x.t.toLowerCase() === (m.mazza || '').toLowerCase());
@@ -3035,7 +3135,7 @@ function saccaImport() {
     });
     box.innerHTML = `<div class="card" style="padding:16px">
       <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px">
-        <h3 style="font-size:16px">${demo ? 'Lettura di esempio' : 'Letto dallo screenshot'}</h3>
+        <h3 style="font-size:16px">Letto dallo screenshot</h3>
         <span class="lbl">${d.unita === 'yd' ? 'convertito da yard a metri' : 'in metri'}</span></div>
       <table class="diff">
         <tr><th>Mazza</th><th>Media ora</th><th>Nuova</th><th>Max</th><th>Colpi</th></tr>
@@ -3049,7 +3149,7 @@ function saccaImport() {
       <div style="display:flex;gap:9px;margin-top:14px">
         <button class="btn red" id="sk-ok">Aggiorna la sacca</button>
         <button class="btn ghost" id="sk-no">Annulla</button></div>
-      <p class="hint">${demo ? 'Lettura di esempio: senza chiave Google i numeri sono finti, la struttura è quella vera. ' : ''}Le medie di Garmin contano solo i colpi rilevati dal GPS.</p>
+      <p class="hint">Le medie di Garmin contano solo i colpi rilevati dal GPS.</p>
     </div>`;
     document.getElementById('sk-no').onclick = saccaImport;
     document.getElementById('sk-ok').onclick = () => {
@@ -3069,7 +3169,7 @@ const NOME_FILE = 'golfp.json', NOME_CARTELLA = 'GolfP';
 
 let TOKEN = null, tokenClient = null, FILE_ID = null, CARTELLA_ID = null,
     ULTIMA_SYNC = null, STATO_DRIVE = 'scollegato', ERRORE_DRIVE = null;
-const ARCHIVIO = { versione: 1, aggiornato: null, elenco: null, geo: null, geoLogica: null, cancellati: [], giocatore: {}, giri: [], bozze: [], circoli: [], sacca: [] };
+const ARCHIVIO = { versione: 1, aggiornato: null, elenco: null, geo: null, geoLogica: null, posizioni: null, cancellati: [], giocatore: {}, giri: [], bozze: [], circoli: [], sacca: [] };
 
 async function driveInit() {
   if (tokenClient) return true;
@@ -3135,7 +3235,7 @@ function applicaArchivio(dati) {
   if (Array.isArray(dati.sacca)) { SACCA.length = 0; dati.sacca.forEach(x => SACCA.push(x)); }
   if (dati.tema) document.body.dataset.tema = dati.tema;
   // l'archivio può essere più vecchio dell'app: si riallinea come al primo avvio
-  elencoAutomatico(); applicaIndirizzi(); unificaDoppioni(); riapriScartati();
+  elencoAutomatico(); applicaIndirizzi(); applicaPosizioni(); unificaDoppioni(); riapriScartati();
   salvaLocale();
   paint(); renderSide(); renderCircoli(); aggiornaContatori();
   renderSacca(); renderStats(); renderProfilo(); renderGiro(); aggiornaGeoBar();
@@ -3162,7 +3262,7 @@ function salvaLocale() {
   programmaInvio();
   try {
     localStorage.setItem(CACHE, JSON.stringify({
-      v: 1, elenco: ARCHIVIO.elenco, geo: ARCHIVIO.geo, geoLogica: ARCHIVIO.geoLogica, cancellati: ARCHIVIO.cancellati, giocatore: ARCHIVIO.giocatore, giri: ARCHIVIO.giri, bozze: ARCHIVIO.bozze,
+      v: 1, elenco: ARCHIVIO.elenco, geo: ARCHIVIO.geo, geoLogica: ARCHIVIO.geoLogica, posizioni: ARCHIVIO.posizioni, cancellati: ARCHIVIO.cancellati, giocatore: ARCHIVIO.giocatore, giri: ARCHIVIO.giri, bozze: ARCHIVIO.bozze,
       circoli: CLUBS, sacca: SACCA, tema: document.body.dataset.tema || 'chiaro'
     }));
   } catch (e) {}
@@ -3178,6 +3278,7 @@ function caricaLocale() {
     ARCHIVIO.elenco = j.elenco || null;
     ARCHIVIO.geo = j.geo || null;
     ARCHIVIO.geoLogica = j.geoLogica || null;
+    ARCHIVIO.posizioni = j.posizioni || null;
     ARCHIVIO.cancellati = j.cancellati || [];
     CLUBS.length = 0; j.circoli.forEach(c => CLUBS.push(c));
     SACCA.length = 0; (j.sacca || []).forEach(s => SACCA.push(s));
@@ -3471,7 +3572,9 @@ function renderStats() {
   const perPar = p => {
     const b = buche.filter(x => x.par === p);
     if (!b.length) return null;
-    const gir = b.filter(x => x.colpi - (x.putt || 2) <= p - 2).length;
+    /* zero putt è un dato vero (imbucato da fuori green): `|| 2` lo trasformava in due
+       e faceva sparire il green in regolamentazione proprio dalle buche giocate meglio */
+    const gir = b.filter(x => x.colpi - (x.putt ?? 2) <= p - 2).length;
     return { m: (b.reduce((a, x) => a + x.colpi, 0) / b.length).toFixed(1), gir: Math.round(gir / b.length * 100), n: b.length };
   };
   const fasce = [['≤79', 0, 79], ['80-84', 80, 84], ['85-89', 85, 89], ['90-94', 90, 94], ['95-99', 95, 99], ['100+', 100, 999]]
@@ -3485,6 +3588,9 @@ function renderStats() {
   const regs = Object.values(rmap).filter(r => r[1]).sort((a, b) => b[1] - a[1]);
   const nreg = regs.length, npaesi = new Set(CLUBS.filter(c => !c.wish).map(c => c.p)).size;
   const putt = buche.filter(b => b.putt != null);
+  /* la media va divisa per i giri che hanno davvero i putt segnati, non per tutti:
+     con i putt in 2 giri su 10 il numero usciva cinque volte più basso */
+  const giriConPutt = gs.filter(g => (g.buche || []).some(b => b.putt != null)).length;
   const fw = buche.filter(b => b.fw != null);
   const birdie = buche.filter(b => b.colpi < b.par).length;
   const eagle = buche.filter(b => b.colpi <= b.par - 2).length;
@@ -3529,7 +3635,7 @@ function renderStats() {
         || '<p class="hint" style="margin:0">Serve almeno un giro con il dettaglio buca per buca.</p>'}
       <div style="display:flex;gap:18px;flex-wrap:wrap;border-top:1px solid var(--rule);padding-top:13px;margin-top:4px">
         <div><div class="lbl">Fairway</div><b class="num" style="font-size:19px">${fw.length ? Math.round(fw.filter(b => b.fw === 1).length / fw.length * 100) + '%' : '—'}</b></div>
-        <div><div class="lbl">Putt/giro</div><b class="num" style="font-size:19px">${putt.length >= 18 ? (putt.reduce((a, b) => a + b.putt, 0) / gs.length).toFixed(1) : '—'}</b></div>
+        <div><div class="lbl">Putt/giro</div><b class="num" style="font-size:19px">${putt.length >= 9 && giriConPutt ? (putt.reduce((a, b) => a + b.putt, 0) / giriConPutt).toFixed(1) : '—'}</b></div>
         <div><div class="lbl">Birdie</div><b class="num" style="font-size:19px">${birdie}</b></div>
         <div><div class="lbl">Eagle</div><b class="num" style="font-size:19px">${eagle}</b></div>
       </div>
@@ -3754,6 +3860,43 @@ function azione(k) {
   }
 }
 
+/* --- Posizioni gia risolte, cotte dentro il file --------------------------------
+   Le riempie `node scripts/posizioni-osm.mjs`, che interroga OpenStreetMap una volta
+   sola sul computer e riscrive questo blocco. Da qui in poi ogni telefono nasce con
+   le coordinate e le vie gia a posto: niente attesa, niente traffico verso servizi
+   pubblici, niente ricerca da rifare su ogni dispositivo nuovo.
+   Formato: "Nome circolo": [lat, lon, "via civico"|null, "cap"|null, buche|null]
+   Autorita: il mirino ⌖ e il "Non e qui" restano sopra, e non vengono toccati. */
+/* <<< POSIZIONI-INIZIO --- da qui a POSIZIONI-FINE riscrive lo script: non modificare a mano */
+const POSIZIONI_VERSIONE = null;    // lo script ci mette la data di generazione
+const POSIZIONI = {
+};
+/* POSIZIONI-FINE >>> */
+
+function applicaPosizioni() {
+  if (!POSIZIONI_VERSIONE) return 0;
+  if (ARCHIVIO.posizioni === POSIZIONI_VERSIONE) return 0;
+  let n = 0;
+  CLUBS.forEach(c => {
+    const q = POSIZIONI[c.n];
+    if (!q) return;
+    if (c.posizioneCorretta || c.rifiutato) return;   // la tua parola vale di piu
+    if (isFinite(q[0]) && isFinite(q[1])) {
+      c.geoPrima = c.geoPrima || [c.lat, c.lon];
+      c.lat = q[0]; c.lon = q[1];
+      delete c.daPosizionare; delete c.geoVuoto;
+      c.geo = 'elenco';
+      n++;
+    }
+    if (q[2] && !c.via) c.via = q[2];
+    if (q[3] && !c.cap) c.cap = q[3];
+    if (q[4] && !c.buche) c.buche = q[4];
+  });
+  ARCHIVIO.posizioni = POSIZIONI_VERSIONE;
+  if (n) salvaLocale();
+  return n;
+}
+
 /* --- l'elenco nazionale entra da solo al primo avvio dopo un aggiornamento.
    La versione evita che si ricarichi ogni volta e che resusciti quello che hai cancellato. --- */
 const ELENCO_VERSIONE = '2026-08-11-indirizzi';
@@ -3762,12 +3905,14 @@ const ELENCO_VERSIONE = '2026-08-11-indirizzi';
 function applicaIndirizzi() {
   let n = 0;
   CLUBS.forEach(c => {
-    const k0 = CONTATTI[c.n];
-    if (k0) { if (!c.tel && k0[0]) c.tel = k0[0]; if (!c.sito && k0[1]) c.sito = k0[1];
-              if (!c.mail && k0[2]) c.mail = k0[2]; }
+    const k = CONTATTI[c.n];
+    if (k) { if (!c.tel && k[0]) c.tel = k[0]; if (!c.sito && k[1]) c.sito = k[1];
+             if (!c.mail && k[2]) c.mail = k[2]; }
     const ind = INDIRIZZI[c.n];
     if (!ind) return;
-    if (!c.via) { c.via = ind[4] || null; c.cap = ind[5] || null; n++; }
+    /* n conta solo le modifiche vere: contarlo anche quando ind[4] è vuoto
+       faceva salvare su disco a ogni avvio senza che fosse cambiato niente */
+    if (!c.via && ind[4]) { c.via = ind[4]; c.cap = ind[5] || null; n++; }
     /* Se il segnaposto è ancora provvisorio, il comune dell'indirizzo batte
        quello che c'è: l'elenco FIG porta la provincia, non il paese preciso,
        e "Bergamo" al posto di "Desenzano del Garda" sposta di sessanta chilometri.
@@ -3777,9 +3922,6 @@ function applicaIndirizzi() {
       if (c.l !== comune) { c.l = comune; c.lat = ind[2]; c.lon = ind[3]; n++; }
     }
     if (!c.buche && ind[6]) c.buche = ind[6];
-    const k = CONTATTI[c.n];
-    if (k) { if (!c.tel && k[0]) c.tel = k[0]; if (!c.sito && k[1]) c.sito = k[1];
-             if (!c.mail && k[2]) c.mail = k[2]; }
   });
   if (n) salvaLocale();
   return n;
@@ -3825,6 +3967,7 @@ if ('serviceWorker' in navigator) {
 caricaLocale();
 elencoAutomatico();
 applicaIndirizzi();
+applicaPosizioni();
 unificaDoppioni();
 riapriScartati();
 aggiornaGeoBar();
