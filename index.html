@@ -6,6 +6,7 @@
 <title>GolfP — atlante dei circoli giocati</title>
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" content="#15201C">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="GolfP">
@@ -3899,7 +3900,12 @@ function applicaPosizioni() {
 
 /* --- l'elenco nazionale entra da solo al primo avvio dopo un aggiornamento.
    La versione evita che si ricarichi ogni volta e che resusciti quello che hai cancellato. --- */
-const ELENCO_VERSIONE = '2026-08-11-indirizzi';
+/* La marca cambia ogni volta che cambia il CONTENUTO dell'elenco. Se resta uguale,
+   l'app crede di aver gia importato e non riallinea: e cosi che un telefono con 88
+   circoli in memoria resta a 88 per sempre, anche dopo aver pubblicato la versione
+   giusta. Questa passa a 2026-08-12 perche Mirabell non viene piu fuso con
+   Mirabella Golf Club e l'elenco e cambiato. */
+const ELENCO_VERSIONE = '2026-08-12-mirabell';
 /* gli indirizzi noti finiscono su ogni circolo che non li ha ancora.
    Gira a ogni avvio ed è innocua: se non cambia niente, non tocca niente. */
 function applicaIndirizzi() {

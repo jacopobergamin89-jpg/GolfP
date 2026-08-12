@@ -62,9 +62,16 @@ solo per averli sottomano. Vercel li ignora.
 del 12 agosto). Poi ricarica il sito con **Cmd+Shift+R**: il service worker tiene una copia
 in cache e senza il ricaricamento forzato vedresti ancora la versione vecchia.
 
-**3. Riconosci se è online la versione giusta**: apri un circolo qualsiasi e guarda se sotto
-il titolo compare **la mappa satellitare col tracciato del percorso**. Se non c'è, è ancora
-online la vecchia.
+**3. Riconosci se è online la versione giusta.** Tre segni, in ordine di rapidità:
+
+| Segno | Versione giusta | Versione da sostituire |
+|---|---|---|
+| Pulsanti sopra la mappa | **nessuno** (solo satellite) | Mappa / Terreno / Satellite |
+| Circoli in elenco | **353** | 66, 88, 352, 358 |
+| Scheda di un circolo | c'è la **mappa satellitare col tracciato** | non c'è |
+
+Se vedi i tre pulsanti *Mappa / Terreno / Satellite*, è ancora online la versione arrivata
+dal branch `copilot`: controlla che Vercel pubblichi `main`.
 
 **4. Quando vuoi le vie esatte**, sul tuo computer, dalla cartella del repository:
 
