@@ -642,9 +642,9 @@ h1,h2,h3{font-family:var(--disp);font-weight:800;letter-spacing:-.03em;text-tran
    Va alzato SEMPRE, anche per una modifica di una riga. Se resta uguale,
    la cache del service worker e il numero non litigano e non si capisce piu niente.
    ========================================================================== */
-const RELEASE = 6;
+const RELEASE = 7;
 const RELEASE_DATA = '2026-08-12';
-const RELEASE_NOTE = 'pacchetto unico r1-r6: correzioni dati, mirino, mappa percorso, import paziente, ricerca circolo, solo satellite, una sola veste chiara';
+const RELEASE_NOTE = 'r6 + Photon come secondo archivio per gli indirizzi, ricerca fino in fondo, GolfP.diagnosi()';
 const W = 10000, VW = 1000, VH = 560;
 const merc = (lon, lat) => {
   lat = Math.max(Math.min(lat, 84), -84);
@@ -1618,7 +1618,10 @@ function importaElenco() {
    introvabili per via si prova anche col nome — chi era stato scartato prima
    torna in coda: sarebbe assurdo condannarlo per un tentativo che non gli era
    nemmeno stato fatto. Chi invece è già stato posizionato non si tocca. */
-const GEOVERSIONE = 2;
+/* Alzando questo numero i circoli dati per "non trovati" tornano in coda. Va alzato
+   ogni volta che cambia il modo di cercare: adesso c'e Photon in piu, quindi chi era
+   stato scartato da Nominatim merita un secondo giro. */
+const GEOVERSIONE = 3;
 function riapriScartati() {
   if (ARCHIVIO.geoLogica === GEOVERSIONE) return 0;
   let n = 0;
@@ -1633,37 +1636,80 @@ const attesa = ms => new Promise(r => setTimeout(r, ms));
 function daTrovare() {
   return CLUBS.filter(c => (c.via || c.l) && c.daPosizionare && !c.geo && !c.geoVuoto);
 }
-async function chiedi(p, c) {
-  const r = await fetch(NOMINATIM + '?' + p, { headers: { 'Accept': 'application/json' } });
-  if (!r.ok) throw new Error('risposta ' + r.status);
-  const j = await r.json();
-  if (!j.length) return null;
-  const lat = +j[0].lat, lon = +j[0].lon;
+/* Se il risultato e lontano dal punto di partenza non e il posto giusto. Ma chi non ha
+   indirizzo parte dal centro della regione, non dal comune: li 25 km taglierebbero via
+   anche le risposte corrette. */
+function accetta(c, lat, lon) {
   if (!isFinite(lat) || !isFinite(lon)) return null;
-  /* Se il risultato è lontano dal punto di partenza non è il posto giusto. Ma chi non
-     ha indirizzo parte dal centro della regione, non dal comune: lì 25 km taglierebbero
-     via anche le risposte corrette. */
   if (km(c.lat, c.lon, lat, lon) > (c.via ? 25 : 90)) return null;
   return [lat, lon];
 }
+async function chiedi(p, c) {
+  const r = await fetch(NOMINATIM + '?' + p, { headers: { 'Accept': 'application/json' } });
+  if (!r.ok) throw new Error('Nominatim ' + r.status);
+  const j = await r.json();
+  if (!j.length) return null;
+  return accetta(c, +j[0].lat, +j[0].lon);
+}
+/* Photon vuole una frase sola, non i campi separati, e sa restringere la ricerca ai
+   soli campi da golf: e proprio quello che serve quando la via di campagna non esiste
+   negli archivi ma il circolo si. */
+async function chiediPhoton(c, testo, soloGolf) {
+  const p = new URLSearchParams({ q: testo, limit: '3', lang: 'it' });
+  if (isFinite(c.lat) && isFinite(c.lon)) { p.set('lat', c.lat.toFixed(4)); p.set('lon', c.lon.toFixed(4)); }
+  if (soloGolf) p.set('osm_tag', 'leisure:golf_course');
+  const r = await fetch(PHOTON + '?' + p, { headers: { 'Accept': 'application/json' } });
+  if (!r.ok) throw new Error('Photon ' + r.status);
+  const j = await r.json();
+  for (const f of (j.features || [])) {
+    const g = f.geometry && f.geometry.coordinates;
+    if (!g) continue;
+    if ((f.properties || {}).countrycode && f.properties.countrycode !== 'IT') continue;
+    const ok = accetta(c, +g[1], +g[0]);
+    if (ok) return ok;
+  }
+  return null;
+}
+/* Quattro strade, in ordine di quanto costano e di quanto spesso funzionano.
+   Prima Photon, che e piu veloce e non ha il limite di una richiesta al secondo, e che
+   sa cercare fra i soli campi da golf. Nominatim resta, ma come rincalzo: quando non
+   trova non e detto che il posto non esista, spesso e solo la via che non e in archivio.
+   Bastava una strada sola a vuoto perche il circolo restasse fermo sul comune. */
 async function unIndirizzo(c) {
   const comune = (c.l || '').replace(/\s*\([A-Z]{2}\)\s*$/, '').trim();
-  // primo tentativo: l'indirizzo, campo per campo
-  if (c.via) {
-    const p = new URLSearchParams({ format: 'json', limit: '1', countrycodes: 'it',
-      street: c.via, city: comune, postalcode: c.cap || '' });
-    const r = await chiedi(p, c);
-    if (r) { r.da = 'via'; return r; }
-    await attesa(1200);
-  }
-  // secondo tentativo: il nome del circolo. Le vie di campagna spesso non esistono
-  // negli archivi, il campo da golf sì.
   const nome = /golf/i.test(c.n) ? c.n : c.n + ' golf';
-  const p2 = new URLSearchParams({ format: 'json', limit: '1', countrycodes: 'it',
-    q: [nome, comune].filter(Boolean).join(', ') });
-  const r2 = await chiedi(p2, c);
-  if (r2) r2.da = 'nome';
-  return r2;
+  const strade = [
+    // 1. Photon, fra i soli campi da golf: la piu precisa quando va a segno
+    { da: 'nome (Photon)', pausa: 400, fn: () => chiediPhoton(c, [nome, comune].filter(Boolean).join(' '), true) },
+    // 2. l'indirizzo vero e proprio, campo per campo, su Nominatim
+    { da: 'via', pausa: 1100, salta: !c.via, fn: () => chiedi(new URLSearchParams({
+        format: 'json', limit: '1', countrycodes: 'it',
+        street: c.via, city: comune, postalcode: c.cap || '' }), c) },
+    // 3. Photon a testo libero: prende anche i circoli non marcati come campo da golf
+    { da: 'nome libero (Photon)', pausa: 400, fn: () => chiediPhoton(c, [nome, comune].filter(Boolean).join(' '), false) },
+    // 4. Nominatim per nome: ultima spiaggia
+    { da: 'nome', pausa: 1100, fn: () => chiedi(new URLSearchParams({
+        format: 'json', limit: '1', countrycodes: 'it',
+        q: [nome, comune].filter(Boolean).join(', ') }), c) }
+  ];
+  let ultimoGuasto = null, rispostePulite = 0, provate = 0;
+  for (const st of strade) {
+    if (st.salta) continue;
+    if (GEOFERMA) break;
+    provate++;
+    try {
+      const r = await st.fn();
+      rispostePulite++;                    // il servizio ha risposto: semplicemente non c'era
+      if (r) { r.da = st.da; return r; }
+    } catch (e) { ultimoGuasto = e; }
+    await attesa(st.pausa);
+  }
+  /* Distinzione che conta: "il servizio ha risposto e non c'e" e diverso da "il servizio
+     non ha risposto". Se nessuna strada ha risposto pulito, l'errore va propagato,
+     altrimenti il circolo verrebbe marcato "non trovato" per un guasto di rete e nessuno
+     lo cercherebbe mai piu. */
+  if (!rispostePulite && provate && ultimoGuasto) throw ultimoGuasto;
+  return null;
 }
 /* Stesso circolo, due nomi: l'elenco caneogolf usa sigle corte, il nostro elenco
    di partenza i nomi per esteso. Si tiene quello completo. */
@@ -1699,7 +1745,8 @@ function unificaDoppioni() {
   return n;
 }
 const BLOCCO = 40;
-let OSMFATTO = false;      // l'import da OpenStreetMap è già stato lanciato in questa sessione
+let OSMFATTO = false;      // l'import da OpenStreetMap e stato lanciato in questa sessione
+let OSMRESA = false;       // ...e ha davvero riportato qualcosa
 function aggiornaGeoBar() {
   const bar = document.getElementById('geobar'); if (!bar) return;
   const restano = daTrovare().length;
@@ -1707,12 +1754,14 @@ function aggiornaGeoBar() {
   bar.hidden = false;
   document.getElementById('geo-title').textContent =
     `${restano} circoli senza posizione esatta`;
-  const min = Math.ceil(Math.min(BLOCCO, restano) * 1.2 / 60);
-  document.getElementById('geo-sub').textContent = OSMFATTO
-    ? `Questi non erano su OpenStreetMap: li cerco dall'indirizzo, ${Math.min(BLOCCO, restano)} alla volta. Circa ${min} minut${min === 1 ? 'o' : 'i'}.`
-    : `Prima premi Importa qui sopra: è molto più veloce e ne sistema la gran parte. Questi ${Math.min(BLOCCO, restano)} li cerco poi a uno a uno, in circa ${min} minut${min === 1 ? 'o' : 'i'}.`;
-  document.getElementById('geo-go').textContent =
-    restano > BLOCCO ? `Cerca ${BLOCCO} indirizzi` : `Cerca gli ultimi ${restano}`;
+  const min = Math.max(1, Math.round(restano * 1.6 / 60));
+  /* OSMFATTO diceva solo "l'import e partito", non "l'import ha funzionato": con tutte
+     le zone in errore la barra affermava lo stesso che quei circoli non erano su
+     OpenStreetMap, che e falso e manda fuori strada. */
+  document.getElementById('geo-sub').textContent = OSMRESA
+    ? `Li cerco su Photon e Nominatim, uno a uno, fino in fondo. Circa ${min} minut${min === 1 ? 'o' : 'i'} — puoi fermarti quando vuoi.`
+    : `Prima prova Importa qui sopra: è molto più veloce. Se non risponde, questi li cerco a uno a uno in circa ${min} minut${min === 1 ? 'o' : 'i'}.`;
+  document.getElementById('geo-go').textContent = `Cerca ${restano} indirizzi`;
 }
 async function trovaPosizioni() {
   if (GEOINCORSO) return;
@@ -1721,18 +1770,22 @@ async function trovaPosizioni() {
     if (sub) sub.textContent = "Aspetto che finisca lo scarico da OpenStreetMap, poi parto.";
     return;
   }
-  const lista = daTrovare().slice(0, BLOCCO);
+  /* Prima si andava a blocchi di quaranta, da riavviare a mano otto volte. Adesso che
+     Photon regge un ritmo molto piu alto si va avanti da soli fino in fondo, e c'e il
+     pulsante Ferma per interrompere quando vuoi: quello che e stato trovato resta. */
+  const lista = daTrovare();
   if (!lista.length) { ARCHIVIO.geo = GEOVERSIONE; salvaLocale(); aggiornaGeoBar(); return; }
   GEOINCORSO = true; GEOFERMA = false;
   const t = document.getElementById('geo-title'), sub = document.getElementById('geo-sub');
   const go = document.getElementById('geo-go'), stop = document.getElementById('geo-stop');
   if (go) go.disabled = true;
   if (stop) { stop.hidden = false; stop.onclick = () => { GEOFERMA = true; }; }
-  let fatti = 0, vuoti = 0, errori = 0;
+  let fatti = 0, vuoti = 0, errori = 0, da = null;
   for (const c of lista) {
     if (GEOFERMA) break;
     try {
       const pos = await unIndirizzo(c);
+      da = pos ? pos.da : da;
       if (pos) {
         c.geoPrima = c.geoPrima || [c.lat, c.lon];   // il comune, per tornare indietro se sbaglia
         c.lat = pos[0]; c.lon = pos[1]; c.geo = pos.da || 'indirizzo';
@@ -1742,14 +1795,13 @@ async function trovaPosizioni() {
       errori = 0;
     } catch (e) {
       errori++;
-      if (errori >= 4) break;          // il servizio non risponde: si riprova un altro giorno
+      if (errori >= 6) break;          // nessuno dei due archivi risponde: si riprova un altro giorno
       await attesa(3000);
       continue;
     }
     if (t) t.textContent = `Cerco gli indirizzi — ${fatti + vuoti} di ${lista.length}`;
-    if (sub) sub.textContent = `${fatti} posizionati, ${vuoti} non trovati.`;
+    if (sub) sub.textContent = `${fatti} posizionati, ${vuoti} non trovati` + (da ? ` · ultimo trovato da: ${da}` : '') + '.';
     if ((fatti + vuoti) % 10 === 0) { salvaLocale(); paint(); renderSide(); }
-    await attesa(1200);
   }
   GEOINCORSO = false;
   if (!daTrovare().length) ARCHIVIO.geo = GEOVERSIONE;
@@ -1765,6 +1817,11 @@ async function trovaPosizioni() {
   }
 }
 const NOMINATIM = 'https://nominatim.openstreetmap.org/search';
+/* Secondo archivio, indipendente dal primo. Photon e di Komoot, lavora sugli stessi dati
+   OpenStreetMap ma con un server diverso e senza il limite di una richiesta al secondo.
+   Serve perche Nominatim, quando e affollato o quando l'indirizzo non esiste nei suoi
+   archivi, risponde a vuoto e il circolo resta fermo sul comune per sempre. */
+const PHOTON = 'https://photon.komoot.io/api/';
 
 /* --- import da OpenStreetMap --- */
 const SPECCHI = [
@@ -1921,6 +1978,7 @@ async function importaOSM() {
   }
   renderCircoli();
   OSMINCORSO = false; OSMFATTO = true;
+  if (fatti && !falliti.length) OSMRESA = true;
   go.disabled = false; go.textContent = 'Aggiorna';
   if (stop) stop.hidden = true;
   if (OSMFERMA) {
@@ -4091,6 +4149,26 @@ initMap();
       conVia: CLUBS.filter(c => c.via).length,
       giri: ARCHIVIO.giri.length,
       drive: TOKEN ? 'collegato' : 'non collegato',
+      /* Scrivendo GolfP.diagnosi() si vede da dove arriva ogni posizione e quanti
+         circoli sono fermi e perche: senza questo si tira a indovinare. */
+      diagnosi() {
+        const conta = f => CLUBS.filter(f).length;
+        const da = {};
+        CLUBS.forEach(c => { const k = c.osm ? 'OpenStreetMap (import)' : (c.geo || (c.daPosizionare ? 'ferma sul comune' : 'scritta nel codice')); da[k] = (da[k] || 0) + 1; });
+        return {
+          circoli: CLUBS.length,
+          posizioneEsatta: conta(c => !c.daPosizionare),
+          daPosizionare: conta(c => c.daPosizionare),
+          'di cui gia cercati a vuoto': conta(c => c.daPosizionare && c.geoVuoto),
+          'di cui senza indirizzo': conta(c => c.daPosizionare && !c.via),
+          conVia: conta(c => c.via),
+          origineDellePosizioni: da,
+          /* rimette in coda quelli dati per persi: utile dopo aver aggiunto un archivio nuovo */
+          riprova() { let n = 0; CLUBS.forEach(c => { if (c.geoVuoto) { delete c.geoVuoto; n++; } });
+            ARCHIVIO.geo = null; salvaLocale(); aggiornaGeoBar();
+            return `${n} circoli rimessi in coda: premi "Cerca indirizzi".`; }
+        };
+      },
       /* azzera tutto quello che sta in questo browser e ricarica: serve quando
          l'archivio locale è rimasto indietro rispetto al file pubblicato */
       azzera() {

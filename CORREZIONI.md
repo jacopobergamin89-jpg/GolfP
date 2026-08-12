@@ -1,4 +1,4 @@
-# GolfP r6 — pacchetto unico, 12 agosto 2026
+# GolfP r7 — pacchetto unico, 12 agosto 2026
 
 Questo documento copre tutto quello che è passato **da r1 a r6**. Le versioni intermedie non
 sono mai state pubblicate: il file `index.html` di questo pacchetto le contiene tutte.
@@ -11,6 +11,7 @@ sono mai state pubblicate: il file `index.html` di questo pacchetto le contiene 
 | r4 | scelta del circolo con ricerca |
 | r5 | solo vista satellite |
 | r6 | una sola veste chiara |
+| r7 | secondo archivio per gli indirizzi, ricerca fino in fondo, diagnosi |
 
 
 Tutte le modifiche sono state fatte con ancore testuali, mai tagliando per posizione,
@@ -248,6 +249,47 @@ un'app che ha un tema solo, senza alcun modo di tornare indietro.
 |---|---|
 | r5 | `--paper: #08211A` — scuro |
 | r6 | `--paper: #F1F3F0` — chiaro |
+
+## r7 — gli indirizzi che non si trovavano
+
+La ricerca aveva **una strada sola**: Nominatim. Prima con via, CAP e comune; poi, se
+falliva, col nome del circolo. Sempre lo stesso server. Se Nominatim rispondeva a vuoto —
+cosa normale, perché le vie di campagna spesso non sono nei suoi archivi mentre il campo da
+golf sì — il circolo veniva marcato `geoVuoto` e **non lo cercava più nessuno**.
+
+Ora le strade sono **quattro**, su **due archivi indipendenti**:
+
+1. **Photon** (Komoot), filtrato sui soli `leisure:golf_course` — la più precisa
+2. Nominatim, indirizzo campo per campo
+3. Photon a testo libero — prende anche i circoli non marcati come campo da golf
+4. Nominatim per nome — ultima spiaggia
+
+Photon lavora sugli stessi dati OpenStreetMap ma con un server diverso e senza il limite di
+una richiesta al secondo, quindi sta in prima battuta: è più veloce e regge di più.
+
+Provato simulando esattamente la tua situazione — Nominatim che risponde ma non trova nulla:
+
+| | Nominatim | Photon | posizionati |
+|---|---|---|---|
+| r6 | 50 richieste | — | **0 su 25**, e 25 marcati «non trovato» per sempre |
+| r7 | 0 | 25 | **25 su 25** |
+| r7, con anche Photon giù | 50 | 50 | 0 — ma è giusto: nessuno ha risposto |
+
+**Una distinzione che mancava.** «Il servizio ha risposto e non c'è» è diverso da «il
+servizio non ha risposto». Prima erano la stessa cosa, quindi un guasto di rete marcava il
+circolo come introvabile in modo definitivo. Ora l'errore viene propagato solo se *nessuna*
+delle quattro strade ha risposto pulito.
+
+**Niente più blocchi da 40.** Con Photon si regge un ritmo più alto: la ricerca va avanti
+fino in fondo da sola, col pulsante Ferma sempre disponibile e quello che ha trovato salvato.
+
+**`GEOVERSIONE` alzata a 3**, così i circoli scartati da Nominatim tornano in coda: sarebbe
+inutile aggiungere un archivio nuovo e non far riprovare chi era stato dato per perso.
+
+**Un messaggio che mentiva.** La barra diceva «Questi non erano su OpenStreetMap» basandosi
+su `OSMFATTO`, che significa solo «l'import è partito», non «l'import ha funzionato». Con
+tutte e nove le zone in errore affermava lo stesso quella frase, che è falsa e manda fuori
+strada. Ora c'è `OSMRESA`, vera solo se le zone sono arrivate davvero.
 
 ## Rimane da fare
 

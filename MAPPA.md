@@ -1,6 +1,6 @@
 # GolfP — mappa del progetto e istruzioni di caricamento
 
-**Pacchetto unico r6** — contiene tutto quello che è passato da r1 a r6. Le versioni
+**Pacchetto unico r7** — contiene tutto quello che è passato da r1 a r7. Le versioni
 intermedie non sono mai andate online: **non devi caricare niente prima, questo basta.**
 
 Contiene **solo i file cambiati** rispetto al repository di partenza. Tutto il resto
@@ -52,6 +52,7 @@ GolfP/                              ← la radice del repository
 | **r4** | Scelta del circolo con ricerca al posto delle tendine da 353 voci, in tutti e tre i punti. |
 | **r5** | Solo vista satellite, con ripiego su Esri quando MapTiler non risponde (prima la mappa sarebbe restata nera). |
 | **r6** | Una sola veste chiara: tolti i temi Carta e Notte, colori invariati. |
+| **r7** | **Photon** come secondo archivio per gli indirizzi, accanto a Nominatim. La ricerca va fino in fondo invece di fermarsi ogni 40. `GolfP.diagnosi()` per capire dove sono fermi i circoli. |
 
 Il dettaglio di ogni correzione, con i confronti prima/dopo, è in `CORREZIONI.md`.
 
@@ -94,13 +95,13 @@ in cache e senza il ricaricamento forzato vedresti ancora la versione vecchia.
 Apri la console (Cmd+Alt+J) e la prima riga te lo dice da sola:
 
 ```
-GolfP r6  ·  2026-08-12  ·  353 circoli
+GolfP r7  ·  2026-08-12  ·  353 circoli
 ```
 
 Per i dettagli, scrivi `GolfP` e invio:
 
 ```
-release             6
+release             7
 data                2026-08-12
 elencoVersione      2026-08-12-mirabell
 posizioniVersione   null
@@ -113,7 +114,7 @@ azzera()            cancella l'archivio locale di questo browser e ricarica
 ```
 
 Sul telefono, dove la console non c'è, il numero è in fondo alla colonna di sinistra,
-sotto l'handicap index: **r6**.
+sotto l'handicap index: **r7**.
 
 **Se non vedi nessuna riga `GolfP r…` in console, stai girando la versione vecchia.**
 
@@ -125,10 +126,10 @@ circolo mostra la **mappa satellitare col tracciato del percorso**.
 
 `RELEASE` sta in due punti e devono restare uguali:
 
-- `index.html`, in cima allo script: `const RELEASE = 6;`
-- `sw.js`, in cima: `const RELEASE = 6;`
+- `index.html`, in cima allo script: `const RELEASE = 7;`
+- `sw.js`, in cima: `const RELEASE = 7;`
 
-In `sw.js` il numero dà il nome alla cache (`golfp-r6`): alzandolo, la copia vecchia viene
+In `sw.js` il numero dà il nome alla cache (`golfp-r7`): alzandolo, la copia vecchia viene
 buttata da sola all'attivazione e non serve più il Cmd+Shift+R a mano.
 
 ### Se il browser resta indietro
@@ -195,6 +196,23 @@ In alternativa, senza scrivere niente: DevTools → **Application** → **Storag
 
 Non perdi niente: `GIOCATI 0` e `GIRI 0`, non c'è nessun giro registrato in quel browser.
 Se in futuro ne avrai, collega prima il Drive.
+
+**4-quater. Se gli indirizzi non si trovano lo stesso.** In console:
+
+```js
+GolfP.diagnosi()
+```
+
+Dice quanti circoli hanno la posizione esatta, quanti sono fermi sul comune, quanti erano
+già stati cercati a vuoto, e **da dove arriva ogni posizione**. Se `origineDellePosizioni`
+mostra pochissimi «OpenStreetMap (import)», l'import non sta trovando niente e il problema
+è lì, non nella ricerca degli indirizzi.
+
+Per rimettere in coda quelli dati per persi:
+
+```js
+GolfP.diagnosi().riprova()
+```
 
 **4-ter. Se Overpass dice sempre «occupato».** Da r3 l'import è molto più paziente:
 sette server invece di quattro, nove zone piccole invece di cinque grandi, e quando sono
