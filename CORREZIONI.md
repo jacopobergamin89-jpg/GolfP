@@ -1,4 +1,4 @@
-# GolfP r8 — pacchetto unico, 12 agosto 2026
+# GolfP r10 — pacchetto unico, 12 agosto 2026
 
 Questo documento copre tutto quello che è passato **da r1 a r6**. Le versioni intermedie non
 sono mai state pubblicate: il file `index.html` di questo pacchetto le contiene tutte.
@@ -13,6 +13,8 @@ sono mai state pubblicate: il file `index.html` di questo pacchetto le contiene 
 | r6 | una sola veste chiara |
 | r7 | secondo archivio per gli indirizzi, ricerca fino in fondo, diagnosi |
 | r8 | specchi Overpass provati e sfoltiti, ricerca indirizzi come strada principale |
+| r9 | posizioni cotte nel file, `lang=it` rimosso |
+| r10 | tre stati del segnaposto, gestione dei non trovati, mirino evidente |
 
 
 Tutte le modifiche sono state fatte con ancore testuali, mai tagliando per posizione,
@@ -323,6 +325,95 @@ indistinguibile da un archivio che non risponde — eppure sono due guasti oppos
 curano in modo opposto. Ora c'è un contatore: `GolfP.diagnosi().ricercaIndirizzi` dice
 quante risposte sono arrivate, quante accettate, quante scartate perché troppo lontane e
 quanti guasti di rete. E alla fine della ricerca compare un resoconto in console.
+
+## r9 — il difetto vero, e le posizioni dentro il file
+
+### `lang=it`
+
+Ogni chiamata a Photon partiva così:
+
+```
+https://photon.komoot.io/api/?q=...&limit=3&lang=it&lat=..&lon=..&osm_tag=...   → 400
+```
+
+L'istanza pubblica di Komoot accetta un elenco chiuso di lingue e su una non prevista
+**rifiuta l'intera richiesta**. Il parametro l'ho aggiunto io in r7 senza poterlo provare, e
+in r8 ho continuato a lavorare sopra credendo che quella strada funzionasse. Su una corsa
+reale ha prodotto **150 guasti di rete** e Photon non ha contribuito **niente**: i 68
+circoli posizionati venivano tutti da Nominatim.
+
+Isolato con quattro chiamate a confronto, dal browser:
+
+| | esito |
+|---|---|
+| forma minima | **200**, 1 risultato |
+| con `osm_tag` | **200**, 1 risultato |
+| con `lang=it` | **400** |
+| `lang` + `osm_tag` | **400** |
+
+Una sola variabile cambia l'esito. Rimosso. Verificato ispezionando l'URL che l'app manda
+davvero: `?q=...&limit=3&lat=..&lon=..&osm_tag=leisure%3Agolf_course` — niente `lang`.
+
+### Le 165 posizioni
+
+Ottenute da Photon nel browser di Jacopo: **184 trovate su 218 cercate**. Prima di
+innestarle ho scartato:
+
+- **3** oltre 20 km dal comune (A.S.D. Golf Club Friuli a 47 km, Madonna di Campiglio a 21,
+  Casal Palocco a 21)
+- **16** appartenenti a **8 coppie di circoli diversi finiti sulla stessa identica
+  coordinata** — Aosta Brissogne ≡ Valle d'Aosta, La Castelluccia ≡ Talenti, Florinas ≡
+  Sassari e altre cinque. Una delle due è sbagliata e non si sa quale.
+
+Restano **165 verificate**. Una posizione sbagliata cotta nel codice è peggio di una
+mancante: quelle scartate restano provvisorie e si mettono a mano col mirino ⌖.
+
+| | fresco | sul dispositivo di Jacopo |
+|---|---|---|
+| segnaposto "?" prima | 287 | 186 |
+| segnaposto "?" dopo | **122** | **circa 21** |
+
+Controllato inoltre: 0 voci senza circolo corrispondente, 0 coordinate fuori dai confini
+italiani, 0 errori a runtime.
+
+## r10 — quello che mancava alla gestione
+
+Tre cose chieste esplicitamente e mai fatte.
+
+**1. I non trovati sparivano.** Venivano marcati `geoVuoto`, uscivano dalla coda `daTrovare()`
+e restavano visibili solo mescolati agli altri 286 nel filtro «⌖ Da posizionare». Nessun modo
+di vederli, riprovarli o toglierli. Ora c'è il filtro **«❓ Non trovati»** e ogni riga ha
+**↻ Riprova**, **⌖ Posiziona**, **✗ Elimina**. `riprovaUno()` rimette in coda un singolo
+circolo senza rifare tutte le altre ricerche.
+
+**2. Il salvataggio ogni dieci circoli.** La ricerca dura minuti e vive solo nella memoria del
+browser: chiudere la scheda costava fino a nove risultati. Ora salva a ogni circolo.
+
+**3. Provvisorio e automatico erano indistinguibili.** Ora tre stati: **?** rosso = centro del
+comune, **~** giallo = trovata in automatico non confermata, **pallino verde** = confermata da
+te o presa da OpenStreetMap.
+
+E il mirino ⌖ ha una modalità evidente — cornice rossa sulla mappa, riquadro con il nome del
+circolo e un pulsante **Annulla** — più una conferma verde dopo il salvataggio. Prima diceva
+solo «tocca la club house» e chi non aveva capito di essere in una modalità si chiedeva perché
+i clic non aprissero più i circoli.
+
+### Provato davvero, non solo letto
+
+Non basta che il codice sembri giusto. Il percorso completo, in jsdom con MapLibre simulato:
+
+```
+tre stati                118 provvisori · 163 automatici · 0 confermati
+filtro Non trovati       6 righe su 6, con 6 Riprova / 6 Posiziona / 6 Elimina
+Riprova                  geoVuoto rimosso, torna in coda        OK
+mirino: modalita         cornice attiva, pulsante Annulla       OK
+mirino: clic             posizione applicata, posizioneCorretta OK
+mirino: DOPO RICARICA    resta a 44.1234, 11.5678, confermata   OK
+salvataggio              a ogni circolo                         OK
+```
+
+La riga che conta è la penultima: **dopo aver ricaricato la pagina il segnaposto resta dove
+l'hai messo**, e non torna "?".
 
 ## Rimane da fare
 

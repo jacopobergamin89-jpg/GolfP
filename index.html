@@ -303,6 +303,13 @@ body.no-side .side{display:none}
   background:var(--card);color:var(--ink-2);font-size:13px}
 body.no-side .sidetab{display:block}
 .mapwrap.mira{cursor:crosshair}
+.mapwrap.mira::after{content:"";position:absolute;inset:0;z-index:5;pointer-events:none;
+  box-shadow:inset 0 0 0 3px var(--flag)}
+.mira-nota button{margin-left:12px;background:rgba(255,255,255,.22);border-radius:100px;padding:3px 12px;color:#fff;font-size:12px}
+.mira-fatto{position:absolute;left:50%;top:14px;transform:translateX(-50%);z-index:7;background:var(--fair);
+  color:#fff;padding:10px 18px;border-radius:100px;font-weight:600;font-size:13.5px;
+  animation:svanisci 2.4s ease-out forwards}
+@keyframes svanisci{0%,70%{opacity:1}100%{opacity:0}}
 .mira-nota{position:absolute;left:50%;top:14px;transform:translateX(-50%);z-index:6;background:var(--flag);
   color:#fff;border-radius:100px;padding:8px 16px;font-size:12.5px;box-shadow:0 4px 14px rgba(0,0,0,.25)}
 
@@ -454,7 +461,17 @@ h1,h2,h3{font-family:var(--disp);font-weight:800;letter-spacing:-.03em;text-tran
 .mk.sel::after{content:"";position:absolute;left:50%;bottom:0;width:16px;height:16px;transform:translateX(-50%);
   border-radius:50%;border:3px solid var(--fair);animation:onda 1.9s ease-out infinite}
 .mk.wish.sel::after{border-color:var(--flag)}
-.mk.vago{opacity:.6}
+/* Tre stati, non due. Prima "provvisorio" e "trovato in automatico" si somigliavano
+   troppo, e a colpo d'occhio non si capiva se un segnaposto fosse la club house vera
+   o il centro del comune. */
+.azioni-vuoto{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 2px}
+.btn.mini{padding:5px 10px;font-size:12px;border-radius:100px}
+.btn.mini.danger{color:var(--flag)}
+.mk.vago{opacity:.55}
+.mk.auto::before{content:"~";position:absolute;top:-5px;right:-5px;width:14px;height:14px;border-radius:50%;
+  background:var(--sand);color:#fff;font-size:11px;font-weight:700;display:grid;place-items:center;line-height:1;z-index:2}
+.mk.certo::before{content:"";position:absolute;top:-4px;right:-4px;width:9px;height:9px;border-radius:50%;
+  background:var(--fair);border:2px solid #fff;z-index:2}
 .mk.chiuso{opacity:.45;filter:grayscale(1)}
 .mk.chiuso::before{content:"×";position:absolute;top:-5px;right:-5px;width:14px;height:14px;border-radius:50%;
   background:var(--ink-3);color:#fff;font-size:11px;font-weight:700;display:grid;place-items:center;line-height:1;z-index:2}
@@ -547,6 +564,7 @@ h1,h2,h3{font-family:var(--disp);font-weight:800;letter-spacing:-.03em;text-tran
           <button class="chip" id="cir-elenco" style="background:var(--lime);color:var(--deep)">🏴 Elenco circoli</button>
           <button class="chip" id="cir-percorsi" aria-pressed="false">⛳ Solo percorsi</button>
           <button class="chip" data-f="daposizionare" aria-pressed="false">⌖ Da posizionare</button>
+          <button class="chip" data-f="nontrovati" aria-pressed="false">❓ Non trovati</button>
           <button class="chip" id="cir-import">↥ Importa elenco</button>
           <button class="chip" data-f="tutti" aria-pressed="true">Tutti</button>
           <button class="chip" data-f="giocati" aria-pressed="false">Giocati</button>
@@ -642,9 +660,9 @@ h1,h2,h3{font-family:var(--disp);font-weight:800;letter-spacing:-.03em;text-tran
    Va alzato SEMPRE, anche per una modifica di una riga. Se resta uguale,
    la cache del service worker e il numero non litigano e non si capisce piu niente.
    ========================================================================== */
-const RELEASE = 8;
+const RELEASE = 10;
 const RELEASE_DATA = '2026-08-12';
-const RELEASE_NOTE = 'r7 + tolti gli specchi Overpass irraggiungibili dal browser, conteggi visibili sulla ricerca indirizzi';
+const RELEASE_NOTE = 'r9 + tre stati del segnaposto, filtro Non trovati con riprova/posiziona/elimina, mirino evidente, salvataggio a ogni circolo';
 const W = 10000, VW = 1000, VH = 560;
 const merc = (lon, lat) => {
   lat = Math.max(Math.min(lat, 84), -84);
@@ -800,8 +818,13 @@ function geo() {
 }
 function bandierina(c, scelto) {
   const el = document.createElement('div');
+  /* "?" rosso = sta sul comune - "~" giallo = trovata in automatico, non confermata
+     - pallino verde = confermata da te col mirino, oppure presa da OpenStreetMap */
   el.className = 'mk ' + (c.wish ? 'wish' : 'play') + (scelto ? ' sel' : '')
-    + (c.chiuso ? ' chiuso' : c.daPosizionare ? ' vago' : '');
+    + (c.chiuso ? ' chiuso'
+       : c.daPosizionare ? ' vago'
+       : (c.posizioneCorretta || c.osm) ? ' certo'
+       : c.geo ? ' auto' : '');
   el.title = c.n;
   el.innerHTML = c.wish
     ? `<svg viewBox="0 0 26 30" width="22" height="26">
@@ -1665,7 +1688,10 @@ async function chiedi(p, c) {
    soli campi da golf: e proprio quello che serve quando la via di campagna non esiste
    negli archivi ma il circolo si. */
 async function chiediPhoton(c, testo, soloGolf) {
-  const p = new URLSearchParams({ q: testo, limit: '3', lang: 'it' });
+  /* lang=it faceva rispondere 400 a OGNI chiamata: verificato dal browser il 12 agosto.
+     L'istanza pubblica di Photon accetta un elenco chiuso di lingue e su una non prevista
+     rifiuta l'intera richiesta. Senza, risponde 200. */
+  const p = new URLSearchParams({ q: testo, limit: '3' });
   if (isFinite(c.lat) && isFinite(c.lon)) { p.set('lat', c.lat.toFixed(4)); p.set('lon', c.lon.toFixed(4)); }
   if (soloGolf) p.set('osm_tag', 'leisure:golf_course');
   const r = await fetch(PHOTON + '?' + p, { headers: { 'Accept': 'application/json' } });
@@ -1814,7 +1840,10 @@ async function trovaPosizioni() {
     }
     if (t) t.textContent = `Cerco gli indirizzi — ${fatti + vuoti} di ${lista.length}`;
     if (sub) sub.textContent = `${fatti} posizionati, ${vuoti} non trovati` + (da ? ` · ultimo trovato da: ${da}` : '') + '.';
-    if ((fatti + vuoti) % 10 === 0) { salvaLocale(); paint(); renderSide(); }
+    /* Ogni circolo, non ogni dieci: la ricerca dura minuti e finisce solo nella memoria
+       di questo browser. Perdere gli ultimi nove per una scheda chiusa e evitabile. */
+    salvaLocale();
+    if ((fatti + vuoti) % 10 === 0) { paint(); renderSide(); }
   }
   GEOINCORSO = false;
   console.log(`GolfP — ricerca indirizzi: ${fatti} posizionati, ${vuoti} non trovati, `
@@ -2149,6 +2178,11 @@ function clubRow(c) {
         : c.posizioneCorretta ? 'posizione confermata da te'
         : c.osm ? 'posizione da OpenStreetMap'
         : c.geo ? 'posizione dal ' + (c.geo === 'nome' ? 'nome' : "l'indirizzo") : ''].filter(Boolean).join(' · ')}</div></div>
+    ${c.geoVuoto ? `<div class="azioni-vuoto">
+      <button class="btn ghost mini" data-riprova="${c.id}" title="Rimettilo in coda">↻ Riprova</button>
+      <button class="btn ghost mini" data-mira="${c.id}" title="Mettilo a mano sulla mappa">⌖ Posiziona</button>
+      <button class="btn ghost mini danger" data-togli="${c.id}" title="Togli dall'elenco">✗ Elimina</button>
+    </div>` : ''}
     <div class="sc">${c.wish ? '<span style="color:var(--sand)">In lista</span>'
       : (() => { const gg = giriDi(c.id);
           return gg.length ? `<b>${Math.min(...gg.map(g => g.totali.lordo))}</b><span>${gg.length} gir${gg.length === 1 ? 'o' : 'i'}</span>`
@@ -2201,7 +2235,10 @@ function miraPosizione(id) {
   document.querySelector('.mapwrap').classList.add('mira');
   let n = document.querySelector('.mira-nota');
   if (!n) { n = document.createElement('div'); n.className = 'mira-nota'; document.querySelector('.mapwrap').appendChild(n); }
-  n.textContent = `Tocca la club house di ${CLUBS[id].n} — Esc per annullare`;
+  /* Prima diceva solo "tocca la club house". Chi non aveva capito di essere in una
+     modalita restava a chiedersi perche i clic sulla mappa non aprissero piu i circoli. */
+  n.innerHTML = `<b>Posizionamento manuale</b> — cerca ${CLUBS[id].n} e tocca la club house`
+    + `<button type="button" onclick="fineMira()">Annulla</button>`;
 }
 function fineMira() {
   MIRA = null;
@@ -2220,8 +2257,14 @@ function collegaMirino() {
     c.geoPrima = c.geoPrima || [c.lat, c.lon];
     c.lat = +e.lngLat.lat.toFixed(6); c.lon = +e.lngLat.lng.toFixed(6);
     c.posizioneCorretta = true;          // da qui in poi nessun import lo sposta
-    delete c.daPosizionare; delete c.geoVuoto;
+    delete c.daPosizionare; delete c.geoVuoto; delete c.rifiutato;
+    const nome = c.n;
     fineMira();
+    const ok = document.createElement('div');
+    ok.className = 'mira-fatto';
+    ok.textContent = `✓ ${nome}: posizione salvata`;
+    document.querySelector('.mapwrap').appendChild(ok);
+    setTimeout(() => ok.remove(), 2500);
     salvaTutto(); paint(); renderSide(); renderCircoli(); aggiornaGeoBar();
   });
 }
@@ -2249,6 +2292,12 @@ function aggiornaContatori() {
 
 /* --- comandi --- */
 document.addEventListener('click', e => {
+  const rip = e.target.closest('[data-riprova]');
+  if (rip) { e.stopPropagation(); riprovaUno(+rip.dataset.riprova); return; }
+  const mir = e.target.closest('[data-mira]');
+  if (mir) { e.stopPropagation(); go('mappa'); select(+mir.dataset.mira); miraPosizione(+mir.dataset.mira); return; }
+  const tog = e.target.closest('[data-togli]');
+  if (tog) { e.stopPropagation(); eliminaCircolo(+tog.dataset.togli); return; }
   const nq = e.target.closest('[data-nonqui]');
   if (nq) { e.stopPropagation(); nonEQui(+nq.dataset.nonqui); return; }
   const o = e.target.closest('[data-open]');
@@ -2259,6 +2308,14 @@ document.addEventListener('click', e => {
 /* "Non è qui": annulla una posizione trovata in automatico. Torna sul comune,
    rimette il punto interrogativo e non la ricerca più: se il servizio ha già
    sbagliato una volta, rifarglielo fare darebbe lo stesso risultato. */
+/* Rimette in coda un solo circolo, non tutti: dopo aver corretto un difetto della
+   ricerca ha senso riprovare quello che interessa senza rifare trecento chiamate. */
+function riprovaUno(id) {
+  const c = CLUBS[id]; if (!c) return;
+  delete c.geoVuoto; delete c.rifiutato;
+  ARCHIVIO.geo = null;
+  salvaTutto(); renderCircoli(); aggiornaGeoBar();
+}
 function nonEQui(id) {
   const c = CLUBS[id]; if (!c) return;
   if (c.geoPrima) { c.lat = c.geoPrima[0]; c.lon = c.geoPrima[1]; }
@@ -2358,6 +2415,9 @@ function renderCircoli() {
   let list = CLUBS.filter(c => {
     if (!passaFiltri(c)) return false;
     if (cirF === 'daposizionare' && !c.daPosizionare) return false;
+    /* I cercati a vuoto uscivano dalla coda e sparivano dalla gestione: restavano
+       visibili solo mescolati agli altri, senza modo di riprovarli o toglierli. */
+    if (cirF === 'nontrovati' && !c.geoVuoto) return false;
     if (cirF === 'giocati' && c.wish) return false;
     if (cirF === 'lista' && !c.wish) return false;
     if (cirF === 'italia' && c.p !== 'Italia') return false;
@@ -4016,8 +4076,173 @@ function azione(k) {
    Formato: "Nome circolo": [lat, lon, "via civico"|null, "cap"|null, buche|null]
    Autorita: il mirino ⌖ e il "Non e qui" restano sopra, e non vengono toccati. */
 /* <<< POSIZIONI-INIZIO --- da qui a POSIZIONI-FINE riscrive lo script: non modificare a mano */
-const POSIZIONI_VERSIONE = null;    // lo script ci mette la data di generazione
+const POSIZIONI_VERSIONE = '2026-08-12-photon-165';
 const POSIZIONI = {
+  "Abano": [45.364414, 11.796149, null, null, null],   // photon-golf, 0.8 km dal comune
+  "Abbadia": [43.424049, 11.142872, null, null, null],   // photon-golf, 2.0 km dal comune
+  "Acaya": [40.344915, 18.316286, null, null, null],   // photon-golf, 6.4 km dal comune
+  "Alisei Pietrasanta": [43.932383, 10.225649, null, null, null],   // photon-golf, 3.0 km dal comune
+  "Alpe della Luna": [43.624802, 12.227985, null, null, null],   // photon, 6.5 km dal comune
+  "Alpino": [45.866880, 8.517533, null, null, null],   // photon-golf, 2.6 km dal comune
+  "Alta Badia": [46.539555, 11.887430, null, null, null],   // photon-golf, 1.8 km dal comune
+  "Altogarda": [45.906060, 10.862888, null, null, null],   // photon, 3.0 km dal comune
+  "Ancora": [45.627224, 12.463749, null, null, null],   // nominatim-via, 1.3 km dal comune
+  "Antognolla": [43.230725, 12.340325, null, null, null],   // photon-golf, 14.3 km dal comune
+  "Aosta Arsanieres": [45.789023, 7.292179, null, null, null],   // photon-golf, 1.2 km dal comune
+  "Appiano - Golf & Country": [46.410080, 11.595109, null, null, null],   // nominatim-via, 5.1 km dal comune
+  "Archi di Claudio": [41.842289, 12.563862, null, null, null],   // photon-golf, 8.7 km dal comune
+  "Argenta": [44.632355, 11.806543, null, null, null],   // photon-golf, 3.1 km dal comune
+  "Asiago": [45.854827, 11.536550, null, null, null],   // nominatim-via, 3.1 km dal comune
+  "Assisi": [43.071195, 12.614667, null, null, null],   // photon, 0.1 km dal comune
+  "Barialto": [40.986479, 16.908891, null, null, null],   // photon-golf, 3.5 km dal comune
+  "Bat Fly": [41.343736, 16.213567, null, null, null],   // photon, 6.0 km dal comune
+  "Bee Golf": [45.587161, 9.237590, null, null, null],   // photon-golf, 2.9 km dal comune
+  "Bellosguardo": [43.761504, 10.922049, null, null, null],   // photon-golf, 2.9 km dal comune
+  "Borgo Machetto Desenzano C. Club": [45.449499, 10.541411, null, null, null],   // photon-golf, 2.1 km dal comune
+  "Bosco": [45.786149, 12.508337, null, null, null],   // photon-golf, 1.3 km dal comune
+  "Break Point": [46.070187, 11.227312, null, null, null],   // photon-golf, 1.5 km dal comune
+  "Brolo": [45.770450, 11.727139, null, null, null],   // nominatim-via, 0.7 km dal comune
+  "CUS Ferrara": [44.854712, 11.626919, null, null, null],   // photon-golf, 2.2 km dal comune
+  "CUS Parma": [44.767750, 10.306930, null, null, null],   // photon-golf, 4.1 km dal comune
+  "Ca' Amata": [45.694743, 11.939094, null, null, null],   // photon-golf, 2.8 km dal comune
+  "Ca' Vendri": [45.394970, 10.819580, null, null, null],   // photon-golf, 14.4 km dal comune
+  "Caorle": [45.575702, 12.812250, null, null, null],   // photon-golf, 6.4 km dal comune
+  "Capanne": [43.251709, 10.554019, null, null, null],   // photon-golf, 4.1 km dal comune
+  "Casalunga": [44.496009, 11.460596, null, null, null],   // photon-golf, 1.6 km dal comune
+  "Casentino": [43.708708, 11.762802, null, null, null],   // photon-golf, 1.8 km dal comune
+  "Cassino": [41.475871, 13.808944, null, null, null],   // nominatim-via, 2.6 km dal comune
+  "Castello": [42.972561, 12.374997, null, null, null],   // photon, 7.5 km dal comune
+  "Cervino": [45.932849, 7.625889, null, null, null],   // photon-golf, 6.2 km dal comune
+  "Cingoli": [43.373841, 13.216313, null, null, null],   // photon, 0.1 km dal comune
+  "Circolo Golf Rapallo": [44.352499, 9.211239, null, null, null],   // photon-golf, 1.0 km dal comune
+  "Città d'Asti": [44.899829, 8.204694, null, null, null],   // photon, 0.1 km dal comune
+  "Club Giardino": [44.800138, 10.901615, null, null, null],   // nominatim-via, 2.3 km dal comune
+  "Colli Euganei": [45.407401, 11.676407, null, null, null],   // nominatim-via, 1.3 km dal comune
+  "Conero": [43.511884, 13.585689, null, null, null],   // photon-golf, 2.9 km dal comune
+  "Continental Verbania": [45.946599, 8.475062, null, null, null],   // photon-golf, 6.5 km dal comune
+  "Cortina": [46.522162, 12.150361, null, null, null],   // photon-golf, 1.9 km dal comune
+  "Cosmopolitan": [43.624531, 10.306040, null, null, null],   // photon-golf, 12.7 km dal comune
+  "Courmayeur": [45.837559, 7.004485, null, null, null],   // photon-golf, 5.6 km dal comune
+  "Croara": [44.925309, 9.585477, null, null, null],   // photon-golf, 4.8 km dal comune
+  "Ducato": [44.707246, 10.219190, null, null, null],   // photon-golf, 1.2 km dal comune
+  "Easy Golf": [45.433255, 10.957244, null, null, null],   // photon-golf, 2.9 km dal comune
+  "Faenza Cicogne": [44.292343, 11.854324, null, null, null],   // photon-golf, 2.4 km dal comune
+  "Filanda Golf Club": [44.343248, 8.497408, null, null, null],   // photon-golf, 0.9 km dal comune
+  "Fioranello": [41.775376, 12.577968, null, null, null],   // photon-golf, 15.2 km dal comune
+  "Fiuggi 1928": [41.777636, 13.223626, null, null, null],   // photon-golf, 3.0 km dal comune
+  "Folgaria": [45.915659, 11.206802, null, null, null],   // photon-golf, 2.8 km dal comune
+  "Forte dei Marmi": [43.982787, 10.181690, null, null, null],   // nominatim-via, 4.5 km dal comune
+  "Frassanelle": [45.381757, 11.672000, null, null, null],   // photon-golf, 1.6 km dal comune
+  "GGZ - Zerman": [45.576075, 12.264886, null, null, null],   // photon-golf, 2.7 km dal comune
+  "Garfagnana": [44.132270, 10.410797, null, null, null],   // photon, 0.2 km dal comune
+  "Globale Jesolo": [45.504573, 12.609194, null, null, null],   // photon-golf, 3.9 km dal comune
+  "Golf Club Bogliaco": [45.662127, 10.636833, null, null, null],   // photon-golf, 3.3 km dal comune
+  "Golf Club Castello di Tolcinasco": [45.364051, 9.186834, null, null, null],   // photon, 1.7 km dal comune
+  "Golf Club Centanni": [43.743354, 11.331626, null, null, null],   // photon-golf, 1.7 km dal comune
+  "Golf Cri Cri Rivisondoli": [41.862798, 14.075428, null, null, null],   // photon-golf, 3.6 km dal comune
+  "Golf Feudo di Asti": [44.955540, 8.127811, null, null, null],   // photon-golf, 3.8 km dal comune
+  "Golf Parco dei Colli": [45.698917, 9.625103, null, null, null],   // photon-golf, 3.4 km dal comune
+  "Gressoney": [45.784188, 7.824128, null, null, null],   // photon-golf, 0.8 km dal comune
+  "Gubbio": [43.322004, 12.602367, null, null, null],   // nominatim-via, 4.0 km dal comune
+  "Imola Zolino": [44.367700, 11.695318, null, null, null],   // photon-golf, 2.2 km dal comune
+  "Is Molas": [39.004131, 8.963941, null, null, null],   // photon-golf, 3.3 km dal comune
+  "Lamborghini": [43.056262, 12.102776, null, null, null],   // photon-golf, 3.0 km dal comune
+  "Lana": [46.591258, 11.167326, null, null, null],   // photon-golf, 3.2 km dal comune
+  "Lauri": [43.056884, 13.779329, null, null, null],   // photon-golf, 2.4 km dal comune
+  "Limone": [44.193432, 7.582724, null, null, null],   // photon, 1.0 km dal comune
+  "Livorno": [43.511284, 10.321981, null, null, null],   // photon-golf, 4.7 km dal comune
+  "Mandria": [45.134068, 7.597949, null, null, null],   // photon-golf, 1.7 km dal comune
+  "Mantova Golf Club": [45.113795, 10.689528, null, null, null],   // photon-golf, 4.3 km dal comune
+  "Marco Polo": [45.970467, 12.313531, null, null, null],   // photon, 2.5 km dal comune
+  "Mare di Roma": [41.599324, 12.497214, null, null, null],   // photon-golf, 4.2 km dal comune
+  "Margherita": [44.943238, 7.813348, null, null, null],   // photon, 3.4 km dal comune
+  "Marina Velka": [42.256327, 11.697149, null, null, null],   // photon, 5.0 km dal comune
+  "Miniere": [43.534725, 11.480715, null, null, null],   // photon-golf, 1.4 km dal comune
+  "Molino Pero": [44.275373, 11.287308, null, null, null],   // photon-golf, 1.3 km dal comune
+  "Montebelluna": [45.798634, 12.034761, null, null, null],   // nominatim-via, 2.6 km dal comune
+  "Montecatini Terme": [43.879297, 10.780721, null, null, null],   // photon, 2.8 km dal comune
+  "Montegiove": [43.826045, 12.990314, null, null, null],   // photon, 3.0 km dal comune
+  "Montelupo": [43.737649, 10.990200, null, null, null],   // photon-golf, 2.6 km dal comune
+  "Monteveglio": [44.445214, 11.092272, null, null, null],   // photon-golf, 6.5 km dal comune
+  "Musella": [45.426898, 11.086739, null, null, null],   // photon-golf, 0.7 km dal comune
+  "Nazionale": [42.208993, 12.287875, null, null, null],   // photon-golf, 6.4 km dal comune
+  "Noghere": [45.839306, 12.305334, null, null, null],   // nominatim-via, 2.0 km dal comune
+  "Oasi di Magliano-Fiordalisi": [44.172781, 12.077678, null, null, null],   // nominatim-via, 6.3 km dal comune
+  "Padova": [45.290573, 11.764253, null, null, null],   // photon-golf, 3.5 km dal comune
+  "Palermo": [38.148280, 13.348017, null, null, null],   // photon-golf, 3.8 km dal comune
+  "Paolillo Golf Players": [45.726815, 11.418044, null, null, null],   // nominatim-via, 2.6 km dal comune
+  "Paradiso": [45.426030, 10.712421, null, null, null],   // photon-golf, 2.2 km dal comune
+  "Parco Firenze": [43.784784, 11.202120, null, null, null],   // photon-golf, 4.7 km dal comune
+  "Parco di Roma": [41.968036, 12.471986, null, null, null],   // photon-golf, 8.4 km dal comune
+  "Passiria Merano": [46.772661, 11.226650, null, null, null],   // photon-golf, 4.5 km dal comune
+  "Passo Monte Croce": [46.655841, 12.419847, null, null, null],   // nominatim-via, 7.4 km dal comune
+  "Pavoniere": [43.839484, 11.053847, null, null, null],   // photon-golf, 5.7 km dal comune
+  "Perugia": [43.084316, 12.317678, null, null, null],   // photon-golf, 6.2 km dal comune
+  "Pevero": [41.099357, 9.542911, null, null, null],   // photon-golf, 13.1 km dal comune
+  "Pian Colle": [45.048517, 6.669193, null, null, null],   // photon-golf, 4.3 km dal comune
+  "Pinerolo - Pragelato": [44.995050, 6.924146, null, null, null],   // photon-golf, 2.8 km dal comune
+  "Poggio dei Medici": [43.992011, 11.334694, null, null, null],   // photon-golf, 1.8 km dal comune
+  "Poli Golf": [44.541218, 10.903838, null, null, null],   // photon-golf, 11.8 km dal comune
+  "Ponte Cervo": [45.598542, 8.053766, null, null, null],   // photon, 3.6 km dal comune
+  "Prato Nevoso": [44.253276, 7.783975, null, null, null],   // photon-golf, 5.5 km dal comune
+  "Primule": [45.271060, 7.954974, null, null, null],   // photon-golf, 3.4 km dal comune
+  "Puntaldia": [40.810228, 9.690172, null, null, null],   // photon-golf, 4.6 km dal comune
+  "Pustertal": [46.777990, 11.932168, null, null, null],   // photon-golf, 2.2 km dal comune
+  "Quarrata": [43.880574, 10.978827, null, null, null],   // photon-golf, 3.7 km dal comune
+  "Quellenhof": [46.744393, 11.205831, null, null, null],   // photon-golf, 4.5 km dal comune
+  "Rendena": [46.127984, 10.758779, null, null, null],   // photon-golf, 1.1 km dal comune
+  "Rieti": [42.430850, 12.883608, null, null, null],   // photon-golf, 3.4 km dal comune
+  "Rimini Verucchio": [44.021808, 12.425084, null, null, null],   // photon-golf, 4.2 km dal comune
+  "Riva Toscana": [42.941372, 10.727892, null, null, null],   // photon-golf, 3.3 km dal comune
+  "Romita": [42.571914, 12.692802, null, null, null],   // photon, 4.0 km dal comune
+  "Roncegno": [46.045969, 11.422242, null, null, null],   // photon-golf, 1.1 km dal comune
+  "Rovereto": [45.863547, 11.012585, null, null, null],   // nominatim-via, 3.6 km dal comune
+  "Rovigo": [45.034996, 11.821161, null, null, null],   // nominatim-via, 4.7 km dal comune
+  "Salsomaggiore Terme": [44.780782, 9.943260, null, null, null],   // photon-golf, 4.8 km dal comune
+  "Saluzzo": [44.639502, 7.449664, null, null, null],   // photon-golf, 3.4 km dal comune
+  "San Domenico - Egnazia": [40.877112, 17.400947, null, null, null],   // photon-golf, 5.9 km dal comune
+  "San Giovanni": [45.406590, 7.772917, null, null, null],   // nominatim-via, 1.9 km dal comune
+  "San Valentino": [44.534030, 10.689721, null, null, null],   // photon-golf, 4.2 km dal comune
+  "Sant'Andrea Golf Club": [38.622582, 16.528307, null, null, null],   // photon, 11.2 km dal comune
+  "Santa Maria Maggiore": [46.129972, 8.450427, null, null, null],   // photon-golf, 1.4 km dal comune
+  "Santo Stefano Golf": [44.832508, 10.772960, null, null, null],   // photon-golf, 1.5 km dal comune
+  "Saturnia": [42.651305, 11.521492, null, null, null],   // photon-golf, 7.1 km dal comune
+  "Savigliano": [44.604895, 7.625337, null, null, null],   // photon-golf, 5.4 km dal comune
+  "Serra": [44.993682, 8.599733, null, null, null],   // photon-golf, 4.3 km dal comune
+  "Sestrieres": [44.955550, 6.882197, null, null, null],   // photon-golf, 0.5 km dal comune
+  "Settimo": [45.130293, 7.733373, null, null, null],   // nominatim-via, 3.1 km dal comune
+  "Sibilla": [43.226260, 13.435702, null, null, null],   // photon-golf, 2.5 km dal comune
+  "Sicilia's Picciolo": [37.852022, 15.099416, null, null, null],   // photon-golf, 4.0 km dal comune
+  "Siepelunga": [44.463696, 11.363990, null, null, null],   // photon-golf, 3.8 km dal comune
+  "Sodole": [43.654627, 10.667234, null, null, null],   // nominatim-via, 2.7 km dal comune
+  "St. Vigil Seis": [46.538941, 11.543159, null, null, null],   // photon-golf, 3.4 km dal comune
+  "Stupinigi": [45.018915, 7.626424, null, null, null],   // photon-golf, 7.4 km dal comune
+  "Tanka Villasimius": [39.132642, 9.514527, null, null, null],   // photon-golf, 1.2 km dal comune
+  "Tenuta Castello": [45.470311, 8.062353, null, null, null],   // nominatim-via, 1.5 km dal comune
+  "Termoli": [42.000735, 14.992633, null, null, null],   // photon, 0.3 km dal comune
+  "Terni": [42.612701, 12.546505, null, null, null],   // photon, 0.1 km dal comune
+  "Terre dei Consoli": [42.195010, 12.290076, null, null, null],   // photon-golf, 1.6 km dal comune
+  "Tesino": [46.063902, 11.604946, null, null, null],   // photon-golf, 0.7 km dal comune
+  "Tevere Tirrenia": [41.943126, 12.488714, null, null, null],   // nominatim-via, 5.6 km dal comune
+  "Tiber 23": [41.793115, 12.389549, null, null, null],   // nominatim-via, 13.6 km dal comune
+  "Tirrenia": [43.620729, 10.299629, null, null, null],   // photon-golf, 13.3 km dal comune
+  "Torre Ronchi": [44.439991, 7.581998, null, null, null],   // photon-golf, 5.7 km dal comune
+  "Torrenova": [43.400449, 13.673103, null, null, null],   // photon-golf, 5.7 km dal comune
+  "Toscana": [42.800300, 10.973996, null, null, null],   // photon-golf, 15.0 km dal comune
+  "Val Fassa": [46.496238, 11.810831, null, null, null],   // nominatim-via, 3.7 km dal comune
+  "Val Venosta": [46.617661, 10.593178, null, null, null],   // nominatim-via, 0.3 km dal comune
+  "Val d'Ayas": [45.843689, 7.732177, null, null, null],   // photon-golf, 4.7 km dal comune
+  "Valdichiana": [43.219324, 11.820485, null, null, null],   // photon-golf, 6.9 km dal comune
+  "Valle Umbra": [42.996503, 12.672003, null, null, null],   // photon, 0.4 km dal comune
+  "Valle d'Oro": [42.443420, 11.228325, null, null, null],   // photon, 1.7 km dal comune
+  "Varvarusa": [41.535094, 14.073479, null, null, null],   // photon-golf, 1.8 km dal comune
+  "Verdura": [37.474223, 13.196432, null, null, null],   // photon-golf, 10.7 km dal comune
+  "Vicenza": [45.537808, 11.479963, null, null, null],   // photon-golf, 0.7 km dal comune
+  "Vigne": [45.369899, 10.819747, null, null, null],   // photon-golf, 3.0 km dal comune
+  "Villa Giusti": [45.401522, 10.791822, null, null, null],   // photon-golf, 4.8 km dal comune
+  "Village": [43.472326, 13.636964, null, null, null],   // photon-golf, 5.2 km dal comune
+  "Vipiteno": [46.881219, 11.440698, null, null, null],   // photon-golf, 2.0 km dal comune
+  "Z'Makana": [45.971280, 7.962417, null, null, null],   // photon-golf, 0.5 km dal comune
 };
 /* POSIZIONI-FINE >>> */
 

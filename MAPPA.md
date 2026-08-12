@@ -1,6 +1,6 @@
 # GolfP — mappa del progetto e istruzioni di caricamento
 
-**Pacchetto unico r8** — contiene tutto quello che è passato da r1 a r8. Le versioni
+**Pacchetto unico r10** — contiene tutto quello che è passato da r1 a r10. Le versioni
 intermedie non sono mai andate online: **non devi caricare niente prima, questo basta.**
 
 Contiene **solo i file cambiati** rispetto al repository di partenza. Tutto il resto
@@ -54,6 +54,8 @@ GolfP/                              ← la radice del repository
 | **r6** | Una sola veste chiara: tolti i temi Carta e Notte, colori invariati. |
 | **r7** | **Photon** come secondo archivio per gli indirizzi, accanto a Nominatim. La ricerca va fino in fondo invece di fermarsi ogni 40. `GolfP.diagnosi()` per capire dove sono fermi i circoli. |
 | **r8** | Tolti quattro specchi Overpass irraggiungibili dal browser (li avevo aggiunti io in r3 senza provarli). La ricerca indirizzi diventa l'azione principale. Conteggi visibili su cosa risponde e cosa viene scartato. |
+| **r9** | **165 posizioni verificate cotte dentro il file**, e tolto `lang=it` che faceva rispondere 400 a ogni chiamata a Photon. |
+| **r10** | Tre stati distinti del segnaposto. Filtro **«❓ Non trovati»** con *Riprova / Posiziona / Elimina*. Mirino con modalità evidente e conferma. Salvataggio a ogni circolo. |
 
 Il dettaglio di ogni correzione, con i confronti prima/dopo, è in `CORREZIONI.md`.
 
@@ -96,16 +98,16 @@ in cache e senza il ricaricamento forzato vedresti ancora la versione vecchia.
 Apri la console (Cmd+Alt+J) e la prima riga te lo dice da sola:
 
 ```
-GolfP r8  ·  2026-08-12  ·  353 circoli
+GolfP r10  ·  2026-08-12  ·  353 circoli
 ```
 
 Per i dettagli, scrivi `GolfP` e invio:
 
 ```
-release             8
+release             10
 data                2026-08-12
 elencoVersione      2026-08-12-mirabell
-posizioniVersione   null
+posizioniVersione   2026-08-12-photon-165
 circoli             353
 senzaPosizioneEsatta 286
 conVia              323
@@ -115,7 +117,7 @@ azzera()            cancella l'archivio locale di questo browser e ricarica
 ```
 
 Sul telefono, dove la console non c'è, il numero è in fondo alla colonna di sinistra,
-sotto l'handicap index: **r8**.
+sotto l'handicap index: **r10**.
 
 **Se non vedi nessuna riga `GolfP r…` in console, stai girando la versione vecchia.**
 
@@ -127,11 +129,33 @@ circolo mostra la **mappa satellitare col tracciato del percorso**.
 
 `RELEASE` sta in due punti e devono restare uguali:
 
-- `index.html`, in cima allo script: `const RELEASE = 8;`
-- `sw.js`, in cima: `const RELEASE = 8;`
+- `index.html`, in cima allo script: `const RELEASE = 10;`
+- `sw.js`, in cima: `const RELEASE = 10;`
 
-In `sw.js` il numero dà il nome alla cache (`golfp-r8`): alzandolo, la copia vecchia viene
+In `sw.js` il numero dà il nome alla cache (`golfp-r10`): alzandolo, la copia vecchia viene
 buttata da sola all'attivazione e non serve più il Cmd+Shift+R a mano.
+
+### Leggere la mappa a colpo d'occhio
+
+| segno sul segnaposto | vuol dire |
+|---|---|
+| **?** rosso | sta sul **centro del comune**, non è la club house |
+| **~** giallo | trovata in automatico da Photon o Nominatim, **non confermata** |
+| pallino **verde** | confermata da te col mirino ⌖, oppure presa da OpenStreetMap |
+
+Prima i primi due erano indistinguibili: non si capiva se un segnaposto fosse il campo vero
+o il paese in cui si trova.
+
+### I circoli non trovati
+
+In **Circoli** c'è il filtro **«❓ Non trovati»**. Ogni riga ha tre pulsanti:
+
+- **↻ Riprova** — lo rimette in coda, da solo, senza rifare le altre trecento ricerche
+- **⌖ Posiziona** — porta sulla mappa in modalità posizionamento manuale
+- **✗ Elimina** — lo toglie dall'elenco
+
+Prima finivano marcati `geoVuoto`, uscivano dalla coda e restavano visibili solo mescolati
+agli altri, senza alcun modo di agirci.
 
 ### Se il browser resta indietro
 
