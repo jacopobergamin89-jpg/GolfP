@@ -5,7 +5,7 @@
    a un'app che cambia spesso. */
 /* La cache porta il numero di versione: cambiando release la vecchia copia viene
    buttata da sola in `activate`, e non serve piu il ricaricamento forzato a mano. */
-const RELEASE = 19;
+const RELEASE = 21;
 const CACHE = 'golfp-r' + RELEASE;
 const BASE = ['/', '/index.html', '/icon-192.png', '/icon-512.png', '/manifest.webmanifest'];
 
