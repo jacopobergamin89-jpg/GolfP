@@ -502,6 +502,29 @@ h1,h2,h3{font-family:var(--disp);font-weight:800;letter-spacing:-.03em;text-tran
 @keyframes vola{from{opacity:1;transform:translate(-50%,-50%) rotate(0)}
   to{opacity:0;transform:translate(calc(-50% + var(--x)),calc(-50% + var(--y))) rotate(var(--r))}}
 
+
+/* ---- telefono: la mappa e la mappa ----
+   Su uno schermo stretto ricerca, contatori e barra degli attrezzi galleggiavano tutti
+   sopra la stessa mappa alta mezzo schermo, e si coprivano a vicenda perche nessuno dei
+   tre sa dove sono gli altri. La barra degli attrezzi poi non ci deve proprio stare: e
+   manutenzione dell'atlante, si fa una volta alla scrivania, non mentre giochi. Resta
+   nel Profilo, dove c'e spazio per spiegare cosa fa ogni comando. */
+@media (max-width:720px){
+  .osmbar{display:none}
+  /* Una riga sola, senza andare a capo: la ricerca prende quel che resta. */
+  .maphead{flex-wrap:nowrap;padding:12px 12px;gap:8px}
+  .maphead .field{flex:1;min-width:0}
+  .maphead .field input{padding:11px 15px;font-size:15px}
+  .segs{flex:none}
+  .segs button{padding:8px 11px;font-size:12px}
+  /* I tre numeri li ritrovi in Circoli e nel Profilo: sulla mappa rubavano una riga
+     intera e finivano sopra al resto. */
+  .counts{display:none}
+  /* Piu mappa e meno elenco: l'elenco scorre, la mappa no. */
+  .side{flex:0 0 46%;padding:14px 12px 12px}
+  .maprow{min-height:0}
+  .mapwrap{min-height:300px}
+}
 </style>
 </head>
 <body>
@@ -559,6 +582,7 @@ h1,h2,h3{font-family:var(--disp);font-weight:800;letter-spacing:-.03em;text-tran
             <div class="azioni">
               <button class="btn red" id="geo-places">Cerca su Google Maps</button>
               <button class="btn ghost" id="geo-google" hidden>Cerca per indirizzo</button>
+              <button class="btn ghost" id="geo-osmpos">Trova su OpenStreetMap</button>
               <button class="btn ghost" id="geo-osm">Buche e tracciato</button>
               <button class="btn ghost" id="geo-rifai">Rifai da capo</button>
               <button class="btn ghost" id="geo-stop" hidden>Ferma</button>
@@ -675,9 +699,9 @@ h1,h2,h3{font-family:var(--disp);font-weight:800;letter-spacing:-.03em;text-tran
    Va alzato SEMPRE, anche per una modifica di una riga. Se resta uguale,
    la cache del service worker e il numero non litigano e non si capisce piu niente.
    ========================================================================== */
-const RELEASE = 25;
+const RELEASE = 29;
 const RELEASE_DATA = '2026-08-12';
-const RELEASE_NOTE = 'r24 + la barra della mappa non strizza piu il testo; via il pulsante morto';
+const RELEASE_NOTE = 'r27 + i conti sulla barra tornano: compaiono anche i sospetti da ricontrollare';
 const W = 10000, VW = 1000, VH = 560;
 const merc = (lon, lat) => {
   lat = Math.max(Math.min(lat, 84), -84);
@@ -1826,8 +1850,15 @@ function statoPos(c) {
   return 'approssimato';
 }
 function contaPos() {
-  const t = { verificato: 0, approssimato: 0, dafare: 0 };
-  CLUBS.forEach(c => t[statoPos(c)]++);
+  const t = { verificato: 0, approssimato: 0, dafare: 0, dacontrollare: 0 };
+  CLUBS.forEach(c => {
+    t[statoPos(c)]++;
+    /* Contati a parte: sono gia posizionati, quindi stanno fra i verificati, ma
+       rientrano nella coda della ricerca perche il salto rispetto al comune e troppo
+       grosso per fidarsi. Senza questa riga il numero sul pulsante restava piu alto
+       di quello dei "da fare a mano" e non si capiva da dove uscisse la differenza. */
+    if (sospetto(c)) t.dacontrollare++;
+  });
   return t;
 }
 function aggiornaGeoBar() {
@@ -1846,12 +1877,30 @@ function aggiornaGeoBar() {
   /* OSMFATTO diceva solo "l'import e partito", non "l'import ha funzionato": con tutte
      le zone in errore la barra affermava lo stesso che quei circoli non erano su
      OpenStreetMap, che e falso e manda fuori strada. */
+  /* La riga si ricava dalla coda vera, non da un conteggio parallelo: due conti
+     scritti in due posti diversi finiscono sempre per divergere, e chi legge non ha
+     modo di capire quale dei due creda. Qui la somma delle voci e per costruzione il
+     numero sul pulsante. */
+  const coda = daCercarePerNome();
+  const q = { mano: 0, rifinire: 0, controllare: 0 };
+  coda.forEach(c => {
+    if (sospetto(c) && !c.daPosizionare) q.controllare++;
+    else if (statoPos(c) === 'approssimato') q.rifinire++;
+    else q.mano++;
+  });
   document.getElementById('geo-sub').textContent =
-    `${t.verificato} verificati · ${t.approssimato} approssimati · ${t.dafare} da fare a mano`;
+    [`${t.verificato} verificati`,
+     q.mano ? `${q.mano} da fare a mano` : '',
+     q.rifinire ? `${q.rifinire} da rifinire` : '',
+     q.controllare ? `${q.controllare} da ricontrollare` : ''].filter(Boolean).join(' · ')
+    + (coda.length ? ` — ${coda.length} in coda` : '');
   const g = document.getElementById('geo-google');
   if (g) { g.textContent = `Cerca per indirizzo (${restano})`; g.hidden = !restano; }
   const pl = document.getElementById('geo-places');
   if (pl) pl.textContent = `Cerca su Google Maps (${perNome})`;
+  const op = document.getElementById('geo-osmpos');
+  const daMano = CLUBS.filter(c => c.daPosizionare && !c.posizioneCorretta && !c.chiuso).length;
+  if (op) { op.textContent = `Trova su OpenStreetMap (${daMano})`; op.hidden = !daMano; }
   /* Prima compariva solo a coda vuota, ma e proprio mentre i risultati sono sbagliati
      che serve poter ricominciare: nasconderlo lo rendeva introvabile nel momento del
      bisogno. Sta sempre li, e chiede conferma prima di cancellare. */
@@ -1999,6 +2048,117 @@ async function overpass(q, avviso) {
   throw new Error(ultimo || 'nessun server ha risposto');
 }
 let OSMINCORSO = false, OSMFERMA = false;
+
+/* ---- posizionare gli ultimi con OpenStreetMap ----
+   Restano i circoli che ne Google Places ne il geocoding hanno saputo mettere: nomi
+   scritti in modo diverso, circoli piccoli, strutture che su Google non esistono come
+   attivita. Metterli a mano uno per uno sono ore.
+   OpenStreetMap li ha quasi tutti, ma disegnati come aree (leisure=golf_course), e il
+   centro di un'area e dentro il campo per definizione: non e la club house, ma e il
+   campo, che e infinitamente meglio del municipio del paese.
+   La regola che fa il grosso del lavoro non e il confronto dei nomi ma questa: se la
+   Federgolf dice che il circolo sta nel comune X, e in quel raggio OpenStreetMap ha un
+   solo campo da golf, e quello. Non serve che i nomi somiglino - ed e proprio quando
+   non somigliano che gli altri metodi falliscono. */
+function paroleNome(x) {
+  return String(x || '').toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9 ]/g, ' ')
+    .split(/\s+/)
+    .filter(w => w.length > 2 && !/^(golf|club|circolo|country|della|delle|del|dei|asd|ssd|srl|the|and|resort|sporting)$/.test(w));
+}
+let OSMPOSINCORSO = false;
+async function posizionaConOSM() {
+  if (OSMPOSINCORSO || OSMINCORSO || PLACESINCORSO || GOOGLEINCORSO || GEOINCORSO) return;
+  const t = document.getElementById('geo-title'), sub = document.getElementById('geo-sub');
+  const bar = document.getElementById('geobar');
+  const go = document.getElementById('geo-osmpos'), stop = document.getElementById('geo-stop');
+  const lista = CLUBS.filter(c => c.daPosizionare && !c.posizioneCorretta && !c.chiuso && c.n);
+  if (!lista.length) return;
+  if (bar) bar.hidden = false;
+  OSMPOSINCORSO = true; OSMFERMA = false;
+  if (go) go.disabled = true;
+  if (stop) { stop.hidden = false; stop.onclick = () => { OSMFERMA = true; }; }
+
+  /* Un solo scarico per tutta l'Italia, poi il confronto si fa qui: nove richieste a
+     Overpass invece di centotrenta. Overpass e gratuito e affollato, e chiedergli
+     centotrenta volte la stessa cosa sarebbe il modo piu sicuro di farsi rifiutare. */
+  const campi = [];
+  const visti = new Set();
+  for (let i = 0; i < RIQUADRI.length && !OSMFERMA; i++) {
+    const [nome, S, W, N, E] = RIQUADRI[i];
+    if (t) t.textContent = `Cerco su OpenStreetMap — ${i + 1} di ${RIQUADRI.length}`;
+    if (sub) sub.textContent = `${nome}: interrogo il server…`;
+    const q = `[out:json][timeout:40][maxsize:33554432];
+      (nwr["leisure"="golf_course"](${S},${W},${N},${E});
+       nwr["sport"="golf"](${S},${W},${N},${E}););
+      out center tags;`;
+    let j = null;
+    try { j = await overpass(q, m => { if (sub) sub.textContent = `${nome}: ${m}`; }); }
+    catch (e) { continue; }
+    (j.elements || []).forEach(e => {
+      const k = e.type + '/' + e.id;
+      if (visti.has(k)) return;
+      visti.add(k);
+      const lat = e.lat ?? (e.center && e.center.lat), lon = e.lon ?? (e.center && e.center.lon);
+      if (!isFinite(lat) || !isFinite(lon)) return;
+      const tg = e.tags || {};
+      campi.push({ k, lat, lon, nome: tg.name || tg['name:it'] || '', pratica: tg.golf === 'driving_range' });
+    });
+  }
+  if (!campi.length) {
+    if (sub) sub.textContent = 'OpenStreetMap non ha risposto. Riprova fra qualche minuto.';
+    OSMPOSINCORSO = false; if (go) go.disabled = false; if (stop) stop.hidden = true;
+    return;
+  }
+
+  let perNome = 0, perUnicita = 0, ambigui = 0, niente = 0;
+  lista.forEach(c => {
+    const rif = INDIRIZZI[c.n];
+    const base = rif ? [rif[2], rif[3]] : [c.lat, c.lon];
+    const vicini = campi.map(g => ({ g, d: km(base[0], base[1], g.lat, g.lon) }))
+      .filter(x => x.d < 20)
+      .sort((a, b) => a.d - b.d);
+    if (!vicini.length) { niente++; return; }
+
+    const mie = paroleNome(c.n);
+    const perParole = vicini.filter(x => {
+      const sue = paroleNome(x.g.nome);
+      return mie.some(w => sue.includes(w));
+    });
+
+    let scelto = null, come = '';
+    if (perParole.length === 1) { scelto = perParole[0]; come = 'nome'; }
+    else if (perParole.length > 1) { scelto = perParole[0]; come = 'nome'; }   // il piu vicino fra quelli col nome giusto
+    /* Nessuna somiglianza di nome: vale solo se il campo e uno solo e vicino. Con due
+       campi nello stesso raggio si sceglierebbe a caso, ed e meglio lasciarlo a mano
+       che metterlo sul circolo del vicino. */
+    else if (vicini.length === 1 && vicini[0].d < 12) { scelto = vicini[0]; come = 'unico'; }
+    else { ambigui++; return; }
+
+    c.geoPrima = c.geoPrima || [c.lat, c.lon];
+    c.lat = +scelto.g.lat.toFixed(6); c.lon = +scelto.g.lon.toFixed(6);
+    c.geo = 'osm';
+    c.osm = scelto.g.k;
+    c.geoAudit = { stato: 'AUTO_OK', fonte: come === 'nome'
+        ? 'OpenStreetMap (nome corrispondente)'
+        : 'OpenStreetMap (unico campo nel raggio)',
+      distanzaKm: +scelto.d.toFixed(1), nomeGoogle: scelto.g.nome || null };
+    delete c.daPosizionare; delete c.geoVuoto;
+    if (come === 'nome') perNome++; else perUnicita++;
+  });
+
+  salvaTutto(); paint(); renderSide(); renderCircoli(); aggiornaContatori();
+  OSMPOSINCORSO = false; if (go) go.disabled = false; if (stop) stop.hidden = true;
+  console.log(`GolfP - OpenStreetMap: ${perNome} agganciati per nome, ${perUnicita} perche unico campo `
+    + `nel raggio, ${ambigui} ambigui lasciati a mano, ${niente} senza nessun campo vicino. `
+    + `${campi.length} campi scaricati.`);
+  if (t) t.textContent = `${CLUBS.length} circoli sulla mappa`;
+  if (sub) sub.textContent = `OpenStreetMap ne ha posizionati ${perNome + perUnicita}. `
+    + `${ambigui} hanno piu campi vicini e restano a mano, ${niente} non risultano mappati.`;
+  aggiornaGeoBar();
+}
+
 async function importaOSM() {
   const t = document.getElementById('osm-title'), s = document.getElementById('osm-sub');
   const go = document.getElementById('osm-go'), stop = document.getElementById('osm-stop');
@@ -2460,12 +2620,20 @@ async function risolviConPlaces() {
     try {
       const r = await fetch('/api/luoghi', { method: 'POST',
         headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ luoghi }) });
-      dati = await r.json();
+      /* Quando la funzione non esiste, Vercel risponde con la sua pagina 404 in HTML.
+         Provare a leggerla come JSON produceva "Unexpected token 'T'", che manda a
+         cercare un guasto nei dati mentre il problema e che manca un file. */
+      const grezzo = await r.text();
+      try { dati = JSON.parse(grezzo); }
+      catch (e2) {
+        throw new Error(r.status === 404
+          ? "la funzione /api/luoghi non c'e sul server. Il file luoghi.js va caricato dentro la cartella api/, accanto a geocodifica.js"
+          : `il server ha risposto ${r.status} senza dati leggibili`);
+      }
       if (!r.ok) throw new Error((dati && dati.errore) || ('risposta ' + r.status));
     } catch (e) {
       if (t) t.textContent = `${lista.length} circoli da verificare`;
-      if (sub) sub.textContent = 'Google Places non ha risposto: ' + (e.message || 'errore')
-        + '. Controlla che Places API (New) sia attiva e che la chiave la comprenda fra le API consentite.';
+      if (sub) sub.textContent = 'Non ha funzionato: ' + (e.message || 'errore');
       PLACESINCORSO = false; if (go) go.disabled = false; if (gg) gg.disabled = false;
       if (stop) stop.hidden = true;
       return;
@@ -2535,7 +2703,13 @@ async function risolviConGoogle() {
     try {
       const r = await fetch('/api/geocodifica', { method: 'POST',
         headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ indirizzi }) });
-      dati = await r.json();
+      const grezzo = await r.text();
+      try { dati = JSON.parse(grezzo); }
+      catch (e2) {
+        throw new Error(r.status === 404
+          ? "la funzione /api/geocodifica non c'e sul server"
+          : `il server ha risposto ${r.status} senza dati leggibili`);
+      }
       if (!r.ok) throw new Error((dati && dati.errore) || ('risposta ' + r.status));
     } catch (e) {
       if (t) t.textContent = `${lista.length} circoli senza posizione esatta`;
@@ -2737,6 +2911,8 @@ document.getElementById('geo-google').onclick = () => risolviConGoogle().catch((
   if (b) b.onclick = () => azione('ripos'); }
 /* Lo stesso comando dell'altra barra: OpenStreetMap non tocca la posizione, porta
    buche e tracciato. Il nome del pulsante adesso lo dice. */
+{ const b = document.getElementById('geo-osmpos');
+  if (b) b.onclick = () => posizionaConOSM().catch(() => {}); }
 { const b = document.getElementById('geo-osm');
   if (b) b.onclick = () => document.getElementById('osm-go').click(); }
 document.getElementById('cir-percorsi').onclick = function () {
@@ -4388,6 +4564,9 @@ function renderProfilo() {
           return `azzera e ricerca tutto su Google Maps`
             + (tenuti ? ` — le ${tenuti} messe col mirino restano come sono` : '');
         })()],
+       ['osmpos', 'Trova i mancanti su OpenStreetMap', (() => {
+          const n = CLUBS.filter(c => c.daPosizionare && !c.posizioneCorretta && !c.chiuso).length;
+          return n ? `${n} circoli: cerco il campo disegnato sulla mappa libera` : 'nessun circolo senza posizione'; })()],
        ['posizioni', 'Cerca le posizioni mancanti', (() => { const t = contaPos();
           return t.approssimato + t.dafare
             ? `${t.approssimato} approssimate e ${t.dafare} da mettere a mano — le verifico con Google`
@@ -4491,6 +4670,13 @@ function azione(k) {
     msg.textContent = `Azzerati ${e.rifatti} circoli${e.tenuti ? `, tenuti ${e.tenuti} messi col mirino` : ''}. Cerco su Google Maps…`;
     go('mappa');
     setTimeout(() => risolviConPlaces().catch(() => {}), 300);
+    return;
+  }
+  if (k === 'osmpos') {
+    if (!CLUBS.some(c => c.daPosizionare && !c.posizioneCorretta && !c.chiuso))
+      return msg.textContent = 'Tutti i circoli hanno gia una posizione.';
+    go('mappa');
+    setTimeout(() => posizionaConOSM().catch(() => {}), 300);
     return;
   }
   if (k === 'posizioni') {
