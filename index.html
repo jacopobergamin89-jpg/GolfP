@@ -583,6 +583,8 @@ h1,h2,h3{font-family:var(--disp);font-weight:800;letter-spacing:-.03em;text-tran
               <button class="btn red" id="geo-places">Cerca su Google Maps</button>
               <button class="btn ghost" id="geo-google" hidden>Cerca per indirizzo</button>
               <button class="btn ghost" id="geo-osmpos">Trova su OpenStreetMap</button>
+              <button class="btn ghost" id="geo-buchepar">Buche e par</button>
+              <button class="btn ghost" id="geo-siti">Leggi i siti</button>
               <button class="btn ghost" id="geo-osm">Buche e tracciato</button>
               <button class="btn ghost" id="geo-rifai">Rifai da capo</button>
               <button class="btn ghost" id="geo-stop" hidden>Ferma</button>
@@ -699,7 +701,7 @@ h1,h2,h3{font-family:var(--disp);font-weight:800;letter-spacing:-.03em;text-tran
    Va alzato SEMPRE, anche per una modifica di una riga. Se resta uguale,
    la cache del service worker e il numero non litigano e non si capisce piu niente.
    ========================================================================== */
-const RELEASE = 29;
+const RELEASE = 31;
 const RELEASE_DATA = '2026-08-12';
 const RELEASE_NOTE = 'r27 + i conti sulla barra tornano: compaiono anche i sospetti da ricontrollare';
 const W = 10000, VW = 1000, VH = 560;
@@ -2067,6 +2069,223 @@ function paroleNome(x) {
     .split(/\s+/)
     .filter(w => w.length > 2 && !/^(golf|club|circolo|country|della|delle|del|dei|asd|ssd|srl|the|and|resort|sporting)$/.test(w));
 }
+/* ---- buche e par dalle singole buche mappate ----
+   Il numero di buche su OpenStreetMap sta nell'etichetta `holes` del campo, ma e messa
+   di rado. Il par del percorso quasi mai. Sono pero mappate le singole buche, una per
+   una (golf=hole), e ognuna porta il proprio par: contarle da il numero di buche, e
+   sommarne i par da il par del percorso. E un dato misurato, non una stima.
+   Si scarica l'Italia una volta e si assegna ogni buca al circolo piu vicino entro due
+   chilometri. Dove due circoli sono a meno di due chilometri l'uno dall'altro non si
+   assegna niente: meglio nessun dato che il par del campo del vicino. */
+/* ---- leggere i dati dal sito del circolo ----
+   Il par sul sito di un circolo c'e quasi sempre, spesso con rating e slope di ogni
+   partenza: e la fonte migliore che esista per questi dati, molto meglio di
+   OpenStreetMap. Il browser pero non puo leggere il sito di qualcun altro (lo vieta la
+   regola CORS), quindi la pagina la scarica /api/pagina e poi la legge Gemini.
+   Il rischio e evidente: un numero letto male finisce dentro il calcolo dell'handicap e
+   nessuno se ne accorge. Percio nulla entra senza passare i controlli qui sotto, e
+   quello che non li passa viene scartato invece che scritto "per approssimazione". */
+function plausibile(d) {
+  const fuori = [];
+  const b = +d.buche, p = +d.par;
+  if (d.buche != null) {
+    if (![9, 18, 27, 36].includes(b)) fuori.push(`buche ${d.buche}`);
+  }
+  if (d.par != null) {
+    if (!isFinite(p)) fuori.push('par non numerico');
+    /* Un percorso da 18 buche sta fra 66 e 76: sotto o sopra e un numero preso da
+       un'altra riga della pagina, non il par del campo. */
+    else if (b === 18 && (p < 64 || p > 78)) fuori.push(`par ${p} su 18 buche`);
+    else if (b === 9 && (p < 27 || p > 40)) fuori.push(`par ${p} su 9 buche`);
+    else if (!b && (p < 27 || p > 80)) fuori.push(`par ${p}`);
+  }
+  (d.partenze || []).forEach(t => {
+    /* Course rating e slope hanno intervalli fissati dal sistema mondiale: fuori di li
+       non e un rating, e un altro numero della tabella. */
+    if (t.cr != null && (t.cr < 55 || t.cr > 80)) fuori.push(`rating ${t.cr}`);
+    if (t.slope != null && (t.slope < 55 || t.slope > 155)) fuori.push(`slope ${t.slope}`);
+  });
+  return fuori;
+}
+
+let SITIINCORSO = false;
+async function leggiDaiSiti() {
+  if (SITIINCORSO || BUCHEINCORSO || OSMPOSINCORSO || OSMINCORSO || PLACESINCORSO || GEOINCORSO) return;
+  const t = document.getElementById('geo-title'), sub = document.getElementById('geo-sub');
+  const bar = document.getElementById('geobar'), stop = document.getElementById('geo-stop');
+  const lista = CLUBS.filter(c => !c.chiuso && c.sito && (!c.par || !c.buche || !(c.tees || []).length));
+  if (!lista.length) {
+    if (sub) sub.textContent = 'Nessun circolo con un sito da leggere. Il sito arriva da OpenStreetMap o lo scrivi tu nella scheda.';
+    return;
+  }
+  if (bar) bar.hidden = false;
+  SITIINCORSO = true; GEOFERMA = false;
+  if (stop) { stop.hidden = false; stop.onclick = () => { GEOFERMA = true; }; }
+
+  const schema = {
+    type: 'object',
+    properties: {
+      buche: { type: 'integer', nullable: true },
+      par: { type: 'integer', nullable: true },
+      partenze: {
+        type: 'array', nullable: true,
+        items: { type: 'object', properties: {
+          colore: { type: 'string', nullable: true },
+          cr: { type: 'number', nullable: true },
+          slope: { type: 'integer', nullable: true },
+          metri: { type: 'integer', nullable: true } } }
+      },
+      sicuro: { type: 'boolean' }
+    },
+    required: ['sicuro']
+  };
+
+  let scritti = 0, scartati = 0, niente = 0, errori = 0;
+  const problemi = [];
+  for (let i = 0; i < lista.length && !GEOFERMA; i++) {
+    const c = lista[i];
+    if (t) t.textContent = `Leggo i siti dei circoli — ${i + 1} di ${lista.length}`;
+    if (sub) sub.textContent = `${c.n}: apro ${c.sito}`;
+
+    let pag = null;
+    try {
+      const r = await fetch('/api/pagina', { method: 'POST',
+        headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: c.sito }) });
+      const grezzo = await r.text();
+      try { pag = JSON.parse(grezzo); }
+      catch (e2) { throw new Error(r.status === 404
+        ? "manca /api/pagina sul server: il file pagina.js va dentro la cartella api/"
+        : `il server ha risposto ${r.status}`); }
+    } catch (e) {
+      if (sub) sub.textContent = 'Non ha funzionato: ' + (e.message || 'errore');
+      SITIINCORSO = false; if (stop) stop.hidden = true;
+      return;
+    }
+    if (pag.errore || !pag.testo || pag.testo.length < 400) { errori++; continue; }
+
+    let d = null;
+    try {
+      d = await visione({ name: c.n + '.txt', type: 'text/plain', __testo: pag.testo },
+        `Questa e la pagina del circolo di golf "${c.n}" (${comuneNudo(c) || ''}).\n\n${pag.testo}\n\n`
+        + `Estrai SOLO quello che c'e scritto per davvero in questa pagina, sul percorso principale.\n`
+        + `- buche: quante buche ha il percorso (9, 18, 27, 36)\n`
+        + `- par: il par totale del percorso\n`
+        + `- partenze: per ogni colore di partenza il course rating (cr), lo slope e i metri\n`
+        + `Se un dato non c'e scritto, mettilo a null. Non calcolarlo, non dedurlo, non usare `
+        + `quello che sai di questo circolo da altre fonti.\n`
+        + `Metti sicuro=false se la pagina non parla chiaramente del percorso, se parla di piu `
+        + `percorsi diversi senza distinguerli, o se i numeri sono ambigui.`, schema);
+    } catch (e) { errori++; continue; }
+    if (!d || !d.sicuro) { niente++; continue; }
+
+    const fuori = plausibile(d);
+    if (fuori.length) { scartati++; problemi.push(`${c.n}: ${fuori.join(', ')}`); continue; }
+    if (d.buche == null && d.par == null && !(d.partenze || []).length) { niente++; continue; }
+
+    /* Non si sovrascrive niente: quello che c'e gia lo hai messo tu o viene da una
+       scorecard vera, che vale piu di una pagina web. */
+    if (d.buche && !c.buche) c.buche = d.buche;
+    if (d.par && !c.par) c.par = d.par;
+    const nuove = (d.partenze || []).filter(x => x && (x.cr != null || x.slope != null));
+    if (nuove.length && !(c.tees || []).length) {
+      c.tees = nuove.map(x => ({ colore: x.colore || '', cr: x.cr ?? null, slope: x.slope ?? null, metri: x.metri ?? null }));
+    }
+    c.fonteDati = { da: 'sito', url: pag.url, quando: new Date().toISOString().slice(0, 10) };
+    scritti++;
+    if (scritti % 5 === 0) { salvaTutto(); renderCircoli(); }
+  }
+
+  salvaTutto(); renderSide(); renderCircoli(); aggiornaContatori();
+  SITIINCORSO = false; if (stop) stop.hidden = true;
+  if (problemi.length) console.log('GolfP - scartati perche fuori scala:\n  ' + problemi.join('\n  '));
+  console.log(`GolfP - siti: ${scritti} circoli completati, ${scartati} scartati per valori impossibili, `
+    + `${niente} senza dati chiari, ${errori} siti irraggiungibili. Su ${lista.length} con un sito.`);
+  if (t) t.textContent = `${CLUBS.length} circoli sulla mappa`;
+  if (sub) sub.textContent = `Letti ${scritti} siti su ${lista.length}. `
+    + `${scartati} scartati perche i numeri non stavano in piedi, ${errori} siti non hanno risposto.`;
+}
+
+let BUCHEINCORSO = false;
+async function completaBucheEPar() {
+  if (BUCHEINCORSO || OSMPOSINCORSO || OSMINCORSO || PLACESINCORSO || GEOINCORSO) return;
+  const t = document.getElementById('geo-title'), sub = document.getElementById('geo-sub');
+  const bar = document.getElementById('geobar');
+  const stop = document.getElementById('geo-stop');
+  const manca = CLUBS.filter(c => !c.chiuso && (!c.buche || !c.par));
+  if (!manca.length) return;
+  if (bar) bar.hidden = false;
+  BUCHEINCORSO = true; OSMFERMA = false;
+  if (stop) { stop.hidden = false; stop.onclick = () => { OSMFERMA = true; }; }
+
+  const buche = [];
+  /* Le zone si sovrappongono ai bordi, quindi la stessa buca torna piu volte: senza
+     questo controllo un percorso da diciotto ne conta trentasei e il par raddoppia. */
+  const viste = new Set();
+  for (let i = 0; i < RIQUADRI.length && !OSMFERMA; i++) {
+    const [nome, S, W, N, E] = RIQUADRI[i];
+    if (t) t.textContent = `Buche e par — zona ${i + 1} di ${RIQUADRI.length}`;
+    if (sub) sub.textContent = `${nome}: scarico le buche mappate…`;
+    const q = `[out:json][timeout:60][maxsize:67108864];
+      nwr["golf"="hole"](${S},${W},${N},${E});
+      out center tags;`;
+    let j = null;
+    try { j = await overpass(q, m => { if (sub) sub.textContent = `${nome}: ${m}`; }); }
+    catch (e) { continue; }
+    (j.elements || []).forEach(e => {
+      const chiave = e.type + '/' + e.id;
+      if (viste.has(chiave)) return;
+      viste.add(chiave);
+      const lat = e.lat ?? (e.center && e.center.lat), lon = e.lon ?? (e.center && e.center.lon);
+      if (!isFinite(lat) || !isFinite(lon)) return;
+      const par = parseInt((e.tags || {}).par, 10);
+      buche.push({ lat, lon, par: isFinite(par) ? par : null });
+    });
+  }
+  if (!buche.length) {
+    if (sub) sub.textContent = 'OpenStreetMap non ha risposto, oppure non ci sono buche mappate. Riprova piu tardi.';
+    BUCHEINCORSO = false; if (stop) stop.hidden = true;
+    return;
+  }
+
+  /* Un circolo troppo vicino a un altro rende impossibile dire di chi e una buca. */
+  const posizionati = CLUBS.filter(c => !c.chiuso && isFinite(c.lat));
+  const conteggi = new Map();
+  let ambigue = 0;
+  buche.forEach(b => {
+    let primo = null, secondo = Infinity;
+    posizionati.forEach(c => {
+      const d = km(b.lat, b.lon, c.lat, c.lon);
+      if (!primo || d < primo.d) { secondo = primo ? primo.d : secondo; primo = { c, d }; }
+      else if (d < secondo) secondo = d;
+    });
+    if (!primo || primo.d > 2) return;
+    if (secondo < 2) { ambigue++; return; }   // due circoli si contendono la buca
+    const v = conteggi.get(primo.c.id) || { n: 0, par: 0, conPar: 0 };
+    v.n++; if (b.par) { v.par += b.par; v.conPar++; }
+    conteggi.set(primo.c.id, v);
+  });
+
+  let nBuche = 0, nPar = 0, parziali = 0;
+  conteggi.forEach((v, id) => {
+    const c = CLUBS[id]; if (!c) return;
+    if (!c.buche && v.n) { c.buche = v.n; nBuche++; }
+    /* Il par vale solo se ogni buca contata ha il suo: sommandone dodici su diciotto
+       verrebbe un par 46, che sembra un dato e invece e un pezzo di dato. */
+    if (!c.par && v.conPar && v.conPar === v.n) { c.par = v.par; nPar++; }
+    else if (!c.par && v.conPar) parziali++;
+  });
+
+  salvaTutto(); renderSide(); renderCircoli(); aggiornaContatori();
+  BUCHEINCORSO = false; if (stop) stop.hidden = true;
+  console.log(`GolfP - buche e par: ${nBuche} circoli hanno ora il numero di buche, ${nPar} anche il par. `
+    + `${parziali} avevano solo una parte delle buche col par e sono stati lasciati stare. `
+    + `${buche.length} buche scaricate, ${ambigue} non assegnabili.`);
+  if (t) t.textContent = `${CLUBS.length} circoli sulla mappa`;
+  if (sub) sub.textContent = `Trovate le buche di ${nBuche} circoli, e il par di ${nPar}. `
+    + `Il par si somma dalle singole buche: dove non sono tutte etichettate non si scrive niente.`;
+  aggiornaGeoBar();
+}
+
 let OSMPOSINCORSO = false;
 async function posizionaConOSM() {
   if (OSMPOSINCORSO || OSMINCORSO || PLACESINCORSO || GOOGLEINCORSO || GEOINCORSO) return;
@@ -2911,6 +3130,10 @@ document.getElementById('geo-google').onclick = () => risolviConGoogle().catch((
   if (b) b.onclick = () => azione('ripos'); }
 /* Lo stesso comando dell'altra barra: OpenStreetMap non tocca la posizione, porta
    buche e tracciato. Il nome del pulsante adesso lo dice. */
+{ const b = document.getElementById('geo-siti');
+  if (b) b.onclick = () => leggiDaiSiti().catch(() => {}); }
+{ const b = document.getElementById('geo-buchepar');
+  if (b) b.onclick = () => completaBucheEPar().catch(() => {}); }
 { const b = document.getElementById('geo-osmpos');
   if (b) b.onclick = () => posizionaConOSM().catch(() => {}); }
 { const b = document.getElementById('geo-osm');
@@ -3710,7 +3933,10 @@ const leggiTesto = f => new Promise((res, rej) => {
 });
 async function visione(file, istruzioni, schema) {
   let parte;
-  if (eTesto(file)) {
+  /* Testo gia estratto altrove (una pagina web): non c'e nessun file da leggere. */
+  if (file && file.__testo != null) {
+    parte = { text: file.__testo };
+  } else if (eTesto(file)) {
     /* un export non va guardato, va letto: lo passo come testo */
     const txt = (await leggiTesto(file)).slice(0, 200000);
     parte = { text: `Contenuto del file "${file.name}":\n\n${txt}` };
@@ -4564,6 +4790,13 @@ function renderProfilo() {
           return `azzera e ricerca tutto su Google Maps`
             + (tenuti ? ` — le ${tenuti} messe col mirino restano come sono` : '');
         })()],
+       ['siti', 'Leggi i dati dai siti dei circoli', (() => {
+          const n = CLUBS.filter(c => !c.chiuso && c.sito && (!c.par || !c.buche || !(c.tees || []).length)).length;
+          return n ? `${n} circoli hanno un sito: cerco par, buche, rating e slope` : 'nessun sito da leggere'; })()],
+       ['buchepar', 'Completa buche e par', (() => {
+          const b = CLUBS.filter(c => !c.chiuso && !c.buche).length;
+          const pp = CLUBS.filter(c => !c.chiuso && !c.par).length;
+          return b + pp ? `${b} senza buche, ${pp} senza par: li ricavo dalle buche mappate` : 'tutti i circoli hanno buche e par'; })()],
        ['osmpos', 'Trova i mancanti su OpenStreetMap', (() => {
           const n = CLUBS.filter(c => c.daPosizionare && !c.posizioneCorretta && !c.chiuso).length;
           return n ? `${n} circoli: cerco il campo disegnato sulla mappa libera` : 'nessun circolo senza posizione'; })()],
@@ -4670,6 +4903,18 @@ function azione(k) {
     msg.textContent = `Azzerati ${e.rifatti} circoli${e.tenuti ? `, tenuti ${e.tenuti} messi col mirino` : ''}. Cerco su Google Maps…`;
     go('mappa');
     setTimeout(() => risolviConPlaces().catch(() => {}), 300);
+    return;
+  }
+  if (k === 'siti') {
+    go('mappa');
+    setTimeout(() => leggiDaiSiti().catch(() => {}), 300);
+    return;
+  }
+  if (k === 'buchepar') {
+    if (!CLUBS.some(c => !c.chiuso && (!c.buche || !c.par)))
+      return msg.textContent = 'Tutti i circoli hanno gia buche e par.';
+    go('mappa');
+    setTimeout(() => completaBucheEPar().catch(() => {}), 300);
     return;
   }
   if (k === 'osmpos') {
