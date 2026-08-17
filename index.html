@@ -253,6 +253,17 @@ input.mini{width:64px;padding:6px 8px;border:1px solid var(--rule);border-radius
 .stepper button{height:64px;border:1px solid var(--rule);border-radius:12px;background:var(--card);font-size:28px;color:var(--ink-2)}
 .stepper button:active{background:var(--flag);color:#fff;border-color:var(--flag)}
 .bignum{font-size:62px;text-align:center;line-height:1;color:var(--ink)}
+/* Par, indice e metri sono modificabili lì dove si guardano: se la foto non li
+   ha letti, si scrivono senza uscire dalla buca. */
+.mininp{width:22px;border:0;border-bottom:1px dashed var(--ink-3);background:none;font:inherit;
+  text-align:center;color:inherit;padding:0 1px}
+.mininp.lung{width:34px}
+.cellinp{width:26px;border:0;background:none;font:inherit;font-family:var(--mono);font-size:12px;
+  text-align:center;color:var(--ink);padding:2px 0}
+.cellinp.lung{width:34px}
+.cellinp:focus{outline:none;color:var(--flag);background:var(--ok)}
+.mininp:focus{outline:none;border-bottom-color:var(--flag);color:var(--flag)}
+.pill.vuoto{color:var(--ink-3)}
 .quick{display:grid;grid-template-columns:repeat(9,1fr);gap:6px;margin-bottom:16px}
 .quick button{height:42px;border:1px solid var(--rule);border-radius:9px;background:var(--card);font-family:var(--mono);font-size:16px}
 .quick button.on{background:var(--flag);border-color:var(--flag);color:#fff}
@@ -705,9 +716,9 @@ h1,h2,h3{font-family:var(--disp);font-weight:800;letter-spacing:-.03em;text-tran
    Va alzato SEMPRE, anche per una modifica di una riga. Se resta uguale,
    la cache del service worker e il numero non litigano e non si capisce piu niente.
    ========================================================================== */
-const RELEASE = 35;
+const RELEASE = 36;
 const RELEASE_DATA = '2026-08-17';
-const RELEASE_NOTE = 'r34 + la lettura sa quale colonna sei, prende i metri per buca e butta i numeri che non possono essere veri';
+const RELEASE_NOTE = 'un giro nuovo non ha niente di precompilato: par, indici, rating, circolo e data arrivano dalla foto, dalla scheda del circolo o dalle tue mani';
 const W = 10000, VW = 1000, VH = 560;
 const merc = (lon, lat) => {
   lat = Math.max(Math.min(lat, 84), -84);
@@ -3244,11 +3255,21 @@ function segnaGiocato(id) {
 }
 function salvaCampo(id, k, v) {
   const c = CLUBS[id];
+  const num = x => { const n = parseFloat(x); return Number.isFinite(n) ? n : null; };
   if (k.startsWith('tee.')) {
-    const [, colore, campo] = k.split('.');
+    const [, colore, campo, indice] = k.split('.');
     c.tee = c.tee || {};
     c.tee[colore] = c.tee[colore] || {};
-    c.tee[colore][campo] = parseFloat(v) || null;
+    if (campo === 'metri') {
+      c.tee[colore].metri = c.tee[colore].metri || Array(18).fill(null);
+      c.tee[colore].metri[+indice] = num(v);
+    } else c.tee[colore][campo] = num(v);
+  } else if (k.startsWith('bucheP.') || k.startsWith('bucheSI.')) {
+    const [campo, indice] = k.split('.');
+    c[campo] = c[campo] || Array(18).fill(null);
+    c[campo][+indice] = num(v);
+    /* Un elenco a metà non deve sembrare completo: si tiene solo se lo è. */
+    if (campo === 'bucheP' && c.bucheP.filter(Boolean).length === 18) c.par = c.bucheP.reduce((a, b) => a + b, 0);
   } else c[k] = k === 'buche' || k === 'par' ? (parseInt(v, 10) || null) : v;
   salvaTutto();
 }
@@ -3349,6 +3370,24 @@ function openCampo(id) {
         <input class="num" value="${t.m || ''}" placeholder="—" onchange="salvaCampo(${id},'tee.${col}.m',this.value)">
       </div>`; }).join('')}
     <p class="hint">Scrivili una volta sola, li trovi sulla scorecard del circolo: da qui in poi il differenziale di ogni giro si calcola da solo.</p>
+    <div class="lbl" style="margin:16px 0 8px">Buca per buca — par, indice di difficoltà, metri</div>
+    <div class="scard"><table class="sc"><thead>
+      <tr><th>Buca</th>${Array.from({ length: 18 }, (_, i) => `<th>${i + 1}</th>`).join('')}<th>Tot</th></tr></thead><tbody>
+      <tr><td>Par</td>${Array.from({ length: 18 }, (_, i) =>
+        `<td><input class="cellinp" inputmode="numeric" maxlength="1" value="${(c.bucheP || [])[i] || ''}" placeholder="—"
+          onchange="salvaCampo(${id},'bucheP.${i}',this.value)"></td>`).join('')}
+        <td class="tot">${(c.bucheP || []).filter(Boolean).length === 18 ? c.bucheP.reduce((a, b) => a + b, 0) : '—'}</td></tr>
+      <tr><td>Indice</td>${Array.from({ length: 18 }, (_, i) =>
+        `<td><input class="cellinp" inputmode="numeric" maxlength="2" value="${(c.bucheSI || [])[i] || ''}" placeholder="—"
+          onchange="salvaCampo(${id},'bucheSI.${i}',this.value)"></td>`).join('')}
+        <td class="tot">${(c.bucheSI || []).filter(Boolean).length === 18 ? '✓' : '—'}</td></tr>
+      ${TEE_ORD.map(col => { const me = ((c.tee || {})[col] || {}).metri || [];
+        return `<tr><td>m ${col.toLowerCase()}</td>${Array.from({ length: 18 }, (_, i) =>
+          `<td><input class="cellinp lung" inputmode="numeric" maxlength="3" value="${me[i] || ''}" placeholder="—"
+            onchange="salvaCampo(${id},'tee.${col}.metri.${i}',this.value)"></td>`).join('')}
+          <td class="tot">${me.filter(Boolean).length === 18 ? me.reduce((a, b) => a + b, 0) : '—'}</td></tr>`; }).join('')}
+    </tbody></table></div>
+    <p class="hint">Non serve compilarla a mano: la prima scorecard che leggi da una foto la riempie da sola, e da lì in poi ogni giro qui parte già con par, indici e metri al posto giusto. Gli indici di difficoltà servono per lo stableford e per il netto doppio bogey.</p>
     <div class="field" style="margin:14px 0 0"><span class="lbl">Note tue sul percorso</span>
       <textarea rows="2" onchange="salvaCampo(${id},'note',this.value)" placeholder="Green veloci, la 12 è la buca che mi frega sempre…">${c.note || ''}</textarea></div>
   </div>`;
@@ -3365,13 +3404,37 @@ const FORMULE = ["Stableford", "Medal", "Contro par", "Louisiana", "Fourball", "
 const METEO = ["Sereno", "Nuvoloso", "Vento", "Pioggia", "Caldo"];
 const CAMPO_COND = ["Asciutto", "Bagnato", "Green veloci", "Green lenti", "Preferred lies"];
 
+/* --- un giro nuovo non sa niente ---------------------------------------------
+   Qui dentro c'erano Barlassina, l'11 agosto alle 8:40, partenze gialle, par 72
+   con gli indici di difficoltà di un campo che non esiste, rating 70,4 e slope
+   128. Erano l'impalcatura del disegno rimasta nel prodotto: numeri che nessuno
+   ha misurato, già scritti nelle caselle, che bastava premere Avanti per far
+   entrare nell'archivio e da lì nel calcolo dell'handicap.
+
+   Adesso ogni casella parte vuota. Si riempie in tre modi, tutti veri:
+   dalla foto della scorecard, dalla scheda del circolo se ce l'hai già
+   compilata una volta, o a mano. `percorso` resta l'unica scelta con un valore
+   di partenza, perché non è un dato ma la forma del giro. */
+const bucaVuota = () => ({ par: null, si: null, m: null, colpi: null, nf: false,
+  putt: null, fw: null, pen: 0, perse: 0, trovate: 0, dett: [] });
 const G = {
-  step: 0, clubId: 0, data: "2026-08-11", ora: "08:40", percorso: "18 buche", tee: "Gialle",
-  tipo: "Amichevole", formula: "Stableford", gara: "", categoria: "2ª", posizione: "", compagno: "", hcpCompagno: "",
-  index: null, hcpGioco: 16, cr: 70.4, sr: 128, meteo: "Sereno", campo: "Asciutto", flight: "", note: "",
-  valido: true, foto: null, vista: "buca", bozzaId: null,
-  buche: Array.from({ length: 18 }, (_, i) => ({ par: P72[i], si: SI18[i], m: 0, colpi: null, nf: false, putt: null, fw: null, pen: 0, perse: 0, trovate: 0, dett: [] }))
+  step: 0, clubId: null, data: "", ora: "", percorso: "18 buche", tee: "",
+  tipo: "", formula: "", gara: "", categoria: "", posizione: "", compagno: "", hcpCompagno: "",
+  index: null, hcpGioco: null, cr: null, sr: null, meteo: "", campo: "", flight: "", note: "",
+  valido: true, foto: null, vista: "foto", bozzaId: null, salvato: false,
+  buche: Array.from({ length: 18 }, bucaVuota)
 };
+const G_VUOTO = JSON.stringify(G);
+/* Dopo un salvataggio G restava com'era: il giro successivo nasceva con il
+   circolo, la data e i punteggi di quello prima. */
+function azzeraGiro() {
+  const nuovo = JSON.parse(G_VUOTO);
+  Object.keys(G).forEach(k => { if (!(k in nuovo)) delete G[k]; });
+  Object.assign(G, nuovo);
+  G.buche = Array.from({ length: 18 }, bucaVuota);
+  delete G.fotoFiles; delete G.datiDaFoto;
+  bucaCur = 0;
+}
 const attive = () => G.percorso === "9 buche (ritorno)" ? G.buche.slice(9)
   : G.percorso === "9 buche (andata)" ? G.buche.slice(0, 9) : G.buche;
 function tot(k) { return attive().reduce((a, b) => a + (b[k] || 0), 0); }
@@ -3389,19 +3452,30 @@ const esito = b => b.colpi != null || b.nf === true;
 function segnate() { return attive().filter(esito).length; }
 function fatte() { return attive().filter(b => b.colpi).length; }
 function nonFinite() { return attive().filter(b => b.nf && !b.colpi).length; }
-function parGiocato() { return attive().filter(b => b.colpi).reduce((a, b) => a + b.par, 0); }
+/* Il par del percorso può non esserci ancora: finché manca non si può dire
+   quanto sei sul par, e un conto fatto su metà buche sarebbe peggio di un trattino. */
+const parCompleto = () => attive().every(b => b.par);
+const siCompleto = () => attive().every(b => b.si);
+function parGiocato() { return attive().filter(b => b.colpi && b.par).reduce((a, b) => a + b.par, 0); }
+function sulPar() {
+  const b = attive().filter(x => x.colpi);
+  return b.length && b.every(x => x.par) ? b.reduce((a, x) => a + x.colpi, 0) - parGiocato() : null;
+}
 /* Il punteggio con cui si calcola il differenziale, non quello che hai fatto:
    ogni buca e limitata al netto doppio bogey, e le X ci arrivano per definizione.
    Il lordo vero resta il lordo vero e non viene toccato da questo. */
 function colpiAggiustati(b) {
+  if (!b.par) return b.colpi || null;       // senza par non esiste un tetto
   const tetto = b.par + 2 + colpiRicevuti(b);
   if (b.nf && !b.colpi) return tetto;
   return Math.min(b.colpi, tetto);
 }
 function punteggioAggiustato() {
+  if (!parCompleto()) return null;
   return attive().reduce((a, b) => a + (esito(b) ? colpiAggiustati(b) : 0), 0);
 }
 function stableford() {
+  if (!parCompleto()) return null;
   return attive().reduce((a, b) => {
     if (!b.colpi) return a;                 // la X vale zero punti, come in gara
     const col = colpiRicevuti(b);
@@ -3409,6 +3483,9 @@ function stableford() {
   }, 0);
 }
 function colpiRicevuti(b) {
+  /* Senza indici di difficoltà non si sa su quali buche cadono i colpi, e
+     inventare l'ordine cambierebbe stableford e netto doppio bogey. */
+  if (!b.si || !siCompleto() || !G.hcpGioco) return 0;
   /* Su nove buche vale metà dell'handicap di gioco, come già fa netto(): prima
      stableford usava l'handicap intero e i due numeri non tornavano fra loro. */
   const h = hcpEffettivo(), su = attive().length === 9 ? 9 : 18;
@@ -3417,20 +3494,44 @@ function colpiRicevuti(b) {
   const rango = ordine.indexOf(b.si) + 1;       // 1 = la buca più difficile fra quelle giocate
   return n + (rango > 0 && rango <= r ? 1 : 0);
 }
-function hcpEffettivo() { return attive().length === 9 ? Math.round(G.hcpGioco / 2) : G.hcpGioco; }
+function hcpEffettivo() { return attive().length === 9 ? Math.round((G.hcpGioco || 0) / 2) : (G.hcpGioco || 0); }
 /* Il netto e lordo meno handicap: se una buca non e finita il lordo non esiste,
    e un netto inventato sarebbe peggio di un trattino. */
-function netto() { return fatte() === attive().length && fatte() ? tot('colpi') - hcpEffettivo() : null; }
+function netto() {
+  if (G.hcpGioco == null) return null;
+  return fatte() === attive().length && fatte() ? tot('colpi') - hcpEffettivo() : null;
+}
 /* Il differenziale invece si calcola lo stesso, perche usa il punteggio
    aggiustato: servono tutte le buche segnate, non tutte imbucate. */
+/* Il differenziale ha bisogno di quattro cose vere: tutte le buche segnate, il
+   par del percorso, il rating e lo slope. Se ne manca una non c'è differenziale
+   — non c'è un differenziale approssimato. */
 function differenziale() {
-  if (segnate() < attive().length) return null;
-  return ((113 / G.sr) * (punteggioAggiustato() - G.cr)).toFixed(1);
+  if (segnate() < attive().length || !G.cr || !G.sr) return null;
+  const agg = punteggioAggiustato();
+  if (agg == null) return null;
+  return ((113 / G.sr) * (agg - G.cr)).toFixed(1);
+}
+/* Cosa manca per avere il differenziale, detto in italiano invece che con un trattino. */
+function mancaPer() {
+  const m = [];
+  if (segnate() < attive().length) m.push(`${attive().length - segnate()} buche da segnare`);
+  if (!parCompleto()) m.push('il par delle buche');
+  if (!G.cr) m.push('il course rating');
+  if (!G.sr) m.push('lo slope');
+  return m;
 }
 
 /* --- giri in sospeso: si registra la gara oggi, lo score si aggiunge quando salta fuori --- */
 function inSospeso(btn) {
-  const c = CLUBS[G.clubId] || CLUBS[0];
+  /* `|| CLUBS[0]` metteva in sospeso un giro a Barlassina anche se il circolo
+     non l'avevi ancora scelto. */
+  const c = CLUBS[G.clubId];
+  if (!c) {
+    const avviso = document.getElementById('salva-nota');
+    if (avviso) avviso.textContent = 'Scegli prima il circolo: senza quello non so dove metterlo in sospeso.';
+    return;
+  }
   const b = JSON.parse(JSON.stringify({ ...G, step: 2 }));   // i file non sono serializzabili
   delete b.fotoFiles;
   b.bozzaId = G.bozzaId || ('bozza_' + Date.now());
@@ -3477,7 +3578,11 @@ function elencoBozze() {
 }
 
 function renderGiro() {
-  const c = CLUBS[G.clubId] || CLUBS[0];
+  /* `|| CLUBS[0]` faceva partire ogni giro da Barlassina: un circolo scelto da
+     nessuno che bastava non toccare per ritrovarselo nell'archivio. */
+  if (G.salvato) azzeraGiro();
+  const c = CLUBS[G.clubId] || null;
+  if (!c && G.step > 0) G.step = 0;
   document.getElementById('giro-body').innerHTML = `
     <div class="wiz">${["Il giro", "Tipo", "Punteggio", "Salva"].map((t, i) =>
       `<button data-step="${i}" aria-pressed="${G.step === i}"><b>${i + 1}</b>${t}</button>`).join('')}</div>
@@ -3522,15 +3627,58 @@ function festeggia(el, sotto) {
 }
 function bindFoot() {
   const n = document.getElementById('w-next'), p = document.getElementById('w-prev');
-  if (n) n.onclick = () => { G.step = Math.min(3, G.step + 1); renderGiro(); };
+  /* Senza circolo e senza data il giro non si può nemmeno intitolare: il
+     pulsante resta lì spento invece di portare avanti un guscio vuoto. */
+  const bloccato = G.step === 0 && (!CLUBS[G.clubId] || !G.data);
+  if (n) {
+    n.disabled = bloccato;
+    if (bloccato) n.style.opacity = '.45';
+    n.onclick = () => { if (!n.disabled) { G.step = Math.min(3, G.step + 1); renderGiro(); } };
+  }
   if (p) p.onclick = () => { G.step = Math.max(0, G.step - 1); renderGiro(); };
+}
+
+/* --- la scheda del circolo riempie il giro ------------------------------------
+   Par, indici e metri non si inventano, ma nemmeno si ridigitano ogni volta:
+   la prima scorecard letta li scrive sul circolo, e da lì in poi scegliere il
+   circolo e il colore delle partenze li riporta dentro. Non sovrascrive mai
+   niente: quello che hai letto dalla foto o scritto a mano resta com'è. */
+function applicaSchedaCircolo() {
+  const c = CLUBS[G.clubId]; if (!c) return 0;
+  const t = (c.tee || {})[G.tee] || {};
+  if (G.cr == null && t.cr) G.cr = t.cr;
+  if (G.sr == null && t.sr) G.sr = t.sr;
+  let n = 0;
+  G.buche.forEach((b, i) => {
+    if (b.par == null && c.bucheP && c.bucheP[i]) { b.par = c.bucheP[i]; n++; }
+    if (b.si == null && c.bucheSI && c.bucheSI[i]) b.si = c.bucheSI[i];
+    if (b.m == null && t.metri && t.metri[i]) b.m = t.metri[i];
+  });
+  return n;
+}
+/* E il contrario: un giro appena salvato lascia al circolo quello che il circolo
+   non aveva. Solo se completo — mezza scheda vale meno di nessuna scheda. */
+function schedaDaGiro(giro) {
+  const c = giro.circolo && CLUBS[giro.circolo.id]; if (!c || (giro.buche || []).length !== 18) return;
+  const par = giro.buche.map(b => b.par), si = giro.buche.map(b => b.si), m = giro.buche.map(b => b.metri);
+  /* Il par delle diciotto buche è misurato sulla scorecard; quello dell'elenco
+     è un numero copiato. Se ci sono entrambi vince la somma delle buche. */
+  if (!c.bucheP && par.every(Boolean)) { c.bucheP = par; c.par = par.reduce((a, b) => a + b, 0); }
+  if (!c.bucheSI && si.every(Boolean)) c.bucheSI = si;
+  if (giro.tee && m.every(Boolean)) {
+    c.tee = c.tee || {}; c.tee[giro.tee] = c.tee[giro.tee] || {};
+    if (!c.tee[giro.tee].metri) {
+      c.tee[giro.tee].metri = m;
+      c.tee[giro.tee].m = m.reduce((a, b) => a + b, 0);
+    }
+  }
 }
 
 /* ---- 1. il giro ---- */
 function step0(c) {
-  const tset = (c.tee || {})[G.tee];
-  if (tset && !G.datiDaFoto) { if (tset.cr) G.cr = tset.cr; if (tset.sr) G.sr = tset.sr; }
-  const percorsi = c.buche >= 27 ? ["18 buche", "9 buche (andata)", "9 buche (ritorno)", "Giallo + Rosso", "Blu + Giallo"]
+  const scheda = applicaSchedaCircolo() > 0;
+  const manca = [!c && 'il circolo', !G.data && 'la data'].filter(Boolean);
+  const percorsi = c && c.buche >= 27 ? ["18 buche", "9 buche (andata)", "9 buche (ritorno)", "Giallo + Rosso", "Blu + Giallo"]
     : ["18 buche", "9 buche (andata)", "9 buche (ritorno)"];
   wb().innerHTML = `
   ${elencoBozze()}
@@ -3550,12 +3698,15 @@ function step0(c) {
     <div class="field"><span class="lbl">Percorso</span>${chips('percorso', percorsi, G.percorso)}</div>
     <div class="field"><span class="lbl">Partenze</span>${chips('tee', TEES.map(t => t.k), G.tee)}</div>
     <div class="duo3">
-      <div class="field"><span class="lbl">Course rating</span><input class="num" id="f-cr" value="${G.cr}"></div>
-      <div class="field"><span class="lbl">Slope</span><input class="num" id="f-sr" value="${G.sr}"></div>
-      <div class="field"><span class="lbl">Handicap di gioco</span><input class="num" id="f-hg" value="${G.hcpGioco}"></div>
+      <div class="field"><span class="lbl">Course rating</span><input class="num" id="f-cr" value="${G.cr ?? ''}" placeholder="—"></div>
+      <div class="field"><span class="lbl">Slope</span><input class="num" id="f-sr" value="${G.sr ?? ''}" placeholder="—"></div>
+      <div class="field"><span class="lbl">Handicap di gioco</span><input class="num" id="f-hg" value="${G.hcpGioco ?? ''}" placeholder="—"></div>
     </div>
-    <p class="hint">Rating e slope arrivano dalla scheda del circolo: li imposti una volta per set di partenze e non ci pensi più. Servono per il differenziale e quindi per l'index.</p>
+    <p class="hint">${scheda
+      ? `Par, indici, metri, rating e slope arrivano dalla scheda di ${c.n}: li hai già dati una volta. Correggili qui se oggi era diverso.`
+      : 'Rating e slope stanno sulla scorecard del circolo, accanto al colore delle partenze. Li scrivi una volta e restano nella scheda del circolo per i giri seguenti.'}</p>
   </div>
+  ${manca.length ? `<p class="hint" style="max-width:560px;color:var(--sand)">Per andare avanti serve ${manca.join(' e ')}.</p>` : ''}
   ${avanti()}`;
   const f0 = document.getElementById('f-foto0'), l0 = document.getElementById('letto0');
   document.getElementById('drop0').onclick = () => f0.click();
@@ -3589,19 +3740,20 @@ function step0(c) {
     onScegli: id => {
       if (id == null) return;
       G.clubId = id;
-      const c2 = CLUBS.find(x => x.id === id), t = c2 && (c2.tee || {})[G.tee];
-      if (t && t.cr) G.cr = t.cr;
-      if (t && t.sr) G.sr = t.sr;
+      applicaSchedaCircolo();
       renderGiro();
     }
   });
-  document.getElementById('f-data').onchange = e => G.data = e.target.value;
+  document.getElementById('f-data').onchange = e => { G.data = e.target.value; renderGiro(); };
   document.getElementById('f-ora').onchange = e => G.ora = e.target.value;
+  /* `|| 0` trasformava una casella svuotata in uno zero, e uno zero di slope è
+     un numero che poi va al denominatore. Vuoto deve restare vuoto. */
   ['cr','sr','hg'].forEach(k => document.getElementById('f-' + k).oninput = e => {
-    G[{cr:'cr',sr:'sr',hg:'hcpGioco'}[k]] = parseFloat(e.target.value) || 0; });
+    const v = parseFloat(e.target.value);
+    G[{cr:'cr',sr:'sr',hg:'hcpGioco'}[k]] = Number.isFinite(v) ? v : null; });
   bindChips((k, v) => {
     G[k] = v;
-    if (k === 'tee') { const t = (CLUBS[G.clubId].tee || {})[v]; if (t && t.cr) G.cr = t.cr; if (t && t.sr) G.sr = t.sr; renderGiro(); return; }
+    if (k === 'tee') { applicaSchedaCircolo(); renderGiro(); return; }
     if (k === 'percorso') renderGiro();
   });
   bindFoot();
@@ -3609,7 +3761,7 @@ function step0(c) {
 
 /* ---- 2. tipo di giro ---- */
 function step1() {
-  const gara = G.tipo !== "Amichevole" && G.tipo !== "Prova campo";
+  const gara = !!G.tipo && G.tipo !== "Amichevole" && G.tipo !== "Prova campo";
   wb().innerHTML = `
   <div class="card" style="padding:16px;max-width:560px">
     <div class="field"><span class="lbl">Tipo di giro</span>${chips('tipo', TIPI, G.tipo)}</div>
@@ -3660,12 +3812,12 @@ function barra() {
     data-b="${i}" title="Buca ${i + 1 + off}${b.colpi ? ': ' + b.colpi + ' colpi' : b.nf ? ': non finita' : ''}"><span>${b.nf && !b.colpi ? 'X' : i + 1 + off}</span></button>`).join('')}</div>`;
 }
 function riga() {
-  const n = fatte(), seg = segnate(), nf = nonFinite(), t = tot('colpi'), d = t - parGiocato();
+  const seg = segnate(), nf = nonFinite(), t = tot('colpi'), d = sulPar(), sf = stableford();
   return `<div class="live">
     <div><span class="lbl">Buche</span><b class="num">${seg}/${attive().length}</b>${nf ? `<span class="lbl">${nf} non finit${nf > 1 ? 'e' : 'a'}</span>` : ''}</div>
     <div><span class="lbl">Colpi</span><b class="num">${t || '—'}</b>${nf ? '<span class="lbl">sulle buche chiuse</span>' : ''}</div>
-    <div><span class="lbl">Sul par</span><b class="num" style="color:var(--flag)">${n ? (d > 0 ? '+' : '') + d : '—'}</b></div>
-    <div><span class="lbl">Stableford</span><b class="num" style="color:var(--fair)">${n ? stableford() : '—'}</b></div>
+    <div><span class="lbl">Sul par</span><b class="num" style="color:var(--flag)">${d == null ? '—' : (d > 0 ? '+' : '') + d}</b>${d == null && t ? '<span class="lbl">manca il par</span>' : ''}</div>
+    <div><span class="lbl">Stableford</span><b class="num" style="color:var(--fair)">${sf || '—'}</b></div>
   </div>`;
 }
 function vistaBuca() {
@@ -3677,22 +3829,22 @@ function vistaBuca() {
     <div class="hh">
       <div><span class="lbl">Buca</span><b class="hn num">${bucaCur + 1 + off}</b></div>
       <div class="hmeta">
-        <span class="pill">Par ${b.par}</span>
-        <span class="pill">Indice ${b.si}</span>
-        ${b.m ? `<span class="pill">${b.m} m</span>` : ''}
+        <span class="pill${b.par ? '' : ' vuoto'}">Par <input class="mininp" inputmode="numeric" maxlength="1" data-par value="${b.par ?? ''}" placeholder="—"></span>
+        <span class="pill${b.si ? '' : ' vuoto'}">Indice <input class="mininp" inputmode="numeric" maxlength="2" data-si value="${b.si ?? ''}" placeholder="—"></span>
+        <span class="pill${b.m ? '' : ' vuoto'}"><input class="mininp lung" inputmode="numeric" maxlength="3" data-metri value="${b.m ?? ''}" placeholder="—"> m</span>
         ${col ? `<span class="pill r">${col} colpo${col > 1 ? 'i' : ''} ricevut${col > 1 ? 'i' : 'o'}</span>` : ''}
       </div>
     </div>
     <div class="stepper">
       <button id="b-meno" aria-label="Un colpo in meno">−</button>
-      <div class="bignum num" id="b-val"${b.nf && !b.colpi ? ' style="color:var(--ink-2)"' : ''}>${b.nf && !b.colpi ? 'X' : (b.colpi ?? b.par)}</div>
+      <div class="bignum num" id="b-val"${b.colpi == null ? ' style="color:var(--ink-3)"' : ''}>${b.nf && !b.colpi ? 'X' : (b.colpi ?? '–')}</div>
       <button id="b-piu" aria-label="Un colpo in più">+</button>
     </div>
     <div class="quick">${[2,3,4,5,6,7,8,9].map(v => `<button data-q="${v}" class="${b.colpi === v ? 'on' : ''}">${v}</button>`).join('')}<button data-nf="1" class="nf ${b.nf && !b.colpi ? 'on' : ''}" title="Buca non finita: palla raccolta">X</button></div>
     ${b.nf && !b.colpi ? `<p class="hint" style="margin:-10px 0 14px">Buca non finita: zero punti stableford, e per l'handicap vale netto doppio bogey (${b.par + 2 + col} colpi).</p>` : ''}
     <div class="extra">
       <div><span class="lbl">Putt</span><div class="mini-st">${[0,1,2,3,4].map(v => `<button data-p="${v}" class="${b.putt === v ? 'on' : ''}">${v}</button>`).join('')}</div></div>
-      ${b.par > 3 ? `<div><span class="lbl">Fairway</span><div class="mini-st">
+      ${b.par == null || b.par > 3 ? `<div><span class="lbl">Fairway</span><div class="mini-st">
         <button data-f="1" class="${b.fw === 1 ? 'on' : ''}">preso</button>
         <button data-f="0" class="${b.fw === 0 ? 'on' : ''}">fuori</button></div></div>` : ''}
       <div><span class="lbl">Penalità</span><div class="mini-st">${[0,1,2].map(v => `<button data-x="${v}" class="${b.pen === v ? 'on' : ''}">${v}</button>`).join('')}</div></div>
@@ -3710,13 +3862,22 @@ function vistaBuca() {
     </div>
     <div class="wizfoot" style="border:0;padding-top:4px">
       <button class="btn ghost" id="b-prev">Buca precedente</button>
-      <button class="btn" id="b-next">Segna e vai avanti</button>
+      <button class="btn" id="b-next">Buca successiva</button>
     </div>
   </div>
   ${riga()}`;
   const set = v => { b.colpi = Math.max(1, Math.min(15, v)); b.nf = false; vistaBuca(); };
-  document.getElementById('b-meno').onclick = () => set((b.colpi ?? b.par) - 1);
-  document.getElementById('b-piu').onclick = () => set((b.colpi ?? b.par) + 1);
+  /* Senza par il punto di partenza non c'è: il primo tocco parte da 4, che è
+     un gesto tuo, non un numero già scritto nella casella. */
+  const base = () => b.colpi ?? b.par ?? 4;
+  document.getElementById('b-meno').onclick = () => set(base() - 1);
+  document.getElementById('b-piu').onclick = () => set(base() + 1);
+  const mini = (attr, k, min, max) => document.querySelectorAll('[' + attr + ']').forEach(x => x.oninput = () => {
+    const v = parseInt(x.value, 10);
+    b[k] = Number.isFinite(v) && v >= min && v <= max ? v : null;
+    document.querySelector('.live').outerHTML = riga();
+  });
+  mini('data-par', 'par', 3, 6); mini('data-si', 'si', 1, 18); mini('data-metri', 'm', 40, 700);
   document.querySelectorAll('[data-q]').forEach(x => x.onclick = () => set(+x.dataset.q));
   /* Premuta di nuovo la X si toglie: e un interruttore, non una porta a senso unico. */
   document.querySelectorAll('[data-nf]').forEach(x => x.onclick = () => {
@@ -3739,7 +3900,8 @@ function vistaBuca() {
   document.querySelectorAll('.dot').forEach(x => x.onclick = () => { bucaCur = +x.dataset.b; vistaBuca(); });
   document.getElementById('b-prev').onclick = () => { bucaCur = Math.max(0, bucaCur - 1); vistaBuca(); };
   document.getElementById('b-next').onclick = () => {
-    if (!b.colpi && !b.nf) b.colpi = b.par;
+    /* Scriveva il par come se fosse il tuo punteggio: bastava premere avanti
+       diciotto volte per ritrovarsi un giro in par mai giocato. */
     bucaCur = Math.min(a.length - 1, bucaCur + 1); vistaBuca();
   };
 }
@@ -3749,7 +3911,7 @@ function vistaTabella() {
   <div class="holes">${a.map((b, i) => `<div class="hole">
       <div class="h">B${i + 1 + off}</div>
       <input class="num" inputmode="text" maxlength="2" data-i="${i}" value="${b.nf && !b.colpi ? 'X' : (b.colpi ?? '')}" placeholder="–">
-      <div class="p">par ${b.par}</div></div>`).join('')}</div>
+      <div class="p">${b.par ? 'par ' + b.par : '—'}</div></div>`).join('')}</div>
   <p class="hint">Scrivi <b>X</b> su una buca iniziata e non finita: vale zero punti e per l'handicap conta netto doppio bogey.</p>
   ${riga()}`;
   document.querySelectorAll('[data-i]').forEach(inp => inp.oninput = () => {
@@ -3834,7 +3996,7 @@ function applicaTestata(data) {
   if (data.slope > 50 && data.slope < 156) { G.sr = data.slope; segna('Slope', G.sr); }
   if (data.handicapGioco != null && data.handicapGioco >= 0 && data.handicapGioco < 55) { G.hcpGioco = data.handicapGioco; segna('Handicap di gioco', G.hcpGioco); }
   if (data.handicapIndex > 0 && data.handicapIndex < 55) { G.index = data.handicapIndex; segna('Index', G.index); }
-  if (data.gara) { G.gara = data.gara; if (G.tipo === 'Amichevole') G.tipo = 'Gara singola'; segna('Gara', data.gara); }
+  if (data.gara) { G.gara = data.gara; if (!G.tipo || G.tipo === 'Amichevole') G.tipo = 'Gara singola'; segna('Gara', data.gara); }
 }
 /* Quando la lettura non riesce non si riempie niente. Prima entrava un giro intero
    inventato — Barlassina, 9 agosto, CR 71.2, slope 133, colpi e putt di ogni buca —
@@ -3949,7 +4111,8 @@ function applicaLettura(data) {
 function costruisciGiro() {
   const c = CLUBS[G.clubId], d = differenziale(), lordo = tot('colpi');
   return {
-    id: "giro_" + G.data + "_" + G.ora.replace(":", "") + "_" + c.id, circolo: { id: c.id, nome: c.n, osm: c.osm || null },
+    id: "giro_" + G.data + "_" + (G.ora || '').replace(":", "") + "_" + (c ? c.id : 'x'),
+    circolo: c ? { id: c.id, nome: c.n, osm: c.osm || null } : null,
     percorso: G.percorso, tee: G.tee, data: G.data + "T" + G.ora, tipo: G.tipo, formula: G.formula,
     gara: G.gara || null, categoria: G.gara ? G.categoria : null, posizione: G.posizione || null,
     compagno: G.compagno || null, flight: G.flight ? G.flight.split(',').map(x => x.trim()) : [],
@@ -3974,8 +4137,15 @@ function costruisciGiro() {
 
 /* ---- 4. riepilogo ---- */
 function step3() {
-  const c = CLUBS[G.clubId], d = differenziale(), lordo = tot('colpi'), seg = segnate(), nf = nonFinite();
+  const c = CLUBS[G.clubId];
+  if (!c) { wb().innerHTML = `<div class="card" style="padding:20px;max-width:560px">
+    <b>Manca il circolo.</b><p class="hint" style="margin:8px 0 0">Torna al primo passo e scegli dove hai giocato: senza quello il giro non si può salvare.</p></div>
+    ${avanti('Torna indietro')}`;
+    const n = document.getElementById('w-next'); if (n) n.onclick = () => { G.step = 0; renderGiro(); };
+    return; }
+  const d = differenziale(), lordo = tot('colpi'), seg = segnate(), nf = nonFinite();
   const json = costruisciGiro();
+  const manca = mancaPer();
   wb().innerHTML = `
   <div class="grid" style="grid-template-columns:minmax(280px,1fr) minmax(280px,1fr);align-items:start">
     <div>
@@ -3989,7 +4159,7 @@ function step3() {
           <div><div class="lbl">Stableford</div><div class="big" style="color:var(--fair)">${stableford() || '—'}</div></div>
           <div><div class="lbl">Differenziale</div><div class="big" style="color:var(--flag)">${d ?? '—'}</div></div>
         </div>
-        ${seg < attive().length ? `<p class="hint">Mancano ${attive().length - seg} buche: il differenziale si calcola solo a giro completo. Se una l'hai iniziata e non finita, segnala con la X invece di lasciarla vuota.</p>`
+        ${manca.length ? `<p class="hint">Per il differenziale manca ancora ${manca.join(', ')}.${seg < attive().length ? ' Se una buca l\'hai iniziata e non finita, segnala con la X invece di lasciarla vuota.' : ''}</p>`
           : `<p class="hint">${nf ? `${nf} buc${nf > 1 ? 'he' : 'a'} non finit${nf > 1 ? 'e' : 'a'}: niente lordo e niente netto, ma il differenziale c'è lo stesso perché quelle buche valgono netto doppio bogey (punteggio aggiustato <b class="num">${json.totali.aggiustato}</b>). ` : ''}${ARCHIVIO.giocatore.index ? `Index attuale <b class="num">${ARCHIVIO.giocatore.index}</b>: questo differenziale entra nella media degli otto migliori su venti.` : 'Metti il tuo index nel profilo e qui ti dico come si muove.'}</p>`}
         <div class="field" style="margin:14px 0 0"><span class="lbl">Note</span>
           <textarea rows="2" id="f-note" placeholder="Driver in forma, tre tre-putt, doppio alla 14…">${G.note}</textarea></div>
@@ -4528,7 +4698,7 @@ async function salvaGiro(btn) {
       for (let i = 0; i < G.fotoFiles.length; i++) {
         const f = G.fotoFiles[i];
         const est = (f.name.match(/\.[a-z0-9]+$/i) || ['.jpg'])[0];
-        giro.foto.push(await caricaFoto(f, `scorecard-${giro.data.slice(0, 10)}-${CLUBS[G.clubId].n}-${i + 1}${est}`));
+        giro.foto.push(await caricaFoto(f, `scorecard-${giro.data.slice(0, 10)}-${(CLUBS[G.clubId] || {}).n || 'circolo'}-${i + 1}${est}`));
       }
     }
     ARCHIVIO.giri.push(giro);
@@ -4538,6 +4708,7 @@ async function salvaGiro(btn) {
     const suDrive = TOKEN ? await salvaArchivio() : false;
     btn.textContent = suDrive ? 'Salvato su Drive ✓' : 'Salvato qui ✓';
     btn.style.background = suDrive ? 'var(--fair)' : 'var(--sand)';
+    G.salvato = true;                    // il prossimo Nuovo giro riparte da zero
     aggiornaContatori(); paint(); renderSide(); renderCircoli(); renderStats();
     const avviso = document.getElementById('salva-nota');
     if (avviso) avviso.textContent = suDrive
@@ -4551,8 +4722,9 @@ async function salvaGiro(btn) {
   }
 }
 function aggiornaCircoloDaGiro(giro) {
-  const c = CLUBS[giro.circolo.id]; if (!c) return;
+  const c = giro.circolo && CLUBS[giro.circolo.id]; if (!c) return;
   c.wish = false; c.segnatoAMano = false;
+  schedaDaGiro(giro);
 }
 
 /* --- scheda nel profilo --- */
