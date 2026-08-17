@@ -243,6 +243,7 @@ input.mini{width:64px;padding:6px 8px;border:1px solid var(--rule);border-radius
 .dots .dot{flex:1;min-width:22px;height:26px;border:1px solid var(--rule);border-radius:6px;background:var(--card);
   font-family:var(--mono);font-size:10.5px;color:var(--ink-3)}
 .dots .dot.ok{background:var(--ok);border-color:var(--okline);color:var(--fair)}
+.dots .dot.x{background:var(--card);border-color:var(--ink-3);color:var(--ink-2);border-style:dashed}
 .dots .dot.cur{border-color:var(--flag);border-width:2px;color:var(--flag)}
 .holecard{padding:18px 16px}
 .holecard .hh{display:flex;align-items:center;gap:16px;margin-bottom:10px;flex-wrap:wrap}
@@ -252,9 +253,12 @@ input.mini{width:64px;padding:6px 8px;border:1px solid var(--rule);border-radius
 .stepper button{height:64px;border:1px solid var(--rule);border-radius:12px;background:var(--card);font-size:28px;color:var(--ink-2)}
 .stepper button:active{background:var(--flag);color:#fff;border-color:var(--flag)}
 .bignum{font-size:62px;text-align:center;line-height:1;color:var(--ink)}
-.quick{display:grid;grid-template-columns:repeat(8,1fr);gap:6px;margin-bottom:16px}
+.quick{display:grid;grid-template-columns:repeat(9,1fr);gap:6px;margin-bottom:16px}
 .quick button{height:42px;border:1px solid var(--rule);border-radius:9px;background:var(--card);font-family:var(--mono);font-size:16px}
 .quick button.on{background:var(--flag);border-color:var(--flag);color:#fff}
+/* La X non e un punteggio piu alto degli altri: e un esito diverso, e si vede. */
+.quick button.nf{border-style:dashed;color:var(--ink-2)}
+.quick button.nf.on{background:var(--ink-2);border-color:var(--ink-2);border-style:solid;color:#fff}
 .extra{display:flex;gap:20px;flex-wrap:wrap;padding-top:14px;border-top:1px solid var(--rule)}
 .mini-st{display:flex;gap:4px;margin-top:5px}
 .mini-st button{padding:6px 10px;border:1px solid var(--rule);border-radius:7px;background:var(--card);
@@ -267,7 +271,7 @@ pre.json{background:#15201C;color:#CFE3D4;border-radius:8px;padding:12px;font-fa
   line-height:1.5;overflow:auto;max-height:420px;margin:0;white-space:pre-wrap;word-break:break-word}
 @media (max-width:720px){
   .duo,.duo3{grid-template-columns:1fr}
-  .quick{grid-template-columns:repeat(4,1fr)}
+  .quick{grid-template-columns:repeat(5,1fr)}
   .stepper{grid-template-columns:72px 1fr 72px}
   .bignum{font-size:54px}
   .wiz button{flex:1;justify-content:center;padding:9px 8px;font-size:12px}
@@ -701,9 +705,9 @@ h1,h2,h3{font-family:var(--disp);font-weight:800;letter-spacing:-.03em;text-tran
    Va alzato SEMPRE, anche per una modifica di una riga. Se resta uguale,
    la cache del service worker e il numero non litigano e non si capisce piu niente.
    ========================================================================== */
-const RELEASE = 33;
-const RELEASE_DATA = '2026-08-12';
-const RELEASE_NOTE = 'r27 + i conti sulla barra tornano: compaiono anche i sospetti da ricontrollare';
+const RELEASE = 35;
+const RELEASE_DATA = '2026-08-17';
+const RELEASE_NOTE = 'r34 + la lettura sa quale colonna sei, prende i metri per buca e butta i numeri che non possono essere veri';
 const W = 10000, VW = 1000, VH = 560;
 const merc = (lon, lat) => {
   lat = Math.max(Math.min(lat, 84), -84);
@@ -2633,8 +2637,8 @@ function clubRow(c) {
       <button class="btn ghost mini danger" data-togli="${c.id}" title="Togli dall'elenco">✗ Elimina</button>
     </div>` : ''}
     <div class="sc">${c.wish ? '<span style="color:var(--sand)">In lista</span>'
-      : (() => { const gg = giriDi(c.id);
-          return gg.length ? `<b>${Math.min(...gg.map(g => g.totali.lordo))}</b><span>${gg.length} gir${gg.length === 1 ? 'o' : 'i'}</span>`
+      : (() => { const gg = giriDi(c.id), lo = gg.map(g => g.totali && g.totali.lordo).filter(Boolean);
+          return gg.length ? `<b>${lo.length ? Math.min(...lo) : '—'}</b><span>${gg.length} gir${gg.length === 1 ? 'o' : 'i'}</span>`
                            : '<span style="color:var(--fair)">Giocato</span>'; })()}</div></div>`;
 }
 function renderSide() {
@@ -2654,8 +2658,8 @@ function renderSide() {
         <div style="display:flex;gap:18px;margin:12px 0 10px">
           <div><div class="lbl">Buche</div><b class="num" style="font-size:19px">${s.buche || '—'}</b></div>
           <div><div class="lbl">Par</div><b class="num" style="font-size:19px">${s.par || '—'}</b></div>
-          ${s.wish ? '' : (() => { const gg = giriDi(s.id); return gg.length
-            ? `<div><div class="lbl">Best</div><b class="num" style="font-size:19px;color:var(--flag)">${Math.min(...gg.map(g => g.totali.lordo))}</b></div>
+          ${s.wish ? '' : (() => { const gg = giriDi(s.id), lo = gg.map(g => g.totali && g.totali.lordo).filter(Boolean); return gg.length
+            ? `<div><div class="lbl">Best</div><b class="num" style="font-size:19px;color:var(--flag)">${lo.length ? Math.min(...lo) : '—'}</b></div>
                <div><div class="lbl">Giri</div><b class="num" style="font-size:19px">${gg.length}</b></div>`
             : '<div><div class="lbl">Stato</div><b style="font-size:15px;color:var(--fair)">Giocato</b></div>'; })()}
         </div>
@@ -3183,14 +3187,29 @@ document.querySelectorAll('#cir-filters .chip[data-f]').forEach(b => b.onclick =
   renderCircoli();
 });
 
+/* --- le date: ISO dentro, italiane fuori -----------------------------------
+   Nell'archivio e nei nomi dei file restano AAAA-MM-GG, perche si ordinano da
+   sole con un confronto di stringhe e non cambiano significato passando da un
+   browser all'altro. Il formato italiano e solo una veste per lo schermo: se
+   arriva qualcosa che non e una data ISO si restituisce com'e, senza inventare. */
+function dataIt(v) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(v == null ? '' : v));
+  return m ? `${m[3]}.${m[2]}.${m[1]}` : (v == null ? '' : String(v));
+}
+
 /* ---------------- scheda campo ---------------- */
 const shape = d => d <= -2 ? 'e' : d === -1 ? 'b' : d === 1 ? 'g' : d >= 2 ? 'dg' : '';
+/* `hs` può contenere la stringa 'X': una buca non finita non ha un punteggio e
+   non entra in nessuna somma. Prima al suo posto si disegnava il par, che era un
+   numero mai fatto da nessuno mostrato come se fosse tuo. */
 function scorecard(par, hs) {
-  const sum = (a, i, j) => a.slice(i, j).reduce((x, y) => x + y, 0);
+  const sum = (a, i, j) => a.slice(i, j).reduce((x, y) => x + (typeof y === 'number' ? y : 0), 0);
   const row = (label, arr, cls) => `<tr class="${cls || ''}"${cls === 'par' ? ' id="par-tr"' : ''}><td>${label}</td>` +
     arr.slice(0, 9).map((v, i) => cell(v, par[i], cls)).join('') + `<td class="tot">${sum(arr, 0, 9)}</td>` +
     arr.slice(9).map((v, i) => cell(v, par[i + 9], cls)).join('') + `<td class="tot">${sum(arr, 9, 18)}</td><td class="tot">${sum(arr, 0, 18)}</td></tr>`;
-  const cell = (v, p, cls) => cls === 'par' ? `<td>${v}</td>` : `<td><span class="sh ${shape(v - p)}">${v}</span></td>`;
+  const cell = (v, p, cls) => cls === 'par' ? `<td>${v}</td>`
+    : typeof v !== 'number' ? `<td><span class="sh" style="color:var(--ink-3)"${v === 'X' ? ' title="Buca non finita"' : ''}>${v}</span></td>`
+    : `<td><span class="sh ${shape(v - p)}">${v}</span></td>`;
   const head = '<tr><th>Buca</th>' + [1,2,3,4,5,6,7,8,9].map(n => `<th>${n}</th>`).join('') + '<th>OUT</th>' +
     [10,11,12,13,14,15,16,17,18].map(n => `<th>${n}</th>`).join('') + '<th>IN</th><th>TOT</th></tr>';
   return `<div class="scard"><table class="sc"><thead>${head}</thead><tbody>
@@ -3278,7 +3297,7 @@ function openCampo(id) {
 
   <div class="kpi" style="margin-bottom:18px">
     <div class="card"><div class="lbl">Giri qui</div><div class="big">${gs.length}</div>
-      <div class="delta">${gs.length ? 'ultimo il ' + (gs[0].data || '').slice(0, 10) : (c.wish ? 'mai giocato' : 'segnato a mano, senza punteggi')}</div></div>
+      <div class="delta">${gs.length ? 'ultimo il ' + dataIt(gs[0].data) : (c.wish ? 'mai giocato' : 'segnato a mano, senza punteggi')}</div></div>
     <div class="card"><div class="lbl">Miglior lordo</div><div class="big" style="color:var(--flag)">${best ?? '—'}</div>
       <div class="delta">${best && c.par ? (best - c.par > 0 ? '+' : '') + (best - c.par) + ' sul par' : ''}</div></div>
     <div class="card"><div class="lbl">Media</div><div class="big">${media ?? '—'}</div>
@@ -3292,13 +3311,15 @@ function openCampo(id) {
     ${gs.map((g, i) => `
       <div class="clubrow" onclick="apriGiro(${i})">
         <div class="fl"><span class="tee" style="background:${(TEES.find(t => t.k === g.tee) || TEES[0]).c};margin:0"></span></div>
-        <div><div class="nm">${(g.data || '').slice(0, 10)}${g.gara ? ' — ' + g.gara : ''}</div>
+        <div><div class="nm">${dataIt(g.data)}${g.gara ? ' — ' + g.gara : ''}</div>
           <div class="mt">${g.tipo || 'Amichevole'} · ${g.percorso || '18 buche'} · partenze ${(g.tee || '').toLowerCase()}${g.totali.stableford ? ' · ' + g.totali.stableford + ' punti' : ''}</div></div>
-        <div class="sc"><b>${g.totali.lordo}</b><span>${g.totali.sulPar > 0 ? '+' : ''}${g.totali.sulPar ?? ''}</span></div>
+        <div class="sc"><b>${g.totali.lordo ?? '—'}</b><span>${g.totali.lordo == null
+          ? (g.totali.nonFinite ? g.totali.nonFinite + ' non finit' + (g.totali.nonFinite > 1 ? 'e' : 'a') : '')
+          : (g.totali.sulPar > 0 ? '+' : '') + (g.totali.sulPar ?? '')}</span></div>
       </div>
       <div id="giro-${i}" hidden style="padding:4px 0 14px">
-        ${(g.buche || []).some(b => b.colpi)
-          ? scorecard(g.buche.map(b => b.par), g.buche.map(b => b.colpi || b.par))
+        ${(g.buche || []).some(b => b.colpi || b.nf)
+          ? scorecard(g.buche.map(b => b.par), g.buche.map(b => b.colpi || (b.nf ? 'X' : '–')))
           : '<p class="hint">Questo giro è stato salvato senza il dettaglio buca per buca.</p>'}
         ${g.note ? `<p class="hint">${g.note}</p>` : ''}
       </div>`).join('')}
@@ -3349,16 +3370,40 @@ const G = {
   tipo: "Amichevole", formula: "Stableford", gara: "", categoria: "2ª", posizione: "", compagno: "", hcpCompagno: "",
   index: null, hcpGioco: 16, cr: 70.4, sr: 128, meteo: "Sereno", campo: "Asciutto", flight: "", note: "",
   valido: true, foto: null, vista: "buca", bozzaId: null,
-  buche: Array.from({ length: 18 }, (_, i) => ({ par: P72[i], si: SI18[i], m: 0, colpi: null, putt: null, fw: null, pen: 0, perse: 0, trovate: 0, dett: [] }))
+  buche: Array.from({ length: 18 }, (_, i) => ({ par: P72[i], si: SI18[i], m: 0, colpi: null, nf: false, putt: null, fw: null, pen: 0, perse: 0, trovate: 0, dett: [] }))
 };
 const attive = () => G.percorso === "9 buche (ritorno)" ? G.buche.slice(9)
   : G.percorso === "9 buche (andata)" ? G.buche.slice(0, 9) : G.buche;
 function tot(k) { return attive().reduce((a, b) => a + (b[k] || 0), 0); }
+
+/* --- la buca non finita ------------------------------------------------------
+   Sulle scorecard di carta e una X: palla raccolta, buca iniziata e non chiusa.
+   Non e un dato mancante e non e un punteggio: e un terzo esito, e va tenuto
+   separato da entrambi. Prima finiva in `colpi = null`, cioe nello stesso
+   cassetto di "non si legge", e il giro risultava incompleto per sempre.
+
+   Il regolamento WHS dice cosa vale: netto doppio bogey, cioe par + 2 piu i
+   colpi ricevuti su quella buca. Con quello il differenziale si calcola, e il
+   giro conta per l'handicap come conta davvero. */
+const esito = b => b.colpi != null || b.nf === true;
+function segnate() { return attive().filter(esito).length; }
 function fatte() { return attive().filter(b => b.colpi).length; }
+function nonFinite() { return attive().filter(b => b.nf && !b.colpi).length; }
 function parGiocato() { return attive().filter(b => b.colpi).reduce((a, b) => a + b.par, 0); }
+/* Il punteggio con cui si calcola il differenziale, non quello che hai fatto:
+   ogni buca e limitata al netto doppio bogey, e le X ci arrivano per definizione.
+   Il lordo vero resta il lordo vero e non viene toccato da questo. */
+function colpiAggiustati(b) {
+  const tetto = b.par + 2 + colpiRicevuti(b);
+  if (b.nf && !b.colpi) return tetto;
+  return Math.min(b.colpi, tetto);
+}
+function punteggioAggiustato() {
+  return attive().reduce((a, b) => a + (esito(b) ? colpiAggiustati(b) : 0), 0);
+}
 function stableford() {
   return attive().reduce((a, b) => {
-    if (!b.colpi) return a;
+    if (!b.colpi) return a;                 // la X vale zero punti, come in gara
     const col = colpiRicevuti(b);
     return a + Math.max(0, 2 - (b.colpi - col - b.par));
   }, 0);
@@ -3373,10 +3418,14 @@ function colpiRicevuti(b) {
   return n + (rango > 0 && rango <= r ? 1 : 0);
 }
 function hcpEffettivo() { return attive().length === 9 ? Math.round(G.hcpGioco / 2) : G.hcpGioco; }
+/* Il netto e lordo meno handicap: se una buca non e finita il lordo non esiste,
+   e un netto inventato sarebbe peggio di un trattino. */
 function netto() { return fatte() === attive().length && fatte() ? tot('colpi') - hcpEffettivo() : null; }
+/* Il differenziale invece si calcola lo stesso, perche usa il punteggio
+   aggiustato: servono tutte le buche segnate, non tutte imbucate. */
 function differenziale() {
-  if (fatte() < attive().length) return null;
-  return ((113 / G.sr) * (tot('colpi') - G.cr)).toFixed(1);
+  if (segnate() < attive().length) return null;
+  return ((113 / G.sr) * (punteggioAggiustato() - G.cr)).toFixed(1);
 }
 
 /* --- giri in sospeso: si registra la gara oggi, lo score si aggiunge quando salta fuori --- */
@@ -3406,7 +3455,7 @@ function riprendiBozza(id) {
 }
 function scartaBozza(id) {
   const b = ARCHIVIO.bozze.find(x => x.bozzaId === id); if (!b) return;
-  if (!confirm(`Elimino il giro in sospeso del ${b.data} a ${b.circoloNome}?`)) return;
+  if (!confirm(`Elimino il giro in sospeso del ${dataIt(b.data)} a ${b.circoloNome}?`)) return;
   ARCHIVIO.bozze = ARCHIVIO.bozze.filter(x => x.bozzaId !== id);
   if (G.bozzaId === id) G.bozzaId = null;
   salvaLocale();
@@ -3419,7 +3468,7 @@ function elencoBozze() {
     <div class="lbl">In sospeso, manca lo score</div>
     ${ARCHIVIO.bozze.map(b => `<div class="clubrow" style="cursor:default">
       <div><div class="nm">${b.circoloNome || '—'}</div>
-        <div class="mt">${b.data}${b.gara ? ' · ' + b.gara : ' · ' + b.tipo} · partenze ${(b.tee || '').toLowerCase()}</div></div>
+        <div class="mt">${dataIt(b.data)}${b.gara ? ' · ' + b.gara : ' · ' + b.tipo} · partenze ${(b.tee || '').toLowerCase()}</div></div>
       <div class="sc" style="display:flex;gap:6px">
         <button class="btn" style="padding:8px 14px" onclick="riprendiBozza('${b.bozzaId}')">Riprendi</button>
         <button class="btn ghost" style="padding:8px 12px" onclick="scartaBozza('${b.bozzaId}')" title="Elimina">✕</button>
@@ -3607,14 +3656,14 @@ function step2() {
 }
 function barra() {
   const a = attive(), off = G.percorso === "9 buche (ritorno)" ? 9 : 0;
-  return `<div class="dots">${a.map((b, i) => `<button class="dot ${b.colpi ? 'ok' : ''} ${i === bucaCur ? 'cur' : ''}"
-    data-b="${i}"><span>${i + 1 + off}</span></button>`).join('')}</div>`;
+  return `<div class="dots">${a.map((b, i) => `<button class="dot ${b.colpi ? 'ok' : b.nf ? 'x' : ''} ${i === bucaCur ? 'cur' : ''}"
+    data-b="${i}" title="Buca ${i + 1 + off}${b.colpi ? ': ' + b.colpi + ' colpi' : b.nf ? ': non finita' : ''}"><span>${b.nf && !b.colpi ? 'X' : i + 1 + off}</span></button>`).join('')}</div>`;
 }
 function riga() {
-  const n = fatte(), t = tot('colpi'), d = t - parGiocato();
+  const n = fatte(), seg = segnate(), nf = nonFinite(), t = tot('colpi'), d = t - parGiocato();
   return `<div class="live">
-    <div><span class="lbl">Buche</span><b class="num">${n}/${attive().length}</b></div>
-    <div><span class="lbl">Colpi</span><b class="num">${t || '—'}</b></div>
+    <div><span class="lbl">Buche</span><b class="num">${seg}/${attive().length}</b>${nf ? `<span class="lbl">${nf} non finit${nf > 1 ? 'e' : 'a'}</span>` : ''}</div>
+    <div><span class="lbl">Colpi</span><b class="num">${t || '—'}</b>${nf ? '<span class="lbl">sulle buche chiuse</span>' : ''}</div>
     <div><span class="lbl">Sul par</span><b class="num" style="color:var(--flag)">${n ? (d > 0 ? '+' : '') + d : '—'}</b></div>
     <div><span class="lbl">Stableford</span><b class="num" style="color:var(--fair)">${n ? stableford() : '—'}</b></div>
   </div>`;
@@ -3630,15 +3679,17 @@ function vistaBuca() {
       <div class="hmeta">
         <span class="pill">Par ${b.par}</span>
         <span class="pill">Indice ${b.si}</span>
+        ${b.m ? `<span class="pill">${b.m} m</span>` : ''}
         ${col ? `<span class="pill r">${col} colpo${col > 1 ? 'i' : ''} ricevut${col > 1 ? 'i' : 'o'}</span>` : ''}
       </div>
     </div>
     <div class="stepper">
       <button id="b-meno" aria-label="Un colpo in meno">−</button>
-      <div class="bignum num" id="b-val">${b.colpi ?? b.par}</div>
+      <div class="bignum num" id="b-val"${b.nf && !b.colpi ? ' style="color:var(--ink-2)"' : ''}>${b.nf && !b.colpi ? 'X' : (b.colpi ?? b.par)}</div>
       <button id="b-piu" aria-label="Un colpo in più">+</button>
     </div>
-    <div class="quick">${[2,3,4,5,6,7,8,9].map(v => `<button data-q="${v}" class="${b.colpi === v ? 'on' : ''}">${v}</button>`).join('')}</div>
+    <div class="quick">${[2,3,4,5,6,7,8,9].map(v => `<button data-q="${v}" class="${b.colpi === v ? 'on' : ''}">${v}</button>`).join('')}<button data-nf="1" class="nf ${b.nf && !b.colpi ? 'on' : ''}" title="Buca non finita: palla raccolta">X</button></div>
+    ${b.nf && !b.colpi ? `<p class="hint" style="margin:-10px 0 14px">Buca non finita: zero punti stableford, e per l'handicap vale netto doppio bogey (${b.par + 2 + col} colpi).</p>` : ''}
     <div class="extra">
       <div><span class="lbl">Putt</span><div class="mini-st">${[0,1,2,3,4].map(v => `<button data-p="${v}" class="${b.putt === v ? 'on' : ''}">${v}</button>`).join('')}</div></div>
       ${b.par > 3 ? `<div><span class="lbl">Fairway</span><div class="mini-st">
@@ -3663,10 +3714,15 @@ function vistaBuca() {
     </div>
   </div>
   ${riga()}`;
-  const set = v => { b.colpi = Math.max(1, Math.min(15, v)); vistaBuca(); };
+  const set = v => { b.colpi = Math.max(1, Math.min(15, v)); b.nf = false; vistaBuca(); };
   document.getElementById('b-meno').onclick = () => set((b.colpi ?? b.par) - 1);
   document.getElementById('b-piu').onclick = () => set((b.colpi ?? b.par) + 1);
   document.querySelectorAll('[data-q]').forEach(x => x.onclick = () => set(+x.dataset.q));
+  /* Premuta di nuovo la X si toglie: e un interruttore, non una porta a senso unico. */
+  document.querySelectorAll('[data-nf]').forEach(x => x.onclick = () => {
+    if (b.nf && !b.colpi) { b.nf = false; } else { b.nf = true; b.colpi = null; }
+    vistaBuca();
+  });
   document.querySelectorAll('[data-p]').forEach(x => x.onclick = () => { b.putt = +x.dataset.p; vistaBuca(); });
   document.querySelectorAll('[data-f]').forEach(x => x.onclick = () => { b.fw = +x.dataset.f; vistaBuca(); });
   document.querySelectorAll('[data-x]').forEach(x => x.onclick = () => { b.pen = +x.dataset.x; vistaBuca(); });
@@ -3683,7 +3739,7 @@ function vistaBuca() {
   document.querySelectorAll('.dot').forEach(x => x.onclick = () => { bucaCur = +x.dataset.b; vistaBuca(); });
   document.getElementById('b-prev').onclick = () => { bucaCur = Math.max(0, bucaCur - 1); vistaBuca(); };
   document.getElementById('b-next').onclick = () => {
-    if (!b.colpi) b.colpi = b.par;
+    if (!b.colpi && !b.nf) b.colpi = b.par;
     bucaCur = Math.min(a.length - 1, bucaCur + 1); vistaBuca();
   };
 }
@@ -3692,11 +3748,14 @@ function vistaTabella() {
   document.getElementById('vista').innerHTML = `
   <div class="holes">${a.map((b, i) => `<div class="hole">
       <div class="h">B${i + 1 + off}</div>
-      <input class="num" inputmode="numeric" maxlength="2" data-i="${i}" value="${b.colpi ?? ''}" placeholder="–">
+      <input class="num" inputmode="text" maxlength="2" data-i="${i}" value="${b.nf && !b.colpi ? 'X' : (b.colpi ?? '')}" placeholder="–">
       <div class="p">par ${b.par}</div></div>`).join('')}</div>
+  <p class="hint">Scrivi <b>X</b> su una buca iniziata e non finita: vale zero punti e per l'handicap conta netto doppio bogey.</p>
   ${riga()}`;
   document.querySelectorAll('[data-i]').forEach(inp => inp.oninput = () => {
-    a[+inp.dataset.i].colpi = parseInt(inp.value, 10) || null;
+    const h = a[+inp.dataset.i], v = inp.value.trim();
+    if (/^x$/i.test(v)) { h.nf = true; h.colpi = null; }
+    else { h.colpi = parseInt(v, 10) || null; h.nf = false; }
     document.querySelector('.live').outerHTML = riga();
   });
 }
@@ -3764,7 +3823,7 @@ function applicaTestata(data) {
     if (hit) { G.clubId = hit.id; segna('Circolo', hit.n); }
     else segna('Circolo non in elenco', data.circolo);
   }
-  if (data.data && /^\d{4}-\d{2}-\d{2}$/.test(data.data)) { G.data = data.data; segna('Data', data.data); }
+  if (data.data && /^\d{4}-\d{2}-\d{2}$/.test(data.data)) { G.data = data.data; segna('Data', dataIt(data.data)); }
   if (data.ora && /^\d{1,2}:\d{2}$/.test(data.ora)) { G.ora = data.ora.padStart(5, '0'); segna('Partenza', G.ora); }
   if (data.partenze) {
     const c = COLORI[String(data.partenze).toLowerCase().trim()];
@@ -3786,9 +3845,10 @@ async function leggiFoto(files, dopo) {
   let guasto = null, lette = 0;
   for (const f of files) {
     let data = null;
-    try { data = await visione(f, PROMPT_GIRO, SCHEMA_GIRO); }
+    try { data = await visione(f, PROMPT_GIRO(ARCHIVIO.giocatore.nome || ''), SCHEMA_GIRO); }
     catch (e) { guasto = guasto || (e && e.message) || 'errore sconosciuto'; }
     if (!data) continue;
+    verificaLettura(data).forEach(m => LETTI.push('⚠︎ ' + m));
     applicaTestata(data);
     applicaLettura(data);
     lette++;
@@ -3796,15 +3856,89 @@ async function leggiFoto(files, dopo) {
   if (!lette && !guasto) guasto = 'la foto non conteneva dati riconoscibili';
   if (dopo) dopo(lette ? null : guasto);
 }
+/* --- il filtro prima che i numeri entrino nel giro -----------------------------
+   Un numero letto male non si vede: entra, sembra un dato, e finisce nel calcolo
+   dell'handicap. Questi controlli non aggiustano niente — buttano quello che non
+   può essere vero e lo dicono. Meglio una casella vuota di un numero sbagliato.  */
+function verificaLettura(data) {
+  const avvisi = [];
+  const fuori = (v, min, max) => v != null && (!(v >= min && v <= max));
+
+  /* Il par di una buca è 3, 4 o 5 (raramente 6). Un 54 è il totale finito nella
+     colonna sbagliata, non un par. */
+  if (Array.isArray(data.par)) {
+    let n = 0;
+    data.par = data.par.map(v => { if (fuori(v, 3, 6)) { n++; return null; } return v; });
+    if (n) avvisi.push(`${n} par fuori scala scartat${n > 1 ? 'i' : 'o'}`);
+    const letti = data.par.filter(v => v);
+    /* Il par stampato sulla carta è la prova del nove della lettura: se la somma
+       non torna, una cifra è stata letta male e non si sa quale. */
+    if (letti.length === 18 && data.parTotale) {
+      const somma = letti.reduce((a, b) => a + b, 0);
+      if (somma !== data.parTotale) {
+        avvisi.push(`par scartati: sommano ${somma} ma sulla carta il totale è ${data.parTotale}`);
+        data.par = null;
+      }
+    }
+  }
+
+  /* Gli indici sono una permutazione: 1-18 una volta ciascuno. Se ci sono
+     doppioni o buchi l'intero elenco è inaffidabile, e da lì escono i colpi
+     ricevuti, quindi lo stableford e il netto doppio bogey. Si butta tutto. */
+  if (Array.isArray(data.indici)) {
+    const v = data.indici.filter(x => x != null), n = v.length;
+    const attesi = n > 9 ? 18 : 9;
+    const set = new Set(v);
+    const male = v.some(x => !(x >= 1 && x <= attesi)) || set.size !== n;
+    if (male) { data.indici = null; avvisi.push('indici di difficoltà scartati: non sono 1-' + attesi + ' una volta ciascuno'); }
+  }
+
+  if (Array.isArray(data.colpi)) {
+    let n = 0;
+    data.colpi = data.colpi.map(v => { if (fuori(v, 1, 15)) { n++; return null; } return v; });
+    if (n) avvisi.push(`${n} punteggi fuori scala scartati`);
+  }
+  if (Array.isArray(data.metri)) {
+    let n = 0;
+    data.metri = data.metri.map(v => { if (fuori(v, 40, 700)) { n++; return null; } return v; });
+    if (n) avvisi.push(`${n} distanze fuori scala scartate`);
+  }
+  if (Array.isArray(data.nonFinite)) {
+    data.nonFinite = data.nonFinite.filter(v => Number.isInteger(v) && v >= 1 && v <= 18);
+  }
+
+  /* Se in carta c'è più di un giocatore va detto quale colonna è stata letta:
+     è l'errore che passa inosservato, perché il giro dell'altro è plausibile. */
+  const chi = (data.giocatoriInCarta || []).filter(Boolean);
+  if (chi.length > 1) {
+    const mio = ARCHIVIO.giocatore.nome || '';
+    avvisi.push(`In carta ci sono ${chi.length} giocatori (${chi.join(', ')})`
+      + (data.giocatore ? `: letta la colonna di ${data.giocatore}` : ': nessuna colonna riconosciuta come tua'));
+    if (!mio) avvisi.push('Metti il tuo nome nel profilo, così so quale colonna leggere');
+  }
+  return avvisi;
+}
+
 function applicaLettura(data) {
   G.buche.forEach((b, i) => {
     if (data.par && data.par[i]) b.par = data.par[i];
     if (data.indici && data.indici[i]) b.si = data.indici[i];
-    if (data.colpi && data.colpi[i]) b.colpi = data.colpi[i];
+    if (data.metri && data.metri[i]) b.m = data.metri[i];
+    if (data.colpi && data.colpi[i]) { b.colpi = data.colpi[i]; b.nf = false; }
     if (data.putt && data.putt[i] != null) b.putt = data.putt[i];
     if (data.fairway && data.fairway[i] != null) b.fw = data.fairway[i];
     if (data.penalita && data.penalita[i] != null) b.pen = data.penalita[i];
   });
+  /* Le X arrivano come numeri di buca, non come posizioni: la 1 è G.buche[0].
+     Un numero fuori da 1-18 si butta invece di far saltare tutto. */
+  let nf = 0;
+  (data.nonFinite || []).forEach(n => {
+    const b = G.buche[n - 1];
+    if (b && !b.colpi) { b.nf = true; nf++; }
+  });
+  if (nf) LETTI.push(`Buche non finite: ${nf}`);
+  const letti = (data.colpi || []).filter(v => v).length;
+  if (letti) LETTI.push(`Punteggi letti: ${letti}`);
   (data.distanze || []).forEach(s => {
     const b = G.buche[(s.buca || 1) - 1]; if (!b || !s.metri) return;
     b.dett[(s.colpo || 1) - 1] = { m: s.mazza || 'Driver', d: s.metri };
@@ -3821,10 +3955,15 @@ function costruisciGiro() {
     compagno: G.compagno || null, flight: G.flight ? G.flight.split(',').map(x => x.trim()) : [],
     index: G.index ?? ARCHIVIO.giocatore.index ?? null, handicapGioco: G.hcpGioco, courseRating: G.cr, slope: G.sr,
     meteo: G.meteo, campo: G.campo, valido: G.valido, foto: (G.fotoFiles || []).map(f => f.name),
-    buche: attive().map((b, i) => ({ n: i + 1, par: b.par, si: b.si, colpi: b.colpi, putt: b.putt, fw: b.fw, pen: b.pen,
+    buche: attive().map((b, i) => ({ n: i + 1, par: b.par, si: b.si, metri: b.m || null, colpi: b.colpi, nf: !!(b.nf && !b.colpi), putt: b.putt, fw: b.fw, pen: b.pen,
       pallePerse: b.perse || 0, palleTrovate: b.trovate || 0,
       colpiDettaglio: b.dett.filter(s => s.d).map((s, k) => ({ n: k + 1, mazza: s.m, metri: s.d })) })),
-    totali: { lordo: lordo || null, netto: netto(), stableford: stableford(), sulPar: lordo - parGiocato(),
+    /* Con una buca non finita un lordo non esiste: la somma delle altre non è
+       il punteggio del giro e messa lì sarebbe il miglior lordo di sempre.
+       Resta `aggiustato`, che è il numero con cui si calcola il differenziale. */
+    totali: { lordo: nonFinite() ? null : (lordo || null), lordoBucheChiuse: nonFinite() ? (lordo || null) : null,
+      nonFinite: nonFinite(), aggiustato: segnate() === attive().length ? punteggioAggiustato() : null,
+      netto: netto(), stableford: stableford(), sulPar: nonFinite() ? null : lordo - parGiocato(),
       putt: tot('putt') || null, fairway: attive().filter(b => b.fw === 1).length, penalita: tot('pen'),
       pallePerse: tot('perse'), palleTrovate: tot('trovate'),
       colpoPiuLungo: (() => { const s = attive().flatMap(b => b.dett).filter(x => x.d);
@@ -3835,7 +3974,7 @@ function costruisciGiro() {
 
 /* ---- 4. riepilogo ---- */
 function step3() {
-  const c = CLUBS[G.clubId], d = differenziale(), lordo = tot('colpi'), n = fatte();
+  const c = CLUBS[G.clubId], d = differenziale(), lordo = tot('colpi'), seg = segnate(), nf = nonFinite();
   const json = costruisciGiro();
   wb().innerHTML = `
   <div class="grid" style="grid-template-columns:minmax(280px,1fr) minmax(280px,1fr);align-items:start">
@@ -3843,15 +3982,15 @@ function step3() {
       <div class="card" style="padding:18px;margin-bottom:14px">
         <div class="lbl">${G.tipo}${G.gara ? ' · ' + G.gara : ''}</div>
         <h3 style="font-size:20px;margin:6px 0 2px">${c.n}</h3>
-        <div style="font-size:12.5px;color:var(--ink-3)">${G.data} · ${G.percorso} · partenze ${G.tee.toLowerCase()}</div>
+        <div style="font-size:12.5px;color:var(--ink-3)">${dataIt(G.data)} · ${G.percorso} · partenze ${G.tee.toLowerCase()}</div>
         <div class="kpi" style="margin-top:16px">
-          <div><div class="lbl">Lordo</div><div class="big">${lordo || '—'}</div></div>
+          <div><div class="lbl">${nf ? 'Colpi' : 'Lordo'}</div><div class="big">${lordo || '—'}</div>${nf ? '<div class="delta">senza le buche non finite</div>' : ''}</div>
           <div><div class="lbl">Netto</div><div class="big">${netto() ?? '—'}</div></div>
           <div><div class="lbl">Stableford</div><div class="big" style="color:var(--fair)">${stableford() || '—'}</div></div>
           <div><div class="lbl">Differenziale</div><div class="big" style="color:var(--flag)">${d ?? '—'}</div></div>
         </div>
-        ${n < attive().length ? `<p class="hint">Mancano ${attive().length - n} buche: il differenziale si calcola solo a giro completo.</p>`
-          : `<p class="hint">${ARCHIVIO.giocatore.index ? `Index attuale <b class="num">${ARCHIVIO.giocatore.index}</b>: questo differenziale entra nella media degli otto migliori su venti.` : 'Metti il tuo index nel profilo e qui ti dico come si muove.'}</p>`}
+        ${seg < attive().length ? `<p class="hint">Mancano ${attive().length - seg} buche: il differenziale si calcola solo a giro completo. Se una l'hai iniziata e non finita, segnala con la X invece di lasciarla vuota.</p>`
+          : `<p class="hint">${nf ? `${nf} buc${nf > 1 ? 'he' : 'a'} non finit${nf > 1 ? 'e' : 'a'}: niente lordo e niente netto, ma il differenziale c'è lo stesso perché quelle buche valgono netto doppio bogey (punteggio aggiustato <b class="num">${json.totali.aggiustato}</b>). ` : ''}${ARCHIVIO.giocatore.index ? `Index attuale <b class="num">${ARCHIVIO.giocatore.index}</b>: questo differenziale entra nella media degli otto migliori su venti.` : 'Metti il tuo index nel profilo e qui ti dico come si muove.'}</p>`}
         <div class="field" style="margin:14px 0 0"><span class="lbl">Note</span>
           <textarea rows="2" id="f-note" placeholder="Driver in forma, tre tre-putt, doppio alla 14…">${G.note}</textarea></div>
       </div>
@@ -3932,8 +4071,11 @@ const SCHEMA_GIRO = { type: 'object', properties: {
   tipo: N('string'), circolo: N('string'), data: N('string'), ora: N('string'),
   partenze: N('string'), buche: N('integer'), courseRating: N('number'), slope: N('integer'),
   handicapGioco: N('integer'), handicapIndex: N('number'), giocatore: N('string'), gara: N('string'),
+  giocatoriInCarta: { type: 'array', items: N('string') }, parTotale: N('integer'),
   par: { type: 'array', items: N('integer') }, indici: { type: 'array', items: N('integer') },
-  colpi: { type: 'array', items: N('integer') }, putt: { type: 'array', items: N('integer') },
+  metri: { type: 'array', items: N('integer') },
+  colpi: { type: 'array', items: N('integer') }, nonFinite: { type: 'array', items: N('integer') },
+  putt: { type: 'array', items: N('integer') },
   fairway: { type: 'array', items: N('integer') }, penalita: { type: 'array', items: N('integer') },
   distanze: { type: 'array', items: { type: 'object', properties: {
     buca: N('integer'), colpo: N('integer'), mazza: N('string'), metri: N('integer') } } } } };
@@ -4045,11 +4187,19 @@ function estrai(j) {
   return JSON.parse(t.replace(/```json|```/g, '').trim());
 }
 
-const PROMPT_GIRO = `Immagine legata a un giro di golf: può essere una scorecard di carta compilata a mano, uno screenshot dell'app Garmin Golf con il punteggio, oppure una schermata di statistiche del giro.
+/* Il prompt ha bisogno di sapere chi sei: su una scorecard di gara le colonne di
+   punteggio sono due o quattro, una per giocatore, e sono tutte plausibili.
+   Senza il nome, prendere quella sbagliata produce un giro credibile e falso. */
+const PROMPT_GIRO = nome => `Immagine legata a un giro di golf: può essere una scorecard di carta compilata a mano, uno screenshot dell'app Garmin Golf con il punteggio, oppure una schermata di statistiche del giro.
 Estrai TUTTO quello che è leggibile e rispondi in JSON. Il campo tipo vale "scorecard", "garmin_giro" o "altro".
 Oltre ai punteggi cerca anche, se compaiono: il nome del circolo, la data (formato AAAA-MM-GG), l'ora di partenza, il COLORE delle partenze usate (gialle, bianche, rosse, azzurre, blu, nere), quante buche ha il percorso (9 o 18), il Course Rating e lo Slope della riga di partenze usata, l'handicap di gioco e l'handicap index del giocatore, il suo nome, e il nome della gara.
 Sulle scorecard italiane il rating è spesso scritto "CR" e lo slope "SL" o "Slope", in una tabellina per colore di partenza: prendi i valori della riga del colore effettivamente giocato. L'indice di difficoltà della buca può essere scritto "HCP", "Indice" o "Colpi".
 Gli array hanno 18 posizioni: se il percorso è di 9 buche riempi solo le prime 9. In fairway metti 1 se il fairway è stato preso, 0 se no, null sui par 3.
+Una casella del punteggio con una X (o un trattino, o una casella barrata) è una buca iniziata e non finita, con la palla raccolta: NON è un dato mancante. Su quelle buche metti null in colpi e scrivi il numero della buca nell'array nonFinite. Una casella semplicemente vuota, invece, non va in nonFinite.
+Le date scritte a mano sulle scorecard italiane sono giorno/mese/anno: 1/3/26 è il primo marzo 2026, non il tre gennaio. Riportale comunque in AAAA-MM-GG.
+Riporta anche i metri di ogni buca nell'array metri, presi dalla colonna o riga delle partenze effettivamente giocate; se non riesci a capire quale colore è stato giocato prendi quella degli uomini. E in parTotale il par del percorso come è stampato sulla carta (la casella TOTALE), senza sommarlo tu.
+SU QUALE COLONNA LEGGERE I PUNTEGGI. Le scorecard di gara hanno più colonne di punteggio, una per ogni giocatore, con il nome o il cognome stampato in testa.${nome ? ` Leggi soltanto la colonna intestata a "${nome}". Se nessuna colonna corrisponde a quel nome, lascia colpi e nonFinite vuoti invece di leggere la colonna di un altro.` : ' Se ce n\'è più di una non sai quale sia la persona giusta: lascia colpi e nonFinite vuoti.'} In ogni caso elenca in giocatoriInCarta i nomi che vedi in testa alle colonne, e in giocatore quello della colonna che hai letto.
+Il nome del circolo va preso solo se è scritto sulla carta. Il nome di una gara o di uno sponsor non è il nome del circolo, e non devi dedurlo da quello che sai del campo: se non c'è scritto, circolo è null.
 Metti null dove il valore non è leggibile: non inventare numeri e non completare le buche mancanti.`;
 const PROMPT_MAZZE = bag => `Screenshot delle statistiche mazze di un'app di golf (Garmin Golf o simile).
 Estrai per ogni mazza la distanza media, la massima e il numero di colpi su cui è calcolata. In unita scrivi "m" o "yd" secondo quello che vedi nello screenshot.
@@ -4565,7 +4715,7 @@ function renderSacca() {
     ${lunghi.map((l, i) => `<div class="clubrow" style="cursor:default">
       <div class="fl num" style="color:var(--ink-3)">${i + 1}</div>
       <div><div class="nm">${l.mazza} — <span class="num">${l.metri} m</span></div>
-      <div class="mt">${l.giro.circolo?.nome || ''} · ${(l.giro.data || '').slice(0, 10)}</div></div></div>`).join('')}
+      <div class="mt">${l.giro.circolo?.nome || ''} · ${dataIt(l.giro.data)}</div></div></div>`).join('')}
   </div>` : ''}`;
 
   saccaImport();
@@ -4591,7 +4741,9 @@ function renderSacca() {
 }
 
 /* ---------------- statistiche ---------------- */
-const giriValidi = () => ARCHIVIO.giri.filter(g => g.totali && g.totali.lordo);
+/* Un giro con una buca non finita non ha lordo ma ha un differenziale: se lo si
+   filtra sul lordo sparisce dalle statistiche proprio il giro di gara. */
+const giriValidi = () => ARCHIVIO.giri.filter(g => g.totali && (g.totali.lordo || g.totali.differenziale));
 function renderStats() {
   const gs = giriValidi();
   document.getElementById('stats-sub').textContent = gs.length
@@ -4604,9 +4756,11 @@ function renderStats() {
       <button class="btn red" onclick="go('giro')">Registra il primo giro</button></div>`;
     return;
   }
-  const lordi = gs.map(g => g.totali.lordo);
-  const media = (lordi.reduce((a, b) => a + b, 0) / lordi.length).toFixed(1);
-  const best = gs.reduce((a, g) => g.totali.lordo < a.totali.lordo ? g : a);
+  /* Media e miglior lordo si calcolano solo sui giri che un lordo ce l'hanno. */
+  const conLordo = gs.filter(g => g.totali.lordo);
+  const lordi = conLordo.map(g => g.totali.lordo);
+  const media = lordi.length ? (lordi.reduce((a, b) => a + b, 0) / lordi.length).toFixed(1) : null;
+  const best = conLordo.length ? conLordo.reduce((a, g) => g.totali.lordo < a.totali.lordo ? g : a) : null;
   const diffs = gs.filter(g => g.totali.differenziale).map(g => +g.totali.differenziale);
   const buche = gs.flatMap(g => g.buche || []).filter(b => b.colpi);
   const perPar = p => {
@@ -4654,8 +4808,8 @@ function renderStats() {
   body.innerHTML = `
   <div class="kpi" style="margin-bottom:16px">
     <div class="card"><div class="lbl">Handicap index</div><div class="big" style="color:var(--fair)">${ARCHIVIO.giocatore.index || '—'}</div><div class="delta">${ARCHIVIO.giocatore.index ? 'inserito nel profilo' : 'da inserire nel profilo'}</div></div>
-    <div class="card"><div class="lbl">Media lorda</div><div class="big">${media}</div><div class="delta">su ${gs.length} giri</div></div>
-    <div class="card"><div class="lbl">Miglior lordo</div><div class="big" style="color:var(--flag)">${best.totali.lordo}</div><div class="delta">${best.circolo?.nome || ''} · ${(best.data || '').slice(0, 10)}</div></div>
+    <div class="card"><div class="lbl">Media lorda</div><div class="big">${media ?? '—'}</div><div class="delta">${lordi.length ? 'su ' + lordi.length + ' gir' + (lordi.length === 1 ? 'o' : 'i') + ' completi' : 'nessun giro senza buche aperte'}</div></div>
+    <div class="card"><div class="lbl">Miglior lordo</div><div class="big" style="color:var(--flag)">${best ? best.totali.lordo : '—'}</div><div class="delta">${best ? (best.circolo?.nome || '') + ' · ' + dataIt(best.data) : ''}</div></div>
     <div class="card"><div class="lbl">Circoli giocati</div><div class="big">${CLUBS.filter(c => !c.wish).length}</div><div class="delta">in ${npaesi} paes${npaesi === 1 ? 'e' : 'i'} · ${nreg} region${nreg === 1 ? 'e' : 'i'}</div></div>
   </div>
   ${grafico}
@@ -4702,7 +4856,7 @@ function aggiornaRail() {
   let t = p.querySelector('.targa');
   if (!t) { t = document.createElement('span'); t.className = 'targa'; p.appendChild(t); }
   t.textContent = `r${RELEASE}`;
-  t.title = `GolfP r${RELEASE} · ${RELEASE_DATA} · ${RELEASE_NOTE}`;
+  t.title = `GolfP r${RELEASE} · ${dataIt(RELEASE_DATA)} · ${RELEASE_NOTE}`;
 }
 /* ---------------- scelta di un circolo ----------------
    Trecentocinquanta voci in un <select> non si governano col dito: bisogna scorrere
@@ -4940,7 +5094,7 @@ function azione(k) {
     const gs = giriValidi();
     if (!gs.length) return msg.textContent = 'Non c\'è ancora nessun giro da esportare.';
     const col = ['data', 'circolo', 'percorso', 'partenze', 'tipo', 'lordo', 'netto', 'stableford', 'differenziale', 'putt', 'palle perse'];
-    const righe = gs.map(g => [g.data, g.circolo?.nome, g.percorso, g.tee, g.tipo, g.totali.lordo, g.totali.netto,
+    const righe = gs.map(g => [dataIt(g.data) + (String(g.data || '').slice(11, 16) ? ' ' + g.data.slice(11, 16) : ''), g.circolo?.nome, g.percorso, g.tee, g.tipo, g.totali.lordo, g.totali.netto,
       g.totali.stableford, g.totali.differenziale, g.totali.putt, g.totali.pallePerse]
       .map(v => `"${(v ?? '').toString().replace(/"/g, '""')}"`).join(';'));
     scarica('golfp-giri.csv', [col.join(';'), ...righe].join('\n'), 'text/csv');
@@ -5382,7 +5536,7 @@ avviaGolfP();
 
 /* --- la targa, in console e a portata di comando --------------------------- */
 (function targa() {
-  const riga = `GolfP r${RELEASE}  ·  ${RELEASE_DATA}  ·  ${CLUBS.length} circoli`;
+  const riga = `GolfP r${RELEASE}  ·  ${dataIt(RELEASE_DATA)}  ·  ${CLUBS.length} circoli`;
   console.log('%c' + riga, 'background:#062A1D;color:#D6FF3F;font:600 13px ui-monospace,monospace;padding:6px 12px;border-radius:6px');
   console.log('%cScrivi  GolfP  e invio per i dettagli.', 'color:#8AA598;font:12px ui-monospace,monospace');
 
