@@ -701,7 +701,7 @@ h1,h2,h3{font-family:var(--disp);font-weight:800;letter-spacing:-.03em;text-tran
    Va alzato SEMPRE, anche per una modifica di una riga. Se resta uguale,
    la cache del service worker e il numero non litigano e non si capisce piu niente.
    ========================================================================== */
-const RELEASE = 31;
+const RELEASE = 33;
 const RELEASE_DATA = '2026-08-12';
 const RELEASE_NOTE = 'r27 + i conti sulla barra tornano: compaiono anche i sospetti da ricontrollare';
 const W = 10000, VW = 1000, VH = 560;
@@ -1711,6 +1711,9 @@ function daTrovare() {
    posizionato in modo poco convincente. Fuori restano solo i confermati a mano. */
 function daCercarePerNome() {
   return CLUBS.filter(c => !c.posizioneCorretta && !c.chiuso && !c.rifiutato
+    /* Chi Google Maps ha gia cercato senza trovarlo non torna in coda da solo: si
+       rimette dentro a mano con ↻ Riprova, in Circoli. */
+    && !c.placesVuoto
     && c.n && (c.daPosizionare || c.geoVuoto || sospetto(c)));
 }
 /* Se il risultato e lontano dal punto di partenza non e il posto giusto. Ma chi non ha
@@ -2616,7 +2619,8 @@ function clubRow(c) {
   return `<div class="clubrow" data-club="${c.id}" data-vai="${c.id}">
     <div class="fl">${flagSvg(c.wish)}</div>
     <div><div class="nm">${c.n}${c.chiuso ? ' <span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);border:1px solid var(--rule);border-radius:4px;padding:1px 5px;vertical-align:middle">chiuso</span>' : ''}</div><div class="mt">${[c.l, c.buche ? c.buche + ' buche' : '', c.p !== 'Italia' ? c.p : '',
-      c.daPosizionare ? (c.geoVuoto ? 'da posizionare a mano' : c.via ? 'posizione da rifinire' : 'senza indirizzo')
+      c.daPosizionare ? (c.placesVuoto ? 'Google Maps non lo trova — mettilo a mano'
+          : c.geoVuoto ? 'da posizionare a mano' : c.via ? 'posizione da rifinire' : 'senza indirizzo')
         : c.posizioneCorretta ? 'posizione confermata da te'
         : c.osm ? 'posizione da OpenStreetMap'
         : c.geo ? (() => { const d = spostamentoKm(c);
@@ -2797,7 +2801,7 @@ function azzeraPosizioni() {
     if (i && isFinite(i[2]) && isFinite(i[3])) { c.lat = i[2]; c.lon = i[3]; }
     else if (c.geoPrima) { c.lat = c.geoPrima[0]; c.lon = c.geoPrima[1]; }
     else senzaComune++;
-    delete c.geo; delete c.geoVuoto; delete c.geoAudit; delete c.geoPrima;
+    delete c.geo; delete c.geoVuoto; delete c.placesVuoto; delete c.geoAudit; delete c.geoPrima;
     delete c.rifiutato; delete c.indirizzoPieno;
     c.daPosizionare = true;
     rifatti++;
@@ -2860,10 +2864,21 @@ async function risolviConPlaces() {
 
     (dati.risultati || []).forEach(r => {
       const c = CLUBS[r.id]; if (!c) return;
-      if (r.vuoto) { vuoti++; return; }
+      /* Va marcato, altrimenti resta in coda per sempre e a ogni giro si rifa la stessa
+         domanda per avere la stessa risposta: il numero sul pulsante promette lavoro
+         che non puo essere fatto. Il marchio porta la data, cosi fra sei mesi si puo
+         riprovare sapendo quando ci si era arresi. */
+      if (r.vuoto) { vuoti++;
+        c.placesVuoto = new Date().toISOString().slice(0, 10);
+        c.geoAudit = { stato: 'NON_TROVATO', fonte: 'Google Places', motivo: r.motivo || 'nessun luogo' };
+        return; }
       /* Google non ha riconosciuto un campo da golf: e un omonimo, un bar, un negozio.
          Meglio lasciare il circolo dov'era che spostarlo su un posto sbagliato. */
-      if (!r.golf) { nonGolf++; return; }
+      if (!r.golf) { nonGolf++;
+        c.placesVuoto = new Date().toISOString().slice(0, 10);
+        c.geoAudit = { stato: 'NON_TROVATO', fonte: 'Google Places',
+          motivo: 'trovato "' + (r.nome || '?') + '", che non risulta un campo da golf' };
+        return; }
       /* Il confronto va fatto col comune dichiarato dalla FIG, non con la posizione
          attuale: quella potrebbe gia essere sbagliata, e useremmo un errore come
          metro per giudicarne un altro. */
@@ -2871,6 +2886,7 @@ async function risolviConPlaces() {
       const base = rif ? [rif[2], rif[3]] : (c.geoPrima || [c.lat, c.lon]);
       const d = km(base[0], base[1], r.lat, r.lon);
       if (d > 30) { scartati++;
+        c.placesVuoto = new Date().toISOString().slice(0, 10);
         c.geoAudit = { stato: 'SCARTATO', fonte: 'Google Places', distanzaKm: +d.toFixed(1),
           nomeGoogle: r.nome || null, indirizzoGoogle: r.indirizzo || null };
         return; }
@@ -2969,7 +2985,9 @@ const comuneNudo = c => (c.l || '').replace(/\s*\([A-Z]{2}\)\s*$/, '').trim();
 
 function riprovaUno(id) {
   const c = CLUBS[id]; if (!c) return;
-  delete c.geoVuoto; delete c.rifiutato;
+  /* Rimette in coda su tutti i fronti: se si cancella solo uno dei marchi il circolo
+     resta escluso dall'altra ricerca e il pulsante Riprova sembra non fare niente. */
+  delete c.geoVuoto; delete c.rifiutato; delete c.placesVuoto;
   ARCHIVIO.geo = null;
   salvaTutto(); renderCircoli(); aggiornaGeoBar();
 }
@@ -3094,7 +3112,7 @@ function renderCircoli() {
     if (cirF === 'daposizionare' && !c.daPosizionare) return false;
     /* I cercati a vuoto uscivano dalla coda e sparivano dalla gestione: restavano
        visibili solo mescolati agli altri, senza modo di riprovarli o toglierli. */
-    if (cirF === 'nontrovati' && !c.geoVuoto) return false;
+    if (cirF === 'nontrovati' && !c.geoVuoto && !c.placesVuoto) return false;
     if (cirF === 'sospetti' && !sospetto(c)) return false;
     if (cirF === 'giocati' && c.wish) return false;
     if (cirF === 'lista' && !c.wish) return false;
@@ -3931,6 +3949,22 @@ const ePdf = f => f.type === 'application/pdf' || /\.pdf$/i.test(f.name);
 const leggiTesto = f => new Promise((res, rej) => {
   const r = new FileReader(); r.onload = () => res(String(r.result)); r.onerror = rej; r.readAsText(f);
 });
+/* Durante l'attesa fra un tentativo e l'altro lo schermo resterebbe fermo per undici
+   secondi senza dire niente, e sembra bloccato. */
+function avvisaAttesa(testo) {
+  if (!testo) return;
+  /* I riquadri "Leggo…" sono tre, uno per ogni punto in cui si carica un'immagine:
+     si scrive in quello che in questo momento e sullo schermo. */
+  /* I riquadri di attesa sono tre e hanno contenitori diversi: invece di rincorrerne
+     gli identificativi si cerca chi in questo momento sta dicendo di stare leggendo,
+     e gli si cambia la frase. Se domani se ne aggiunge un quarto funziona da solo. */
+  document.querySelectorAll('.card b, .card > div > b').forEach(b => {
+    if (/^(Leggo|Lettura in corso|Google è occupato)/.test((b.textContent || '').trim()))
+      b.textContent = testo;
+  });
+  const sub = document.getElementById('geo-sub');
+  if (sub) sub.textContent = testo;
+}
 async function visione(file, istruzioni, schema) {
   let parte;
   /* Testo gia estratto altrove (una pagina web): non c'e nessun file da leggere. */
@@ -3965,9 +3999,24 @@ async function visione(file, istruzioni, schema) {
   // 1) in produzione: funzione serverless su Vercel, la chiave resta sul server
   let guastoServer = null;
   try {
-    let r = await fetch('/api/leggi', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    if (!r.ok && r.status === 400 && body.generationConfig.mediaResolution) {
-      r = await fetch('/api/leggi', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: senzaRisoluzione() });
+    /* 503 e 429 non dicono "questa foto non va bene", dicono "il modello e occupato,
+       richiamami". Arrendersi al primo colpo faceva sembrare illeggibile una scorecard
+       che al tentativo dopo passa. Tre tentativi con attesa crescente: 2, 5, 11 secondi,
+       che copre gli intoppi normali senza far aspettare in eterno chi ha davvero un
+       problema. */
+    const RIPROVABILI = [429, 500, 502, 503, 504];
+    let r = null;
+    for (let tentativo = 0; tentativo < 3; tentativo++) {
+      if (tentativo) {
+        const attesa = [0, 2000, 5000][tentativo] + Math.round(Math.random() * 1500);
+        avvisaAttesa(`Google è occupato, riprovo fra ${Math.round(attesa / 1000)} secondi… (tentativo ${tentativo + 1} di 3)`);
+        await new Promise(x => setTimeout(x, attesa));
+      }
+      r = await fetch('/api/leggi', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      if (!r.ok && r.status === 400 && body.generationConfig.mediaResolution) {
+        r = await fetch('/api/leggi', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: senzaRisoluzione() });
+      }
+      if (r.ok || !RIPROVABILI.includes(r.status)) break;
     }
     if (r.ok) return estrai(await r.json());
     /* Il server ha risposto male: il motivo va tenuto, altrimenti più avanti si finisce
@@ -3975,7 +4024,11 @@ async function visione(file, istruzioni, schema) {
        non impostata su Vercel…) e non si capisce mai cosa sistemare. */
     const t = await r.text().catch(() => '');
     let msg = ''; try { msg = JSON.parse(t).errore || ''; } catch (e) {}
-    guastoServer = `il server ha risposto ${r.status}${msg ? ' — ' + msg : ''}`;
+    /* Un 503 dopo tre tentativi non e un guasto tuo: dirlo in italiano evita di
+       mandare qualcuno a rifare la foto per niente. */
+    guastoServer = [429, 500, 502, 503, 504].includes(r.status)
+      ? `Google era occupato e non ha risposto nemmeno dopo tre tentativi (${r.status}). La foto va bene: riprova fra qualche minuto.`
+      : `il server ha risposto ${r.status}${msg ? ' — ' + msg : ''}`;
   } catch (e) { /* in anteprima la funzione non esiste: si prosegue */ }
   // 2) in prova: chiamata diretta con la chiave inserita nelle impostazioni
   if (!GKEY) throw new Error(guastoServer || 'nessuna chiave impostata');
